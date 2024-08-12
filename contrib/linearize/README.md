@@ -1,5 +1,9 @@
 # Linearize
+
 Construct a linear, no-fork, best version of the Bitcoin blockchain.
+
+May be useful to simplify tools/tests because Bitcoin Core can store block data
+out-of-order and obfuscates it with an XOR pattern.
 
 ## Step 1: Download hash list
 
