@@ -220,7 +220,7 @@ static RPCHelpMan getblockcount()
                 "The genesis block has height 0.\n",
                 {},
                 RPCResult{
-                    RPCResult::Type::NUM, "", "The current block count"},
+                    RPCResult::Type::NUM, "", "The current block count (excluding genesis block)"},
                 RPCExamples{
                     HelpExampleCli("getblockcount", "")
             + HelpExampleRpc("getblockcount", "")
