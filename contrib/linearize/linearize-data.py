@@ -209,9 +209,9 @@ class BlockDataCopier:
                 print("Input file " + fname)
                 try:
                     self.inF = open(fname, "rb")
-                except IOError:
-                    print("Premature end of block data")
-                    return
+                except IOError as e:
+                    print(f"Premature end of block data: {e}", file=sys.stderr)
+                    sys.exit(1)
 
             inhdr = self.read_xored(self.inF, 8)
             if (not inhdr or (inhdr[0] == "\0")):
@@ -318,7 +318,7 @@ if __name__ == '__main__':
     settings['debug_output'] = settings['debug_output'].lower()
 
     if 'output_file' not in settings and 'output' not in settings:
-        print("Missing output file / directory")
+        print("Missing output file / directory", file=sys.stderr)
         sys.exit(1)
 
     blkindex = get_block_hashes(settings)
@@ -326,6 +326,7 @@ if __name__ == '__main__':
 
     # Block hash map won't be byte-reversed. Neither should the genesis hash.
     if not settings['genesis'] in blkmap:
-        print("Genesis block not found in hashlist")
+        print("Genesis block not found in hashlist", file=sys.stderr)
+        sys.exit(1)
     else:
         BlockDataCopier(settings, blkindex, blkmap).run()
