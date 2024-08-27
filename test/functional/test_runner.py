@@ -29,6 +29,11 @@ import tempfile
 import re
 import logging
 
+from test_framework.util import (
+    MAX_NODES,
+    PORT_RANGE,
+)
+
 os.environ["REQUIRE_WALLET_TYPE_SET"] = "1"
 
 # Minimum amount of space to run the tests.
@@ -760,6 +765,7 @@ class TestHandler:
     def get_next(self):
         while len(self.jobs) < self.num_jobs and self.test_list:
             # Add tests
+            assert len(self.test_list) < (PORT_RANGE - 1 - MAX_NODES) / MAX_NODES, "Formula in p2p_port() risks colliding ports for this many tests."
             test = self.test_list.pop(0)
             portseed = len(self.test_list)
             portseed_arg = ["--portseed={}".format(portseed)]
