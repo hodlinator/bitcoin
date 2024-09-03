@@ -8,22 +8,24 @@
 #include <node/blockstorage.h>
 #include <validation.h>
 
-// LeveLDB key prefix. We only have one key for now but it will make it easier to add others if needed.
-constexpr uint8_t DB_TXOSPENDERINDEX{'s'};
-
 std::unique_ptr<TxoSpenderIndex> g_txospenderindex;
 
 /** Access to the txo spender index database (indexes/txospenderindex/) */
 class TxoSpenderIndex::DB : public BaseIndex::DB
 {
+    // LeveLDB key prefix. We only have one key for now but it will make it easier to add others if needed.
+    static constexpr uint8_t DB_TXOSPENDERINDEX{'s'};
+
 public:
     explicit DB(size_t n_cache_size, bool f_memory = false, bool f_wipe = false);
 
     bool WriteSpenderInfos(const std::vector<std::pair<COutPoint, uint256>>& items);
     bool EraseSpenderInfos(const std::vector<COutPoint>& items);
+    std::optional<uint256> FindSpender(const COutPoint& txo) const;
 };
 
-TxoSpenderIndex::DB::DB(size_t n_cache_size, bool f_memory, bool f_wipe) : BaseIndex::DB(gArgs.GetDataDirNet() / "indexes" / "txospenderindex", n_cache_size, f_memory, f_wipe)
+TxoSpenderIndex::DB::DB(size_t n_cache_size, bool f_memory, bool f_wipe)
+    : BaseIndex::DB(gArgs.GetDataDirNet() / "indexes" / "txospenderindex", n_cache_size, f_memory, f_wipe)
 {
 }
 
@@ -51,6 +53,15 @@ bool TxoSpenderIndex::DB::EraseSpenderInfos(const std::vector<COutPoint>& items)
         batch.Erase(std::pair{DB_TXOSPENDERINDEX, outpoint});
     }
     return WriteBatch(batch);
+}
+
+std::optional<uint256> TxoSpenderIndex::DB::FindSpender(const COutPoint& txo) const
+{
+    uint256 tx_hash_out;
+    if (Read(std::pair{DB_TXOSPENDERINDEX, txo}, tx_hash_out)) {
+        return tx_hash_out;
+    }
+    return std::nullopt;
 }
 
 bool TxoSpenderIndex::CustomAppend(const interfaces::BlockInfo& block)
@@ -104,9 +115,8 @@ bool TxoSpenderIndex::CustomRewind(const interfaces::BlockKey& current_tip, cons
 
 std::optional<Txid> TxoSpenderIndex::FindSpender(const COutPoint& txo) const
 {
-    uint256 tx_hash_out;
-    if (m_db->Read(std::pair{DB_TXOSPENDERINDEX, txo}, tx_hash_out)) {
-        return Txid::FromUint256(tx_hash_out);
+    if (std::optional<uint256> tx_hash = m_db->FindSpender(txo)) {
+        return Txid::FromUint256(*tx_hash);
     }
     return std::nullopt;
 }
