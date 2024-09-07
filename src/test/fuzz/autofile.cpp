@@ -18,7 +18,7 @@ FUZZ_TARGET(autofile)
 {
     FuzzedDataProvider fuzzed_data_provider{buffer.data(), buffer.size()};
     FuzzedFileProvider fuzzed_file_provider{fuzzed_data_provider};
-    AutoFile auto_file{
+    FileReader auto_file{
         fuzzed_file_provider.open(),
         ConsumeRandomLengthByteVector<std::byte>(fuzzed_data_provider),
     };
@@ -34,13 +34,6 @@ FUZZ_TARGET(autofile)
                 }
             },
             [&] {
-                const std::array<std::byte, 4096> arr{};
-                try {
-                    auto_file.write({arr.data(), fuzzed_data_provider.ConsumeIntegralInRange<size_t>(0, 4096)});
-                } catch (const std::ios_base::failure&) {
-                }
-            },
-            [&] {
                 try {
                     auto_file.ignore(fuzzed_data_provider.ConsumeIntegralInRange<size_t>(0, 4096));
                 } catch (const std::ios_base::failure&) {
@@ -51,21 +44,37 @@ FUZZ_TARGET(autofile)
             },
             [&] {
                 ReadFromStream(fuzzed_data_provider, auto_file);
-            },
-            [&] {
-                WriteToStream(fuzzed_data_provider, auto_file);
             });
     }
     (void)auto_file.IsNull();
     if (fuzzed_data_provider.ConsumeBool()) {
-        FILE* f = auto_file.release();
-        if (f != nullptr) {
-            fclose(f);
-        }
-    } else {
         // FuzzedFileProvider::close() is expected to fail sometimes. Don't let
         // the destructor of AutoFile be upset by a failing fclose(). Close it
         // explicitly (and ignore any errors) so that the destructor is a noop.
         (void)auto_file.fclose();
+    }
+
+    FileWriter auto_out_file{
+        fuzzed_file_provider.open(),
+        [] (int err) {}, // Just silently ignore, we expect errors when closing.
+        ConsumeRandomLengthByteVector<std::byte>(fuzzed_data_provider),
+    };
+    LIMITED_WHILE(fuzzed_data_provider.ConsumeBool(), 100)
+    {
+        CallOneOf(
+            fuzzed_data_provider,
+            [&] {
+                const std::array<std::byte, 4096> arr{};
+                try {
+                    auto_out_file.write({arr.data(), fuzzed_data_provider.ConsumeIntegralInRange<size_t>(0, 4096)});
+                } catch (const std::ios_base::failure&) {
+                }
+            },
+            [&] {
+                (void)auto_out_file.fclose();
+            },
+            [&] {
+                WriteToStream(fuzzed_data_provider, auto_out_file);
+            });
     }
 }

@@ -101,9 +101,12 @@ FUZZ_TARGET(policy_estimator, .init = initialize_policy_estimator)
     }
     {
         FuzzedFileProvider fuzzed_file_provider{fuzzed_data_provider};
-        AutoFile fuzzed_auto_file{fuzzed_file_provider.open()};
-        block_policy_estimator.Write(fuzzed_auto_file);
-        block_policy_estimator.Read(fuzzed_auto_file);
-        (void)fuzzed_auto_file.fclose();
+        // Empty callback since we expect issues with fuzz files.
+        FileWriter fuzzed_auto_out_file{fuzzed_file_provider.open(), [] (int err) {}};
+        block_policy_estimator.Write(fuzzed_auto_out_file);
+        FileReader fuzzed_auto_in_file{fuzzed_file_provider.open()};
+        block_policy_estimator.Read(fuzzed_auto_in_file);
+        (void)fuzzed_auto_out_file.fclose();
+        (void)fuzzed_auto_in_file.fclose();
     }
 }

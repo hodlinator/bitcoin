@@ -43,9 +43,8 @@ FUZZ_TARGET(wallet_bdb_parser, .init = initialize_wallet_bdb_parser)
     const auto wallet_path = g_setup->m_args.GetDataDirNet() / "fuzzed_wallet.dat";
 
     {
-        AutoFile outfile{fsbridge::fopen(wallet_path, "wb")};
+        FileWriter outfile{fsbridge::fopen(wallet_path, "wb"), [](int err) { Assert(false); }};
         outfile << Span{buffer};
-        assert(outfile.fclose() == 0);
     }
 
     const DatabaseOptions options{};
@@ -69,9 +68,9 @@ FUZZ_TARGET(wallet_bdb_parser, .init = initialize_wallet_bdb_parser)
 #ifdef USE_BDB_NON_MSVC
         bdb_ro_err = true;
 #endif
-        if (error.original.starts_with("AutoFile::ignore: end of file") ||
-            error.original.starts_with("AutoFile::read: end of file") ||
-            error.original.starts_with("AutoFile::seek: ") ||
+        if (error.original.starts_with("FileReader::ignore: end of file") ||
+            error.original.starts_with("FileReader::read: end of file") ||
+            error.original.starts_with("FileReader::seek: ") ||
             error.original == "Not a BDB file" ||
             error.original == "Unexpected page type, should be 9 (BTree Metadata)" ||
             error.original == "Unexpected database flags, should only be 0x20 (subdatabases)" ||

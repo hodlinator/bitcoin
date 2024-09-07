@@ -35,7 +35,8 @@ static constexpr std::chrono::hours MAX_FILE_AGE{60};
 // Whether we allow importing a fee_estimates file older than MAX_FILE_AGE.
 static constexpr bool DEFAULT_ACCEPT_STALE_FEE_ESTIMATES{false};
 
-class AutoFile;
+class FileReader;
+class FileWriter;
 class TxConfirmStats;
 struct RemovedMempoolTransactionInfo;
 struct NewMempoolTransactionInfo;
@@ -236,11 +237,11 @@ public:
         EXCLUSIVE_LOCKS_REQUIRED(!m_cs_fee_estimator);
 
     /** Write estimation data to a file */
-    bool Write(AutoFile& fileout) const
+    bool Write(FileWriter& fileout) const
         EXCLUSIVE_LOCKS_REQUIRED(!m_cs_fee_estimator);
 
     /** Read estimation data from a file */
-    bool Read(AutoFile& filein)
+    bool Read(FileReader& filein)
         EXCLUSIVE_LOCKS_REQUIRED(!m_cs_fee_estimator);
 
     /** Empty mempool transactions on shutdown to record failure to confirm for txs still in mempool */

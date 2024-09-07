@@ -26,11 +26,13 @@ FUZZ_TARGET(policy_estimator_io, .init = initialize_policy_estimator_io)
 {
     FuzzedDataProvider fuzzed_data_provider(buffer.data(), buffer.size());
     FuzzedFileProvider fuzzed_file_provider{fuzzed_data_provider};
-    AutoFile fuzzed_auto_file{fuzzed_file_provider.open()};
+    FileReader fuzzed_auto_file{fuzzed_file_provider.open()};
     // Re-using block_policy_estimator across runs to avoid costly creation of CBlockPolicyEstimator object.
     static CBlockPolicyEstimator block_policy_estimator{FeeestPath(*g_setup->m_node.args), DEFAULT_ACCEPT_STALE_FEE_ESTIMATES};
     if (block_policy_estimator.Read(fuzzed_auto_file)) {
-        block_policy_estimator.Write(fuzzed_auto_file);
+        // Empty callback since we expect issues with fuzz files.
+        FileWriter fuzzed_auto_out_file{fuzzed_file_provider.open(), [] (int err) {}};
+        block_policy_estimator.Write(fuzzed_auto_out_file);
     }
     (void)fuzzed_auto_file.fclose();
 }

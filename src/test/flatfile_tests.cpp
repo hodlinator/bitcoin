@@ -44,20 +44,20 @@ BOOST_AUTO_TEST_CASE(flatfile_open)
 
     // Write first line to file.
     {
-        AutoFile file{seq.Open(FlatFilePos(0, pos1))};
+        FileWriter file{seq.Open(FlatFilePos(0, pos1)), [] (int err) { assert(false); }};
         file << LIMITED_STRING(line1, 256);
         BOOST_REQUIRE_EQUAL(file.fclose(), 0);
     }
 
     // Attempt to append to file opened in read-only mode.
     {
-        AutoFile file{seq.Open(FlatFilePos(0, pos2), true)};
+        FileWriter file{seq.Open(FlatFilePos(0, pos2), true), [] (int err) { assert(false); }};
         BOOST_CHECK_THROW(file << LIMITED_STRING(line2, 256), std::ios_base::failure);
     }
 
     // Append second line to file.
     {
-        AutoFile file{seq.Open(FlatFilePos(0, pos2))};
+        FileWriter file{seq.Open(FlatFilePos(0, pos2)), [] (int err) { assert(false); }};
         file << LIMITED_STRING(line2, 256);
         BOOST_REQUIRE_EQUAL(file.fclose(), 0);
     }
@@ -65,7 +65,7 @@ BOOST_AUTO_TEST_CASE(flatfile_open)
     // Read text from file in read-only mode.
     {
         std::string text;
-        AutoFile file{seq.Open(FlatFilePos(0, pos1), true)};
+        FileReader file{seq.Open(FlatFilePos(0, pos1), true)};
 
         file >> LIMITED_STRING(text, 256);
         BOOST_CHECK_EQUAL(text, line1);
@@ -77,7 +77,7 @@ BOOST_AUTO_TEST_CASE(flatfile_open)
     // Read text from file with position offset.
     {
         std::string text;
-        AutoFile file{seq.Open(FlatFilePos(0, pos2))};
+        FileReader file{seq.Open(FlatFilePos(0, pos2))};
 
         file >> LIMITED_STRING(text, 256);
         BOOST_CHECK_EQUAL(text, line2);
@@ -87,7 +87,7 @@ BOOST_AUTO_TEST_CASE(flatfile_open)
     // Ensure another file in the sequence has no data.
     {
         std::string text;
-        AutoFile file{seq.Open(FlatFilePos(1, pos2))};
+        FileReader file{seq.Open(FlatFilePos(1, pos2))};
         BOOST_CHECK_THROW(file >> LIMITED_STRING(text, 256), std::ios_base::failure);
         BOOST_REQUIRE_EQUAL(file.fclose(), 0);
     }

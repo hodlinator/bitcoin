@@ -16,7 +16,7 @@
 
 #include <univalue.h>
 
-const auto NoMalleation = [](AutoFile& file, node::SnapshotMetadata& meta){};
+const auto NoMalleation = [](FileReader& file, node::SnapshotMetadata& meta){};
 
 /**
  * Create and activate a UTXO snapshot, optionally providing a function to
@@ -45,7 +45,9 @@ CreateAndActivateUTXOSnapshot(
     WITH_LOCK(::cs_main, height = node.chainman->ActiveHeight());
     fs::path snapshot_path = root / fs::u8path(tfm::format("test_snapshot.%d.dat", height));
     FILE* outfile{fsbridge::fopen(snapshot_path, "wb")};
-    AutoFile auto_outfile{outfile};
+    FileWriter auto_outfile{outfile, [] (int err) {
+        Assume(std::uncaught_exceptions() > 0); // Only expected when exception is thrown before fclose().
+    }};
 
     UniValue result = CreateUTXOSnapshot(
         node, node.chainman->ActiveChainstate(), auto_outfile, snapshot_path, snapshot_path); // Will close auto_outfile.
@@ -55,7 +57,7 @@ CreateAndActivateUTXOSnapshot(
     // Read the written snapshot in and then activate it.
     //
     FILE* infile{fsbridge::fopen(snapshot_path, "rb")};
-    AutoFile auto_infile{infile};
+    FileReader auto_infile{infile};
     node::SnapshotMetadata metadata{node.chainman->GetParams().MessageStart()};
     auto_infile >> metadata;
 

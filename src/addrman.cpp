@@ -1284,10 +1284,10 @@ void AddrMan::Unserialize(Stream& s_)
 }
 
 // explicit instantiation
-template void AddrMan::Serialize(HashedSourceWriter<AutoFile>&) const;
+template void AddrMan::Serialize(HashedSourceWriter<FileWriter>&) const;
 template void AddrMan::Serialize(DataStream&) const;
-template void AddrMan::Unserialize(AutoFile&);
-template void AddrMan::Unserialize(HashVerifier<AutoFile>&);
+template void AddrMan::Unserialize(FileReader&);
+template void AddrMan::Unserialize(HashVerifier<FileReader>&);
 template void AddrMan::Unserialize(DataStream&);
 template void AddrMan::Unserialize(HashVerifier<DataStream>&);
 

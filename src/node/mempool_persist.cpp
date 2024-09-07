@@ -43,7 +43,7 @@ bool LoadMempool(CTxMemPool& pool, const fs::path& load_path, Chainstate& active
 {
     if (load_path.empty()) return false;
 
-    AutoFile file{opts.mockable_fopen_function(load_path, "rb")};
+    FileReader file{opts.mockable_fopen_function(load_path, "rb")};
     if (file.IsNull()) {
         LogInfo("Failed to open mempool file. Continuing anyway.\n");
         return false;
@@ -170,7 +170,9 @@ bool DumpMempool(const CTxMemPool& pool, const fs::path& dump_path, FopenFn mock
     auto mid = SteadyClock::now();
 
     const fs::path file_fspath{dump_path + ".new"};
-    AutoFile file{mockable_fopen_function(file_fspath, "wb")};
+    FileWriter file{mockable_fopen_function(file_fspath, "wb"), [] (int err) {
+        Assume(std::uncaught_exceptions() > 0); // Only expected when exception is thrown before fclose() below.
+    }};
     if (file.IsNull()) {
         return false;
     }

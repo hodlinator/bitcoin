@@ -915,7 +915,7 @@ private:
     //! leveldb that keys are lexicographically sorted.
     [[nodiscard]] util::Result<void> PopulateAndValidateSnapshot(
         Chainstate& snapshot_chainstate,
-        AutoFile& coins_file,
+        FileReader& coins_file,
         const node::SnapshotMetadata& metadata);
 
     /**
@@ -1092,7 +1092,7 @@ public:
     //! - Move the new chainstate to `m_snapshot_chainstate` and make it our
     //!   ChainstateActive().
     [[nodiscard]] util::Result<CBlockIndex*> ActivateSnapshot(
-        AutoFile& coins_file, const node::SnapshotMetadata& metadata, bool in_memory);
+        FileReader& coins_file, const node::SnapshotMetadata& metadata, bool in_memory);
 
     //! Once the background validation chainstate has reached the height which
     //! is the base of the UTXO snapshot in use, compare its coins to ensure
@@ -1175,7 +1175,7 @@ public:
      *                                              (only used for reindex)
      * */
     void LoadExternalBlockFile(
-        AutoFile& file_in,
+        FileReader& file_in,
         FlatFilePos* dbp = nullptr,
         std::multimap<uint256, FlatFilePos>* blocks_with_unknown_parent = nullptr);
 

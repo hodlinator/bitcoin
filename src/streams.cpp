@@ -17,25 +17,25 @@ AutoFile::AutoFile(std::FILE* file, std::vector<std::byte> data_xor)
     }
 }
 
-std::size_t AutoFile::detail_fread(Span<std::byte> dst)
+std::size_t FileReader::detail_fread(Span<std::byte> dst)
 {
-    if (!m_file) throw std::ios_base::failure("AutoFile::read: file handle is nullptr");
+    if (!m_file) throw std::ios_base::failure{"FileReader::read: file handle is nullptr"};
     size_t ret = std::fread(dst.data(), 1, dst.size(), m_file);
     if (!m_xor.empty()) {
-        if (!m_position.has_value()) throw std::ios_base::failure("AutoFile::read: position unknown");
+        if (!m_position.has_value()) throw std::ios_base::failure{"FileReader::read: position unknown"};
         util::Xor(dst.subspan(0, ret), m_xor, *m_position);
     }
     if (m_position.has_value()) *m_position += ret;
     return ret;
 }
 
-void AutoFile::seek(int64_t offset, int origin)
+void FileReader::seek(int64_t offset, int origin)
 {
     if (IsNull()) {
-        throw std::ios_base::failure("AutoFile::seek: file handle is nullptr");
+        throw std::ios_base::failure{"FileReader::seek: file handle is nullptr"};
     }
     if (std::fseek(m_file, offset, origin) != 0) {
-        throw std::ios_base::failure(feof() ? "AutoFile::seek: end of file" : "AutoFile::seek: fseek failed");
+        throw std::ios_base::failure{feof() ? "FileReader::seek: end of file" : "FileReader::seek: fseek failed"};
     }
     if (origin == SEEK_SET) {
         m_position = offset;
@@ -52,41 +52,41 @@ void AutoFile::seek(int64_t offset, int origin)
 
 int64_t AutoFile::tell()
 {
-    if (!m_position.has_value()) throw std::ios_base::failure("AutoFile::tell: position unknown");
+    if (!m_position.has_value()) throw std::ios_base::failure{"AutoFile::tell: position unknown"};
     return *m_position;
 }
 
-void AutoFile::read(Span<std::byte> dst)
+void FileReader::read(Span<std::byte> dst)
 {
     if (detail_fread(dst) != dst.size()) {
-        throw std::ios_base::failure(feof() ? "AutoFile::read: end of file" : "AutoFile::read: fread failed");
+        throw std::ios_base::failure{feof() ? "FileReader::read: end of file" : "FileReader::read: fread failed"};
     }
 }
 
-void AutoFile::ignore(size_t nSize)
+void FileReader::ignore(size_t nSize)
 {
-    if (!m_file) throw std::ios_base::failure("AutoFile::ignore: file handle is nullptr");
+    if (!m_file) throw std::ios_base::failure{"FileReader::ignore: file handle is nullptr"};
     unsigned char data[4096];
     while (nSize > 0) {
         size_t nNow = std::min<size_t>(nSize, sizeof(data));
         if (std::fread(data, 1, nNow, m_file) != nNow) {
-            throw std::ios_base::failure(feof() ? "AutoFile::ignore: end of file" : "AutoFile::ignore: fread failed");
+            throw std::ios_base::failure{feof() ? "FileReader::ignore: end of file" : "FileReader::ignore: fread failed"};
         }
         nSize -= nNow;
         if (m_position.has_value()) *m_position += nNow;
     }
 }
 
-void AutoFile::write(Span<const std::byte> src)
+void FileWriter::write(Span<const std::byte> src)
 {
-    if (!m_file) throw std::ios_base::failure("AutoFile::write: file handle is nullptr");
+    if (!m_file) throw std::ios_base::failure{"FileWriter::write: file handle is nullptr"};
     if (m_xor.empty()) {
         if (std::fwrite(src.data(), 1, src.size(), m_file) != src.size()) {
-            throw std::ios_base::failure("AutoFile::write: write failed");
+            throw std::ios_base::failure{"FileWriter::write: write failed"};
         }
         if (m_position.has_value()) *m_position += src.size();
     } else {
-        if (!m_position.has_value()) throw std::ios_base::failure("AutoFile::write: position unknown");
+        if (!m_position.has_value()) throw std::ios_base::failure{"FileWriter::write: position unknown"};
         std::array<std::byte, 4096> buf;
         while (src.size() > 0) {
             auto buf_now{Span{buf}.first(std::min<size_t>(src.size(), buf.size()))};
@@ -99,15 +99,14 @@ void AutoFile::write(Span<const std::byte> src)
             *m_position += buf_now.size();
         }
     }
-    m_was_written = true;
 }
 
-bool AutoFile::Commit()
+bool FileWriter::Commit()
 {
     return ::FileCommit(m_file);
 }
 
-bool AutoFile::Truncate(unsigned size)
+bool FileWriter::Truncate(unsigned size)
 {
     return ::TruncateFile(m_file, size);
 }

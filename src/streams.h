@@ -385,14 +385,6 @@ public:
 /** Non-refcounted RAII wrapper for FILE*
  *
  * Will automatically close the file when it goes out of scope if not null.
- * If you're returning the file pointer, return file.release().
- * If you need to close the file early, use autofile.fclose() instead of fclose(underlying_FILE).
- *
- * @note If the file has been written to, then the caller must close it
- * explicitly with the `fclose()` method, check if it returns an error and treat
- * such an error as if the `write()` method failed. The OS's `fclose(3)` may
- * fail to flush to disk data that has been previously written, rendering the
- * file corrupt.
  */
 class AutoFile
 {
@@ -400,38 +392,17 @@ protected:
     std::FILE* m_file;
     std::vector<std::byte> m_xor;
     std::optional<int64_t> m_position;
-    bool m_was_written{false};
 
-public:
     explicit AutoFile(std::FILE* file, std::vector<std::byte> data_xor={});
 
     ~AutoFile()
     {
-        if (m_was_written) {
-            // Callers that wrote to the file must have closed it explicitly
-            // with the fclose() method and checked that the close succeeded.
-            // This is because here from the destructor we have no way to signal
-            // error due to close which, after write, could mean the file is
-            // corrupted and must be handled properly at the call site.
-            Assume(IsNull());
-        }
-
-        if (fclose() != 0) {
-            LogPrintLevel(BCLog::ALL, BCLog::Level::Error, "Failed to close file: %s\n", SysErrorString(errno));
-        }
+        Assume(!m_file); // Subclass should close file.
     }
 
     // Disallow copies
     AutoFile(const AutoFile&) = delete;
     AutoFile& operator=(const AutoFile&) = delete;
-
-    bool feof() const { return std::feof(m_file); }
-
-    [[nodiscard]] int fclose()
-    {
-        if (auto rel{release()}) return std::fclose(rel);
-        return 0;
-    }
 
     /** Get wrapped FILE* with transfer of ownership.
      * @note This will invalidate the AutoFile object, and makes it the responsibility of the caller
@@ -444,6 +415,13 @@ public:
         return ret;
     }
 
+public:
+    [[nodiscard]] int fclose()
+    {
+        if (auto rel{release()}) return std::fclose(rel);
+        return 0;
+    }
+
     /** Return true if the wrapped FILE* is nullptr, false otherwise.
      */
     bool IsNull() const { return m_file == nullptr; }
@@ -451,14 +429,64 @@ public:
     /** Continue with a different XOR key */
     void SetXor(std::vector<std::byte> data_xor) { m_xor = data_xor; }
 
-    /** Implementation detail, only used internally. */
-    std::size_t detail_fread(Span<std::byte> dst);
+    /** Find position within the file. Will throw if unknown. */
+    int64_t tell();
+};
+
+class FileReader : public AutoFile
+{
+public:
+    explicit FileReader(std::FILE* file, std::vector<std::byte> data_xor={}) : AutoFile(file, data_xor) {}
+
+    ~FileReader()
+    {
+        if (fclose() != 0) {
+            LogError("Failed to close file: %s", SysErrorString(errno));
+        }
+    }
+
+    bool feof() const { return std::feof(m_file); }
 
     /** Wrapper around fseek(). Will throw if seeking is not possible. */
     void seek(int64_t offset, int origin);
 
-    /** Find position within the file. Will throw if unknown. */
-    int64_t tell();
+    /** Implementation detail, only used internally. */
+    std::size_t detail_fread(Span<std::byte> dst);
+
+    //
+    // Stream subset
+    //
+    void read(Span<std::byte> dst);
+    void ignore(size_t nSize);
+
+    template <typename T>
+    FileReader& operator>>(T&& obj)
+    {
+        ::Unserialize(*this, obj);
+        return *this;
+    }
+};
+
+class FileWriter : public AutoFile
+{
+private:
+    std::function<void(int)> m_on_destructor_failure;
+
+public:
+    /**
+     * @param on_destructor_failure Called from destructor upon `fclose()`-failure if the file was not already closed.
+     */
+    explicit FileWriter(std::FILE* file, std::function<void(int)>&& on_destructor_failure, std::vector<std::byte> data_xor={})
+    : AutoFile{file, data_xor}, m_on_destructor_failure{on_destructor_failure}
+    {
+    }
+
+    ~FileWriter()
+    {
+        if (int err{fclose()}; err != 0) {
+            m_on_destructor_failure(err);
+        }
+    }
 
     /** Wrapper around FileCommit(). */
     bool Commit();
@@ -469,26 +497,17 @@ public:
     //
     // Stream subset
     //
-    void read(Span<std::byte> dst);
-    void ignore(size_t nSize);
     void write(Span<const std::byte> src);
 
     template <typename T>
-    AutoFile& operator<<(const T& obj)
+    FileWriter& operator<<(const T& obj)
     {
         ::Serialize(*this, obj);
         return *this;
     }
-
-    template <typename T>
-    AutoFile& operator>>(T&& obj)
-    {
-        ::Unserialize(*this, obj);
-        return *this;
-    }
 };
 
-/** Wrapper around an AutoFile& that implements a ring buffer to
+/** Wrapper around an FileReader& that implements a ring buffer to
  *  deserialize from. It guarantees the ability to rewind a given number of bytes.
  *
  *  Will automatically close the file when it goes out of scope if not null.
@@ -497,7 +516,7 @@ public:
 class BufferedFile
 {
 private:
-    AutoFile& m_src;
+    FileReader& m_src;
     uint64_t nSrcPos{0};  //!< how many bytes have been read from source
     uint64_t m_read_pos{0}; //!< how many bytes have been read from this
     uint64_t nReadLimit;  //!< up to which position we're allowed to read
@@ -544,7 +563,7 @@ private:
     }
 
 public:
-    BufferedFile(AutoFile& file, uint64_t nBufSize, uint64_t nRewindIn)
+    BufferedFile(FileReader& file, uint64_t nBufSize, uint64_t nRewindIn)
         : m_src{file}, nReadLimit{std::numeric_limits<uint64_t>::max()}, nRewind{nRewindIn}, vchBuf(nBufSize, std::byte{0})
     {
         if (nRewindIn >= nBufSize)

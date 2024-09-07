@@ -93,7 +93,7 @@ class AddrmanTest(BitcoinTestFramework):
         with open(peers_dat, "wb") as f:
             f.write(serialize_addrman()[:-1])
         self.nodes[0].assert_start_raises_init_error(
-            expected_msg=init_error("AutoFile::read: end of file.*"),
+            expected_msg=init_error("FileReader::read: end of file.*"),
             match=ErrorMatch.FULL_REGEX,
         )
 

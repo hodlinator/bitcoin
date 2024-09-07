@@ -30,7 +30,9 @@ bool WriteSnapshotBaseBlockhash(Chainstate& snapshot_chainstate)
     const fs::path write_to = *chaindir / node::SNAPSHOT_BLOCKHASH_FILENAME;
 
     FILE* file{fsbridge::fopen(write_to, "wb")};
-    AutoFile afile{file};
+    FileWriter afile{file, [] (int err) {
+        Assume(std::uncaught_exceptions() > 0); // Only expected when exception is thrown before fclose() below.
+    }};
     if (afile.IsNull()) {
         LogPrintf("[snapshot] failed to open base blockhash file for writing: %s\n",
                   fs::PathToString(write_to));
@@ -65,7 +67,7 @@ std::optional<uint256> ReadSnapshotBaseBlockhash(fs::path chaindir)
 
     uint256 base_blockhash;
     FILE* file{fsbridge::fopen(read_from, "rb")};
-    AutoFile afile{file};
+    FileReader afile{file};
     if (afile.IsNull()) {
         LogPrintf("[snapshot] failed to open base blockhash file for reading: %s\n",
             read_from_str);

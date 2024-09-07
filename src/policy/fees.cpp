@@ -162,13 +162,13 @@ public:
     unsigned int GetMaxConfirms() const { return scale * confAvg.size(); }
 
     /** Write state of estimation data to a file*/
-    void Write(AutoFile& fileout) const;
+    void Write(FileWriter& fileout) const;
 
     /**
      * Read saved state of estimation data from a file and replace all internal data structures and
      * variables with this state.
      */
-    void Read(AutoFile& filein, int nFileVersion, size_t numBuckets);
+    void Read(FileReader& filein, int nFileVersion, size_t numBuckets);
 };
 
 
@@ -404,7 +404,7 @@ double TxConfirmStats::EstimateMedianVal(int confTarget, double sufficientTxVal,
     return median;
 }
 
-void TxConfirmStats::Write(AutoFile& fileout) const
+void TxConfirmStats::Write(FileWriter& fileout) const
 {
     fileout << Using<EncodedDoubleFormatter>(decay);
     fileout << scale;
@@ -414,7 +414,7 @@ void TxConfirmStats::Write(AutoFile& fileout) const
     fileout << Using<VectorFormatter<VectorFormatter<EncodedDoubleFormatter>>>(failAvg);
 }
 
-void TxConfirmStats::Read(AutoFile& filein, int nFileVersion, size_t numBuckets)
+void TxConfirmStats::Read(FileReader& filein, int nFileVersion, size_t numBuckets)
 {
     // Read data file and do some very basic sanity checking
     // buckets and bucketMap are not updated yet, so don't access them
@@ -554,7 +554,7 @@ CBlockPolicyEstimator::CBlockPolicyEstimator(const fs::path& estimation_filepath
     shortStats = std::unique_ptr<TxConfirmStats>(new TxConfirmStats(buckets, bucketMap, SHORT_BLOCK_PERIODS, SHORT_DECAY, SHORT_SCALE));
     longStats = std::unique_ptr<TxConfirmStats>(new TxConfirmStats(buckets, bucketMap, LONG_BLOCK_PERIODS, LONG_DECAY, LONG_SCALE));
 
-    AutoFile est_file{fsbridge::fopen(m_estimation_filepath, "rb")};
+    FileReader est_file{fsbridge::fopen(m_estimation_filepath, "rb")};
 
     if (est_file.IsNull()) {
         LogPrintf("%s is not found. Continue anyway.\n", fs::PathToString(m_estimation_filepath));
@@ -949,7 +949,9 @@ void CBlockPolicyEstimator::Flush() {
 
 void CBlockPolicyEstimator::FlushFeeEstimates()
 {
-    AutoFile est_file{fsbridge::fopen(m_estimation_filepath, "wb")};
+    FileWriter est_file{fsbridge::fopen(m_estimation_filepath, "wb"), [] (int err) {
+        Assume(std::uncaught_exceptions() > 0); // Only expected when exception is thrown before fclose() below.
+    }};
     if (est_file.IsNull() || !Write(est_file) || est_file.fclose() != 0) {
         LogPrintf("Failed to write fee estimates to %s. Continue anyway.\n", fs::PathToString(m_estimation_filepath));
     } else {
@@ -957,7 +959,7 @@ void CBlockPolicyEstimator::FlushFeeEstimates()
     }
 }
 
-bool CBlockPolicyEstimator::Write(AutoFile& fileout) const
+bool CBlockPolicyEstimator::Write(FileWriter& fileout) const
 {
     try {
         LOCK(m_cs_fee_estimator);
@@ -982,7 +984,7 @@ bool CBlockPolicyEstimator::Write(AutoFile& fileout) const
     return true;
 }
 
-bool CBlockPolicyEstimator::Read(AutoFile& filein)
+bool CBlockPolicyEstimator::Read(FileReader& filein)
 {
     try {
         LOCK(m_cs_fee_estimator);

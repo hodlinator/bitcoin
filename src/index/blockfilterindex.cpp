@@ -2,8 +2,6 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <map>
-
 #include <clientversion.h>
 #include <common/args.h>
 #include <dbwrapper.h>
@@ -13,7 +11,10 @@
 #include <node/blockstorage.h>
 #include <undo.h>
 #include <util/fs_helpers.h>
+#include <util/syserror.h>
 #include <validation.h>
+
+#include <map>
 
 /* The index database stores three items for each block: the disk location of the encoded filter,
  * its dSHA256 hash, and the header. Those belonging to blocks on the active chain are indexed by
@@ -146,7 +147,9 @@ bool BlockFilterIndex::CustomCommit(CDBBatch& batch)
     const FlatFilePos& pos = m_next_filter_pos;
 
     // Flush current filter file to disk.
-    AutoFile file{m_filter_fileseq->Open(pos)};
+    FileWriter file{m_filter_fileseq->Open(pos), [&pos](int err) {
+        LogError("Failed to close filter file %d: %s", pos.nFile, SysErrorString(err));
+    }};
     if (file.IsNull()) {
         LogError("%s: Failed to open filter file %d\n", __func__, pos.nFile);
         return false;
@@ -162,7 +165,7 @@ bool BlockFilterIndex::CustomCommit(CDBBatch& batch)
 
 bool BlockFilterIndex::ReadFilterFromDisk(const FlatFilePos& pos, const uint256& hash, BlockFilter& filter) const
 {
-    AutoFile filein{m_filter_fileseq->Open(pos, true)};
+    FileReader filein{m_filter_fileseq->Open(pos, true)};
     if (filein.IsNull()) {
         return false;
     }
@@ -196,12 +199,15 @@ size_t BlockFilterIndex::WriteFilterToDisk(FlatFilePos& pos, const BlockFilter& 
 
     // If writing the filter would overflow the file, flush and move to the next one.
     if (pos.nPos + data_size > MAX_FLTR_FILE_SIZE) {
-        AutoFile last_file{m_filter_fileseq->Open(pos)};
+        FileWriter last_file{m_filter_fileseq->Open(pos), [] (int err) {
+            Assume(std::uncaught_exceptions() > 0); // Only expected when exception is thrown before fclose() below.
+        }};
         if (last_file.IsNull()) {
             LogPrintf("%s: Failed to open filter file %d\n", __func__, pos.nFile);
             return 0;
         }
         if (!last_file.Truncate(pos.nPos)) {
+            (void)last_file.fclose();
             LogPrintf("%s: Failed to truncate filter file %d\n", __func__, pos.nFile);
             return 0;
         }
@@ -222,7 +228,9 @@ size_t BlockFilterIndex::WriteFilterToDisk(FlatFilePos& pos, const BlockFilter& 
         return 0;
     }
 
-    AutoFile fileout{m_filter_fileseq->Open(pos)};
+    FileWriter fileout{m_filter_fileseq->Open(pos), [] (int err) {
+        Assume(std::uncaught_exceptions() > 0); // Only expected when exception is thrown before fclose() below.
+    }};
     if (fileout.IsNull()) {
         LogPrintf("%s: Failed to open filter file %d\n", __func__, pos.nFile);
         return 0;
@@ -230,8 +238,8 @@ size_t BlockFilterIndex::WriteFilterToDisk(FlatFilePos& pos, const BlockFilter& 
 
     fileout << filter.GetBlockHash() << filter.GetEncodedFilter();
 
-    if (fileout.fclose() != 0) {
-        LogPrintf("%s: Failed to close filter file %d\n", __func__, pos.nFile);
+    if (int err{fileout.fclose()}; err != 0) {
+        LogPrintf("%s: Failed to close filter file %d: %s\n", __func__, pos.nFile, SysErrorString(err));
         return 0;
     }
 

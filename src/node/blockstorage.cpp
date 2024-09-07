@@ -529,7 +529,7 @@ bool BlockManager::LoadBlockIndexDB(const std::optional<uint256>& snapshot_block
     }
     for (std::set<int>::iterator it = setBlkDataFiles.begin(); it != setBlkDataFiles.end(); it++) {
         FlatFilePos pos(*it, 0);
-        if (OpenBlockFile(pos, true).IsNull()) {
+        if (OpenBlockInFile(pos).IsNull()) {
             return false;
         }
     }
@@ -672,7 +672,9 @@ CBlockFileInfo* BlockManager::GetBlockFileInfo(size_t n)
 bool BlockManager::UndoWriteToDisk(const CBlockUndo& blockundo, FlatFilePos& pos, const uint256& hashBlock) const
 {
     // Open history file to append
-    AutoFile fileout{OpenUndoFile(pos)};
+    FileWriter fileout{OpenUndoOutFile(pos, [] (int err) {
+        Assume(std::uncaught_exceptions() > 0); // Only expected when exception is thrown before fclose() below.
+    })};
     if (fileout.IsNull()) {
         LogError("%s: OpenUndoFile failed\n", __func__);
         return false;
@@ -706,7 +708,7 @@ bool BlockManager::UndoReadFromDisk(CBlockUndo& blockundo, const CBlockIndex& in
     const FlatFilePos pos{WITH_LOCK(::cs_main, return index.GetUndoPos())};
 
     // Open history file to read
-    AutoFile filein{OpenUndoFile(pos, true)};
+    FileReader filein{OpenUndoInFile(pos)};
     if (filein.IsNull()) {
         LogError("%s: OpenUndoFile failed for %s\n", __func__, pos.ToString());
         return false;
@@ -818,15 +820,25 @@ void BlockManager::UnlinkPrunedFiles(const std::set<int>& setFilesToPrune) const
     }
 }
 
-AutoFile BlockManager::OpenBlockFile(const FlatFilePos& pos, bool fReadOnly) const
+FileReader BlockManager::OpenBlockInFile(const FlatFilePos& pos) const
 {
-    return AutoFile{m_block_file_seq.Open(pos, fReadOnly), m_xor_key};
+    return FileReader{m_block_file_seq.Open(pos, true), m_xor_key};
+}
+
+FileWriter BlockManager::OpenBlockOutFile(const FlatFilePos& pos, std::function<void(int)>&& on_destructor_failure) const
+{
+    return FileWriter{m_block_file_seq.Open(pos, false), std::move(on_destructor_failure), m_xor_key};
 }
 
 /** Open an undo file (rev?????.dat) */
-AutoFile BlockManager::OpenUndoFile(const FlatFilePos& pos, bool fReadOnly) const
+FileReader BlockManager::OpenUndoInFile(const FlatFilePos& pos) const
 {
-    return AutoFile{m_undo_file_seq.Open(pos, fReadOnly), m_xor_key};
+    return FileReader{m_undo_file_seq.Open(pos, true), m_xor_key};
+}
+
+FileWriter BlockManager::OpenUndoOutFile(const FlatFilePos& pos, std::function<void(int)>&& on_destructor_failure) const
+{
+    return FileWriter{m_undo_file_seq.Open(pos, false), std::move(on_destructor_failure), m_xor_key};
 }
 
 fs::path BlockManager::GetBlockPosFilename(const FlatFilePos& pos) const
@@ -970,24 +982,28 @@ bool BlockManager::FindUndoPos(BlockValidationState& state, int nFile, FlatFileP
 
 bool BlockManager::WriteBlockToDisk(const CBlock& block, FlatFilePos& pos) const
 {
-    // Open history file to append
-    AutoFile fileout{OpenBlockFile(pos)};
-    if (fileout.IsNull()) {
-        LogError("%s: OpenBlockFile failed\n", __func__);
-        return false;
+    std::string error_str;
+    {
+        // Open history file to append
+        FileWriter fileout{OpenBlockOutFile(pos, [&error_str] (int err) {
+            error_str = strprintf("fclose failed: %s\n", SysErrorString(err));
+        })};
+        if (fileout.IsNull()) {
+            LogError("%s: OpenBlockFile failed\n", __func__);
+            return false;
+        }
+
+        // Write index header
+        unsigned int nSize = GetSerializeSize(TX_WITH_WITNESS(block));
+        fileout << GetParams().MessageStart() << nSize;
+
+        // Write block
+        long fileOutPos = fileout.tell();
+        pos.nPos = (unsigned int)fileOutPos;
+        fileout << TX_WITH_WITNESS(block);
     }
-
-    // Write index header
-    unsigned int nSize = GetSerializeSize(TX_WITH_WITNESS(block));
-    fileout << GetParams().MessageStart() << nSize;
-
-    // Write block
-    long fileOutPos = fileout.tell();
-    pos.nPos = (unsigned int)fileOutPos;
-    fileout << TX_WITH_WITNESS(block);
-
-    if (fileout.fclose() != 0) {
-        LogError("WriteBlockToDisk: fclose failed\n");
+    if (!error_str.empty()) {
+        LogError("%s", error_str);
         return false;
     }
 
@@ -1041,7 +1057,7 @@ bool BlockManager::ReadBlockFromDisk(CBlock& block, const FlatFilePos& pos) cons
     block.SetNull();
 
     // Open history file to read
-    AutoFile filein{OpenBlockFile(pos, true)};
+    FileReader filein{OpenBlockInFile(pos)};
     if (filein.IsNull()) {
         LogError("%s: OpenBlockFile failed for %s\n", __func__, pos.ToString());
         return false;
@@ -1094,7 +1110,7 @@ bool BlockManager::ReadRawBlockFromDisk(std::vector<uint8_t>& block, const FlatF
         return false;
     }
     hpos.nPos -= 8; // Seek back 8 bytes for meta header
-    AutoFile filein{OpenBlockFile(hpos, true)};
+    FileReader filein{OpenBlockInFile(hpos)};
     if (filein.IsNull()) {
         LogError("%s: OpenBlockFile failed for %s\n", __func__, pos.ToString());
         return false;
@@ -1162,23 +1178,25 @@ static auto InitBlocksdirXorKey(const BlockManager::Options& opts)
     const fs::path xor_key_path{opts.blocks_dir / "xor.dat"};
     if (fs::exists(xor_key_path)) {
         // A pre-existing xor key file has priority.
-        AutoFile xor_key_file{fsbridge::fopen(xor_key_path, "rb")};
+        FileReader xor_key_file{fsbridge::fopen(xor_key_path, "rb")};
         xor_key_file >> xor_key;
     } else {
         // Create initial or missing xor key file
-        AutoFile xor_key_file{fsbridge::fopen(xor_key_path,
+        std::string error_str;
+        {
+            FileWriter xor_key_file{fsbridge::fopen(xor_key_path,
 #ifdef __MINGW64__
-            "wb" // Temporary workaround for https://github.com/bitcoin/bitcoin/issues/30210
+                "wb" // Temporary workaround for https://github.com/bitcoin/bitcoin/issues/30210
 #else
-            "wbx"
+                "wbx"
 #endif
-        )};
-        xor_key_file << xor_key;
-        if (xor_key_file.fclose() != 0) {
-            throw std::runtime_error{strprintf("Error closing XOR key file %s: %s\n",
-                                               fs::PathToString(xor_key_path),
-                                               SysErrorString(errno))};
+            ), [&xor_key_path, &error_str] (int err) {
+                error_str = strprintf("Error closing XOR key file %s: %s\n", fs::PathToString(xor_key_path), SysErrorString(err));
+                LogError("%s", error_str);
+            }};
+            xor_key_file << xor_key;
         }
+        if (!error_str.empty()) throw std::runtime_error{error_str};
     }
     // If the user disabled the key, it must be zero.
     if (!opts.use_xor && xor_key != decltype(xor_key){}) {
@@ -1232,7 +1250,7 @@ void ImportBlocks(ChainstateManager& chainman, std::span<const fs::path> import_
             if (!fs::exists(chainman.m_blockman.GetBlockPosFilename(pos))) {
                 break; // No block files left to reindex
             }
-            AutoFile file{chainman.m_blockman.OpenBlockFile(pos, true)};
+            FileReader file{chainman.m_blockman.OpenBlockInFile(pos)};
             if (file.IsNull()) {
                 break; // This error is logged in OpenBlockFile
             }
@@ -1253,7 +1271,7 @@ void ImportBlocks(ChainstateManager& chainman, std::span<const fs::path> import_
 
     // -loadblock=
     for (const fs::path& path : import_paths) {
-        AutoFile file{fsbridge::fopen(path, "rb")};
+        FileReader file{fsbridge::fopen(path, "rb")};
         if (!file.IsNull()) {
             LogPrintf("Importing blocks file %s...\n", fs::PathToString(path));
             chainman.LoadExternalBlockFile(file);

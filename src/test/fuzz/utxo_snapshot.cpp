@@ -80,7 +80,8 @@ void utxo_snapshot_fuzz(FuzzBufferType buffer)
     Assert(!chainman.SnapshotBlockhash());
 
     {
-        AutoFile outfile{fsbridge::fopen(snapshot_path, "wb")};
+        // Empty callback since we don't have anything more to fuzz once we're called.
+        FileWriter outfile{fsbridge::fopen(snapshot_path, "wb"), [] (int err) {}};
         // Metadata
         if (fuzzed_data_provider.ConsumeBool()) {
             std::vector<uint8_t> metadata{ConsumeRandomLengthByteVector(fuzzed_data_provider)};
@@ -122,7 +123,7 @@ void utxo_snapshot_fuzz(FuzzBufferType buffer)
     }
 
     const auto ActivateFuzzedSnapshot{[&] {
-        AutoFile infile{fsbridge::fopen(snapshot_path, "rb")};
+        FileReader infile{fsbridge::fopen(snapshot_path, "rb")};
         auto msg_start = chainman.GetParams().MessageStart();
         SnapshotMetadata metadata{msg_start};
         try {

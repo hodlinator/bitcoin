@@ -60,30 +60,33 @@ bool SerializeFileDB(const std::string& prefix, const fs::path& path, const Data
     // open temp output file
     fs::path pathTmp = gArgs.GetDataDirNet() / fs::u8path(tmpfn);
     FILE *file = fsbridge::fopen(pathTmp, "wb");
-    AutoFile fileout{file};
-    if (fileout.IsNull()) {
-        remove(pathTmp);
-        LogError("%s: Failed to open file %s\n", __func__, fs::PathToString(pathTmp));
-        return false;
-    }
+    bool destruction_failed = false;
+    {
+        FileWriter fileout{file, [&destruction_failed, &pathTmp](int err) {
+            remove(pathTmp);
+            LogError("Failed to close file %s: %s", fs::PathToString(pathTmp), SysErrorString(err));
+            destruction_failed = true;
+        }};
+        if (fileout.IsNull()) {
+            remove(pathTmp);
+            LogError("Failed to open file %s", fs::PathToString(pathTmp));
+            return false;
+        }
 
-    // Serialize
-    if (!SerializeDB(fileout, data)) {
-        (void)fileout.fclose();
-        remove(pathTmp);
-        return false;
+        // Serialize
+        if (!SerializeDB(fileout, data)) {
+            (void)fileout.fclose();
+            remove(pathTmp);
+            return false;
+        }
+        if (!fileout.Commit()) {
+            (void)fileout.fclose();
+            remove(pathTmp);
+            LogError("Failed to flush file %s", fs::PathToString(pathTmp));
+            return false;
+        }
     }
-    if (!fileout.Commit()) {
-        (void)fileout.fclose();
-        remove(pathTmp);
-        LogError("%s: Failed to flush file %s\n", __func__, fs::PathToString(pathTmp));
-        return false;
-    }
-    if (fileout.fclose() != 0) {
-        remove(pathTmp);
-        LogError("%s: Failed to close file %s: %s\n", __func__, fs::PathToString(pathTmp), SysErrorString(errno));
-        return false;
-    }
+    if (destruction_failed) return false;
 
     // replace existing file, if any, with new file
     if (!RenameOver(pathTmp, path)) {
@@ -124,7 +127,7 @@ template <typename Data>
 void DeserializeFileDB(const fs::path& path, Data&& data)
 {
     FILE* file = fsbridge::fopen(path, "rb");
-    AutoFile filein{file};
+    FileReader filein{file};
     if (filein.IsNull()) {
         throw DbNotFoundError{};
     }

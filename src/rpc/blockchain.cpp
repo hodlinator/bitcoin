@@ -80,7 +80,7 @@ UniValue WriteUTXOSnapshot(
     CCoinsViewCursor* pcursor,
     CCoinsStats* maybe_stats,
     const CBlockIndex* tip,
-    AutoFile& afile,
+    FileWriter& afile,
     const fs::path& path,
     const fs::path& temppath,
     const std::function<void()>& interruption_point = {});
@@ -2788,7 +2788,9 @@ static RPCHelpMan dumptxoutset()
     }
 
     FILE* file{fsbridge::fopen(temppath, "wb")};
-    AutoFile afile{file};
+    FileWriter afile{file, [&temppath] (int err) {
+        LogError("Failed closing file %s to snapshot: %s\n", fs::PathToString(temppath), SysErrorString(err));
+    }};
     if (afile.IsNull()) {
         throw JSONRPCError(
             RPC_INVALID_PARAMETER,
@@ -2908,7 +2910,7 @@ UniValue WriteUTXOSnapshot(
     CCoinsViewCursor* pcursor,
     CCoinsStats* maybe_stats,
     const CBlockIndex* tip,
-    AutoFile& afile,
+    FileWriter& afile,
     const fs::path& path,
     const fs::path& temppath,
     const std::function<void()>& interruption_point)
@@ -2935,7 +2937,7 @@ UniValue WriteUTXOSnapshot(
     // (key.hash) and when we have them all (key.hash != last_hash) we write
     // them to file using the below lambda function.
     // See also https://github.com/bitcoin/bitcoin/issues/25675
-    auto write_coins_to_file = [&](AutoFile& afile, const Txid& last_hash, const std::vector<std::pair<uint32_t, Coin>>& coins, size_t& written_coins_count) {
+    auto write_coins_to_file = [&](FileWriter& afile, const Txid& last_hash, const std::vector<std::pair<uint32_t, Coin>>& coins, size_t& written_coins_count) {
         afile << last_hash;
         WriteCompactSize(afile, coins.size());
         for (const auto& [n, coin] : coins) {
@@ -2985,7 +2987,7 @@ UniValue WriteUTXOSnapshot(
 UniValue CreateUTXOSnapshot(
     node::NodeContext& node,
     Chainstate& chainstate,
-    AutoFile& afile,
+    FileWriter& afile,
     const fs::path& path,
     const fs::path& tmppath)
 {
@@ -3036,7 +3038,7 @@ static RPCHelpMan loadtxoutset()
     const fs::path path{AbsPathForConfigVal(EnsureArgsman(node), fs::u8path(self.Arg<std::string>("path")))};
 
     FILE* file{fsbridge::fopen(path, "rb")};
-    AutoFile afile{file};
+    FileReader afile{file};
     if (afile.IsNull()) {
         throw JSONRPCError(
             RPC_INVALID_PARAMETER,

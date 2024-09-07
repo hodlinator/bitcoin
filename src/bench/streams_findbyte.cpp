@@ -14,12 +14,14 @@
 static void FindByte(benchmark::Bench& bench)
 {
     // Setup
-    AutoFile file{fsbridge::fopen("streams_tmp", "w+b")};
     const size_t file_size = 200;
-    uint8_t data[file_size] = {0};
-    data[file_size-1] = 1;
-    file << data;
-    file.seek(0, SEEK_SET);
+    {
+        FileWriter file{fsbridge::fopen("streams_tmp", "w+b"), [](int err) { Assert(false); }};
+        uint8_t data[file_size] = {0};
+        data[file_size-1] = 1;
+        file << data;
+    }
+    FileReader file{fsbridge::fopen("streams_tmp", "r+b")};
     BufferedFile bf{file, /*nBufSize=*/file_size + 1, /*nRewindIn=*/file_size};
 
     bench.run([&] {
@@ -28,7 +30,7 @@ static void FindByte(benchmark::Bench& bench)
     });
 
     // Cleanup
-    (void)file.fclose();
+    Assert(file.fclose() == 0);
     fs::remove("streams_tmp");
 }
 

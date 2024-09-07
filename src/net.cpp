@@ -3967,21 +3967,24 @@ static void CaptureMessageToFile(const CAddress& addr,
     fs::create_directories(base_path);
 
     fs::path path = base_path / (is_incoming ? "msgs_recv.dat" : "msgs_sent.dat");
-    AutoFile f{fsbridge::fopen(path, "ab")};
+    std::string error_str;
+    {
+        FileWriter f{fsbridge::fopen(path, "ab"), [&path, &error_str] (int err) {
+            error_str = strprintf("Error closing %s after write, file contents is likely incomplete: %s\n", fs::PathToString(path), SysErrorString(err));
+            LogError("%s", error_str);
+        }};
 
-    ser_writedata64(f, now.count());
-    f << Span{msg_type};
-    for (auto i = msg_type.length(); i < CMessageHeader::COMMAND_SIZE; ++i) {
-        f << uint8_t{'\0'};
+        ser_writedata64(f, now.count());
+        f << Span{msg_type};
+        for (auto i = msg_type.length(); i < CMessageHeader::COMMAND_SIZE; ++i) {
+            f << uint8_t{'\0'};
+        }
+        uint32_t size = data.size();
+        ser_writedata32(f, size);
+        f << data;
     }
-    uint32_t size = data.size();
-    ser_writedata32(f, size);
-    f << data;
 
-    if (f.fclose() != 0) {
-        throw std::ios_base::failure(
-            strprintf("Error closing %s after write, file contents is likely incomplete", fs::PathToString(path)));
-    }
+    if (!error_str.empty()) throw std::ios_base::failure{error_str};
 }
 
 std::function<void(const CAddress& addr,

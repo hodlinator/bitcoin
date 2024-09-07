@@ -5015,7 +5015,7 @@ bool Chainstate::LoadGenesisBlock()
 }
 
 void ChainstateManager::LoadExternalBlockFile(
-    AutoFile& file_in,
+    FileReader& file_in,
     FlatFilePos* dbp,
     std::multimap<uint256, FlatFilePos>* blocks_with_unknown_parent)
 {
@@ -5650,7 +5650,7 @@ Chainstate& ChainstateManager::InitializeChainstate(CTxMemPool* mempool)
 }
 
 util::Result<CBlockIndex*> ChainstateManager::ActivateSnapshot(
-        AutoFile& coins_file,
+        FileReader& coins_file,
         const SnapshotMetadata& metadata,
         bool in_memory)
 {
@@ -5827,7 +5827,7 @@ static void SnapshotUTXOHashBreakpoint(const util::SignalInterrupt& interrupt)
 
 util::Result<void> ChainstateManager::PopulateAndValidateSnapshot(
     Chainstate& snapshot_chainstate,
-    AutoFile& coins_file,
+    FileReader& coins_file,
     const SnapshotMetadata& metadata)
 {
     // It's okay to release cs_main before we're done using `coins_cache` because we know

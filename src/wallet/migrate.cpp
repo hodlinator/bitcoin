@@ -515,7 +515,7 @@ public:
     }
 };
 
-static void SeekToPage(AutoFile& s, uint32_t page_num, uint32_t page_size)
+static void SeekToPage(FileReader& s, uint32_t page_num, uint32_t page_size)
 {
     int64_t pos = int64_t{page_num} * page_size;
     s.seek(pos, SEEK_SET);
@@ -525,7 +525,7 @@ void BerkeleyRODatabase::Open()
 {
     // Open the file
     FILE* file = fsbridge::fopen(m_filepath, "rb");
-    AutoFile db_file(file);
+    FileReader db_file(file);
     if (db_file.IsNull()) {
         throw std::runtime_error("BerkeleyRODatabase: Failed to open database file");
     }

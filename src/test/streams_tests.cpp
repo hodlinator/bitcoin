@@ -23,10 +23,14 @@ BOOST_AUTO_TEST_CASE(xor_file)
     const std::vector<std::byte> xor_pat{std::byte{0xff}, std::byte{0x00}};
     {
         // Check errors for missing file
-        AutoFile xor_file{raw_file("rb"), xor_pat};
-        BOOST_CHECK_EXCEPTION(xor_file << std::byte{}, std::ios_base::failure, HasReason{"AutoFile::write: file handle is nullpt"});
-        BOOST_CHECK_EXCEPTION(xor_file >> std::byte{}, std::ios_base::failure, HasReason{"AutoFile::read: file handle is nullpt"});
-        BOOST_CHECK_EXCEPTION(xor_file.ignore(1), std::ios_base::failure, HasReason{"AutoFile::ignore: file handle is nullpt"});
+        FileWriter xor_file{/*file=*/nullptr, [] (int err) { Assert(false); }, xor_pat};
+        BOOST_CHECK_EXCEPTION(xor_file << std::byte{}, std::ios_base::failure, HasReason{"FileWriter::write: file handle is nullptr"});
+    }
+    {
+        FileReader xor_file{raw_file("rb"), xor_pat};
+        BOOST_CHECK_EXCEPTION(xor_file >> std::byte{}, std::ios_base::failure, HasReason{"FileReader::read: file handle is nullptr"});
+        BOOST_CHECK_EXCEPTION(xor_file.ignore(1), std::ios_base::failure, HasReason{"FileReader::ignore: file handle is nullptr"});
+
     }
     {
 #ifdef __MINGW64__
@@ -35,38 +39,38 @@ BOOST_AUTO_TEST_CASE(xor_file)
 #else
         const char* mode = "wbx";
 #endif
-        AutoFile xor_file{raw_file(mode), xor_pat};
+        FileWriter xor_file{raw_file(mode), [] (int err) { Assert(false); }, xor_pat};
         xor_file << test1 << test2;
         BOOST_REQUIRE_EQUAL(xor_file.fclose(), 0);
     }
     {
         // Read raw from disk
-        AutoFile non_xor_file{raw_file("rb")};
+        FileReader non_xor_file{raw_file("rb")};
         std::vector<std::byte> raw(7);
         non_xor_file >> Span{raw};
         BOOST_CHECK_EQUAL(HexStr(raw), "fc01fd03fd04fa");
         // Check that no padding exists
-        BOOST_CHECK_EXCEPTION(non_xor_file.ignore(1), std::ios_base::failure, HasReason{"AutoFile::ignore: end of file"});
+        BOOST_CHECK_EXCEPTION(non_xor_file.ignore(1), std::ios_base::failure, HasReason{"FileReader::ignore: end of file"});
     }
     {
-        AutoFile xor_file{raw_file("rb"), xor_pat};
+        FileReader xor_file{raw_file("rb"), xor_pat};
         std::vector<std::byte> read1, read2;
         xor_file >> read1 >> read2;
         BOOST_CHECK_EQUAL(HexStr(read1), HexStr(test1));
         BOOST_CHECK_EQUAL(HexStr(read2), HexStr(test2));
         // Check that eof was reached
-        BOOST_CHECK_EXCEPTION(xor_file >> std::byte{}, std::ios_base::failure, HasReason{"AutoFile::read: end of file"});
+        BOOST_CHECK_EXCEPTION(xor_file >> std::byte{}, std::ios_base::failure, HasReason{"FileReader::read: end of file"});
     }
     {
-        AutoFile xor_file{raw_file("rb"), xor_pat};
+        FileReader xor_file{raw_file("rb"), xor_pat};
         std::vector<std::byte> read2;
         // Check that ignore works
         xor_file.ignore(4);
         xor_file >> read2;
         BOOST_CHECK_EQUAL(HexStr(read2), HexStr(test2));
         // Check that ignore and read fail now
-        BOOST_CHECK_EXCEPTION(xor_file.ignore(1), std::ios_base::failure, HasReason{"AutoFile::ignore: end of file"});
-        BOOST_CHECK_EXCEPTION(xor_file >> std::byte{}, std::ios_base::failure, HasReason{"AutoFile::read: end of file"});
+        BOOST_CHECK_EXCEPTION(xor_file.ignore(1), std::ios_base::failure, HasReason{"FileReader::ignore: end of file"});
+        BOOST_CHECK_EXCEPTION(xor_file >> std::byte{}, std::ios_base::failure, HasReason{"FileReader::read: end of file"});
     }
 }
 
@@ -256,13 +260,15 @@ BOOST_AUTO_TEST_CASE(streams_serializedata_xor)
 BOOST_AUTO_TEST_CASE(streams_buffered_file)
 {
     fs::path streams_test_filename = m_args.GetDataDirBase() / "streams_test_tmp";
-    AutoFile file{fsbridge::fopen(streams_test_filename, "w+b")};
+    {
+        FileWriter file{fsbridge::fopen(streams_test_filename, "w+b"), [] (int err) { Assert(false); }};
 
-    // The value at each offset is the offset.
-    for (uint8_t j = 0; j < 40; ++j) {
-        file << j;
+        // The value at each offset is the offset.
+        for (uint8_t j = 0; j < 40; ++j) {
+            file << j;
+        }
     }
-    file.seek(0, SEEK_SET);
+    FileReader file{fsbridge::fopen(streams_test_filename, "rb")};
 
     // The buffer size (second arg) must be greater than the rewind
     // amount (third arg).
@@ -387,12 +393,14 @@ BOOST_AUTO_TEST_CASE(streams_buffered_file)
 BOOST_AUTO_TEST_CASE(streams_buffered_file_skip)
 {
     fs::path streams_test_filename = m_args.GetDataDirBase() / "streams_test_tmp";
-    AutoFile file{fsbridge::fopen(streams_test_filename, "w+b")};
-    // The value at each offset is the byte offset (e.g. byte 1 in the file has the value 0x01).
-    for (uint8_t j = 0; j < 40; ++j) {
-        file << j;
+    {
+        FileWriter file{fsbridge::fopen(streams_test_filename, "w+b"), [] (int err) { Assert(false); }};
+        // The value at each offset is the byte offset (e.g. byte 1 in the file has the value 0x01).
+        for (uint8_t j = 0; j < 40; ++j) {
+            file << j;
+        }
     }
-    file.seek(0, SEEK_SET);
+    FileReader file{fsbridge::fopen(streams_test_filename, "rb")};
 
     // The buffer is 25 bytes, allow rewinding 10 bytes.
     BufferedFile bf{file, 25, 10};
@@ -440,12 +448,14 @@ BOOST_AUTO_TEST_CASE(streams_buffered_file_rand)
 
     fs::path streams_test_filename = m_args.GetDataDirBase() / "streams_test_tmp";
     for (int rep = 0; rep < 50; ++rep) {
-        AutoFile file{fsbridge::fopen(streams_test_filename, "w+b")};
         size_t fileSize = m_rng.randrange(256);
-        for (uint8_t i = 0; i < fileSize; ++i) {
-            file << i;
+        {
+            FileWriter file{fsbridge::fopen(streams_test_filename, "w+b"), [] (int err) { Assert(false); }};
+            for (uint8_t i = 0; i < fileSize; ++i) {
+                file << i;
+            }
         }
-        file.seek(0, SEEK_SET);
+        FileReader file{fsbridge::fopen(streams_test_filename, "rb")};
 
         size_t bufSize = m_rng.randrange(300) + 1;
         size_t rewindSize = m_rng.randrange(bufSize);
