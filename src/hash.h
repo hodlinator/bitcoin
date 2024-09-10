@@ -133,7 +133,7 @@ public:
      * Returns the first 64 bits from the resulting hash.
      */
     inline uint64_t GetCheapHash() {
-        uint256 result = GetHash();
+        uint256 result = GetSHA256();
         return ReadLE64(result.begin());
     }
 
