@@ -3,10 +3,14 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <common/args.h>
+#include <index/disktxpos.h>
 #include <index/txospenderindex.h>
 #include <logging.h>
 #include <node/blockstorage.h>
+#include <primitives/transaction.h>
 #include <validation.h>
+
+#include <cstdint>
 
 std::unique_ptr<TxoSpenderIndex> g_txospenderindex;
 
@@ -19,9 +23,19 @@ class TxoSpenderIndex::DB : public BaseIndex::DB
 public:
     explicit DB(size_t n_cache_size, bool f_memory = false, bool f_wipe = false);
 
-    bool WriteSpenderInfos(const std::vector<std::pair<COutPoint, uint256>>& items);
-    bool EraseSpenderInfos(const std::vector<COutPoint>& items);
-    std::optional<uint256> FindSpender(const COutPoint& txo) const;
+    struct Key {
+        uint64_t inner;
+        Key(const COutPoint& prevout)
+            : inner{prevout.hash.ToUint256().GetUint64(0) + prevout.n}
+        {
+        }
+
+        SERIALIZE_METHODS(Key, k) { READWRITE(VARINT(k.inner)); }
+    };
+
+    bool WriteSpenderInfos(const std::vector<std::pair<Key, CDiskTxPos>>& items);
+    bool EraseSpenderInfos(const std::vector<Key>& items);
+    std::optional<CDiskTxPos> FindSpender(const Key& key) const;
 };
 
 TxoSpenderIndex::DB::DB(size_t n_cache_size, bool f_memory, bool f_wipe)
@@ -37,44 +51,47 @@ TxoSpenderIndex::TxoSpenderIndex(std::unique_ptr<interfaces::Chain> chain, size_
 
 TxoSpenderIndex::~TxoSpenderIndex() = default;
 
-bool TxoSpenderIndex::DB::WriteSpenderInfos(const std::vector<std::pair<COutPoint, uint256>>& items)
+bool TxoSpenderIndex::DB::WriteSpenderInfos(const std::vector<std::pair<Key, CDiskTxPos>>& items)
 {
     CDBBatch batch(*this);
-    for (const auto& [outpoint, hash] : items) {
-        batch.Write(std::pair{DB_TXOSPENDERINDEX, outpoint}, hash);
+    for (const auto& [key, pos] : items) {
+        batch.Write(std::pair{DB_TXOSPENDERINDEX, key}, pos);
     }
     return WriteBatch(batch);
 }
 
-bool TxoSpenderIndex::DB::EraseSpenderInfos(const std::vector<COutPoint>& items)
+bool TxoSpenderIndex::DB::EraseSpenderInfos(const std::vector<Key>& items)
 {
     CDBBatch batch(*this);
-    for (const auto& outpoint : items) {
-        batch.Erase(std::pair{DB_TXOSPENDERINDEX, outpoint});
+    for (const auto& key : items) {
+        batch.Erase(std::pair{DB_TXOSPENDERINDEX, key});
     }
     return WriteBatch(batch);
 }
 
-std::optional<uint256> TxoSpenderIndex::DB::FindSpender(const COutPoint& txo) const
+std::optional<CDiskTxPos> TxoSpenderIndex::DB::FindSpender(const Key& key) const
 {
-    uint256 tx_hash_out;
-    if (Read(std::pair{DB_TXOSPENDERINDEX, txo}, tx_hash_out)) {
-        return tx_hash_out;
+    CDiskTxPos pos_out;
+    if (Read(std::pair{DB_TXOSPENDERINDEX, key}, pos_out)) {
+        return pos_out;
     }
     return std::nullopt;
 }
 
 bool TxoSpenderIndex::CustomAppend(const interfaces::BlockInfo& block)
 {
-    std::vector<std::pair<COutPoint, uint256>> items;
+    std::vector<std::pair<DB::Key, CDiskTxPos>> items;
     items.reserve(block.data->vtx.size());
 
-    for (const auto& tx : block.data->vtx) {
+    CDiskTxPos pos({block.file_number, block.data_pos}, GetSizeOfCompactSize(block.data->vtx.size()));
+    for (size_t i{0}; i < block.data->vtx.size();
+        pos.nTxOffset += ::GetSerializeSize(TX_WITH_WITNESS(*block.data->vtx[i])), ++i) {
+        const auto& tx{block.data->vtx[i]};
         if (tx->IsCoinBase()) {
             continue;
         }
         for (const auto& input : tx->vin) {
-            items.emplace_back(input.prevout, tx->GetHash());
+            items.emplace_back(input.prevout, pos);
         }
     }
     return m_db->WriteSpenderInfos(items);
@@ -92,7 +109,7 @@ bool TxoSpenderIndex::CustomRewind(const interfaces::BlockKey& current_tip, cons
             LogError("Failed to read block %s from disk\n", iter_tip->GetBlockHash().ToString());
             return false;
         }
-        std::vector<COutPoint> items;
+        std::vector<DB::Key> items;
         items.reserve(block.vtx.size());
         for (const auto& tx : block.vtx) {
             if (tx->IsCoinBase()) {
@@ -115,10 +132,29 @@ bool TxoSpenderIndex::CustomRewind(const interfaces::BlockKey& current_tip, cons
 
 std::optional<Txid> TxoSpenderIndex::FindSpender(const COutPoint& txo) const
 {
-    if (std::optional<uint256> tx_hash = m_db->FindSpender(txo)) {
-        return Txid::FromUint256(*tx_hash);
+    auto pos = m_db->FindSpender(txo);
+    if (!pos) return std::nullopt;
+
+    AutoFile file{m_chainstate->m_blockman.OpenBlockFile(*pos, true)};
+    if (file.IsNull()) {
+        LogError("OpenBlockFile failed\n");
+        return std::nullopt;
     }
-    return std::nullopt;
+    CBlockHeader header;
+    CTransactionRef tx;
+    try {
+        file >> header;
+        if (fseek(file.Get(), pos->nTxOffset, SEEK_CUR)) {
+            LogError("fseek(...) failed\n");
+            return std::nullopt;
+        }
+        file >> TX_WITH_WITNESS(tx);
+    } catch (const std::exception& e) {
+        LogError("Deserialize or I/O error - %s\n", e.what());
+        return std::nullopt;
+    }
+
+    return tx->GetHash();
 }
 
 BaseIndex::DB& TxoSpenderIndex::GetDB() const { return *m_db; }
