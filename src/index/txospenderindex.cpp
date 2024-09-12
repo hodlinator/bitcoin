@@ -42,7 +42,7 @@ public:
     bool WriteSpenderInfos(const std::vector<std::pair<Key, Value>>& items);
     bool EraseSpenderInfos(const std::vector<Key>& items);
     std::optional<Value> FindSpender(const Key& key) const;
-    std::optional<Key> ComputeKey(const node::BlockManager& blockman, const COutPoint& prevout);
+    std::optional<Key> ComputeKey(const node::BlockManager& blockman, const COutPoint& prevout) EXCLUSIVE_LOCKS_REQUIRED(::cs_main);
 };
 
 TxoSpenderIndex::DB::DB(const TxIndex& tx_index, size_t n_cache_size, bool f_memory, bool f_wipe)
@@ -93,7 +93,6 @@ std::optional<TxoSpenderIndex::DB::Key> TxoSpenderIndex::DB::ComputeKey(const no
     // Maybe indexing hasn't completed yet?
     if (!m_tx_index.FindTx(prevout.hash, /*out*/block_hash, dummy_tx)) return std::nullopt;
 
-    LOCK(::cs_main);
     const CBlockIndex* block_index{blockman.LookupBlockIndex(block_hash)};
     // Maybe indexing hasn't completed yet?
     if (!block_index) return std::nullopt;
@@ -129,6 +128,7 @@ bool TxoSpenderIndex::CustomAppend(const interfaces::BlockInfo& block)
         assert(i < std::numeric_limits<uint16_t>::max());
         const DB::Value value{block.height};
         for (const auto& input : tx->vin) {
+            LOCK(cs_main);
             auto key{m_db->ComputeKey(m_chainstate->m_blockman, input.prevout)};
             assert(key);
             items.emplace_back(*key, value);
@@ -175,7 +175,6 @@ bool TxoSpenderIndex::CustomRewind(const interfaces::BlockKey& current_tip, cons
 std::optional<Txid> TxoSpenderIndex::FindSpender(const COutPoint& txo) const
 {
     node::BlockManager& blockman = m_chainstate->m_blockman;
-    LOCK(::cs_main);
     auto key{m_db->ComputeKey(m_chainstate->m_blockman, txo)};
     // Maybe indexing hasn't completed yet?
     if (!key) return std::nullopt;
@@ -188,27 +187,32 @@ std::optional<Txid> TxoSpenderIndex::FindSpender(const COutPoint& txo) const
     // No idea if this is permissible in production. Passes tests.
     std::vector<CBlockIndex*> sorted_by_height{blockman.GetAllBlockIndices()};
     std::sort(sorted_by_height.begin(), sorted_by_height.end(), node::CBlockIndexHeightOnlyComparator());
+    std::vector<std::vector<CBlockIndex*>> sorted_by_height_with_forks{sorted_by_height.size()};
     // Ensure no gaps and starting from genesis.
     for (size_t i{0}; i < sorted_by_height.size(); ++i) {
-        assert(sorted_by_height[i]->nHeight == static_cast<int>(i));
+        sorted_by_height_with_forks[sorted_by_height[i]->nHeight].push_back(sorted_by_height[i]);
     }
     // Maybe IBD hasn't completed yet?
-    if (static_cast<size_t>(*block_height) >= sorted_by_height.size()) return std::nullopt;
+    if (static_cast<size_t>(*block_height) >= sorted_by_height_with_forks.size()
+        || sorted_by_height_with_forks[*block_height].empty()) return std::nullopt;
 
-    const CBlockIndex* block_index{sorted_by_height[*block_height]};
-    assert(!blockman.IsBlockPruned(*block_index)); // We don't support pruning.
-    std::vector<uint8_t> block_data{};
-    // Not sure how this could happen.
-    assert(blockman.ReadRawBlockFromDisk(block_data, block_index->GetBlockPos()));
+    std::vector<CBlockIndex*> block_indexes{sorted_by_height_with_forks[*block_height]};
+    for (auto block_index : block_indexes)
+    {
+        assert(!blockman.IsBlockPruned(*block_index)); // We don't support pruning.
+        std::vector<uint8_t> block_data{};
+        // Not sure how this could happen.
+        assert(blockman.ReadRawBlockFromDisk(block_data, block_index->GetBlockPos()));
 
-    DataStream block_stream{block_data};
-    CBlock block{};
-    block_stream >> TX_WITH_WITNESS(block);
+        DataStream block_stream{block_data};
+        CBlock block{};
+        block_stream >> TX_WITH_WITNESS(block);
 
-    for (const auto& tx : block.vtx) {
-        for (const auto& input : tx->vin) {
-            if (input.prevout == txo) {
-                return tx->GetHash();
+        for (const auto& tx : block.vtx) {
+            for (const auto& input : tx->vin) {
+                if (input.prevout == txo) {
+                    return tx->GetHash();
+                }
             }
         }
     }

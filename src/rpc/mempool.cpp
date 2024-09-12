@@ -3,6 +3,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include "kernel/cs_main.h"
 #include <rpc/blockchain.h>
 
 #include <node/mempool_persist.h>
@@ -666,6 +667,7 @@ static RPCHelpMan gettxspendingprevout()
 
             const bool f_txospenderindex_ready = !mempool_only.value_or(false) && g_txospenderindex && g_txospenderindex->BlockUntilSyncedToCurrentChain();
 
+            LOCK(::cs_main);
             const CTxMemPool& mempool = EnsureAnyMemPool(request.context);
             LOCK(mempool.cs);
 
