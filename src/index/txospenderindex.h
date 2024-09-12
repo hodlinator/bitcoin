@@ -5,7 +5,10 @@
 #ifndef BITCOIN_INDEX_TXOSPENDERINDEX_H
 #define BITCOIN_INDEX_TXOSPENDERINDEX_H
 
+#include <attributes.h>
 #include <index/base.h>
+
+class TxIndex;
 
 static constexpr bool DEFAULT_TXOSPENDERINDEX{false};
 
@@ -22,7 +25,7 @@ protected:
 private:
     const std::unique_ptr<DB> m_db;
 
-    bool AllowPrune() const override { return true; }
+    bool AllowPrune() const override { return false; }
 
 protected:
     bool CustomAppend(const interfaces::BlockInfo& block) override;
@@ -32,7 +35,7 @@ protected:
     BaseIndex::DB& GetDB() const override;
 
 public:
-    explicit TxoSpenderIndex(std::unique_ptr<interfaces::Chain> chain, size_t n_cache_size, bool f_memory = false, bool f_wipe = false);
+    explicit TxoSpenderIndex(const TxIndex& tx_index LIFETIMEBOUND, std::unique_ptr<interfaces::Chain> chain, size_t n_cache_size, bool f_memory = false, bool f_wipe = false);
 
     // Destroys unique_ptr to an incomplete type.
     virtual ~TxoSpenderIndex() override;

@@ -1669,7 +1669,8 @@ bool AppInitMain(NodeContext& node, interfaces::BlockAndHeaderTipInfo* tip_info)
     }
 
     if (args.GetBoolArg("-txospenderindex", DEFAULT_TXOSPENDERINDEX)) {
-        g_txospenderindex = std::make_unique<TxoSpenderIndex>(interfaces::MakeChain(node), cache_sizes.txospender_index, false, do_reindex);
+        Assert(g_txindex);
+        g_txospenderindex = std::make_unique<TxoSpenderIndex>(*g_txindex, interfaces::MakeChain(node), cache_sizes.txospender_index, false, do_reindex);
         node.indexes.emplace_back(g_txospenderindex.get());
     }
 
