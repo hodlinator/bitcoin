@@ -3,6 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <chainparams.h>
+#include <index/txindex.h>
 #include <index/txospenderindex.h>
 #include <test/util/setup_common.h>
 #include <util/time.h>
@@ -14,7 +15,11 @@ BOOST_AUTO_TEST_SUITE(txospenderindex_tests)
 
 BOOST_FIXTURE_TEST_CASE(txospenderindex_initial_sync, TestChain100Setup)
 {
-    TxoSpenderIndex txospenderindex(interfaces::MakeChain(m_node), 1 << 20, true);
+    constexpr size_t cache_size = 1 << 20;
+    constexpr bool memory_only = true;
+    TxIndex txindex(interfaces::MakeChain(m_node), cache_size, memory_only);
+    BOOST_REQUIRE(txindex.Init());
+    TxoSpenderIndex txospenderindex(txindex, interfaces::MakeChain(m_node), cache_size, memory_only);
     BOOST_REQUIRE(txospenderindex.Init());
 
     // Mine blocks for coinbase maturity, so we can spend some coinbase outputs in the test.
@@ -52,13 +57,15 @@ BOOST_FIXTURE_TEST_CASE(txospenderindex_initial_sync, TestChain100Setup)
 
     // BlockUntilSyncedToCurrentChain should return false before txospenderindex is started.
     BOOST_CHECK(!txospenderindex.BlockUntilSyncedToCurrentChain());
+    BOOST_CHECK(!txindex.BlockUntilSyncedToCurrentChain());
 
     BOOST_REQUIRE(txospenderindex.StartBackgroundSync());
+    BOOST_REQUIRE(txindex.StartBackgroundSync());
 
     // Allow tx index to catch up with the block index.
     constexpr auto timeout{10s};
     const auto time_start{SteadyClock::now()};
-    while (!txospenderindex.BlockUntilSyncedToCurrentChain()) {
+    while (!txospenderindex.BlockUntilSyncedToCurrentChain() || !txindex.BlockUntilSyncedToCurrentChain()) {
         BOOST_REQUIRE(time_start + timeout > SteadyClock::now());
         UninterruptibleSleep(std::chrono::milliseconds{100});
     }
