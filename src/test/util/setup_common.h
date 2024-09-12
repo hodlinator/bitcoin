@@ -45,6 +45,16 @@ std::ostream& operator<<(typename std::enable_if<std::is_enum<T>::value, std::os
 {
     return stream << static_cast<typename std::underlying_type<T>::type>(e);
 }
+
+template <typename T>
+inline std::ostream& operator<<(std::ostream& os, const std::optional<T>& v)
+{
+    if (v) {
+        return os << v.value();
+    } else {
+        return os << "std::nullopt";
+    }
+}
 } // namespace std
 
 static constexpr CAmount CENT{1000000};

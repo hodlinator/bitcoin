@@ -63,8 +63,7 @@ BOOST_FIXTURE_TEST_CASE(txospenderindex_initial_sync, TestChain100Setup)
         UninterruptibleSleep(std::chrono::milliseconds{100});
     }
     for (size_t i = 0; i < spent.size(); i++) {
-        auto txId{txospenderindex.FindSpender(spent[i])};
-        BOOST_CHECK(txId.has_value() && txId.value() == spender[i].GetHash());
+        BOOST_CHECK_EQUAL(txospenderindex.FindSpender(spent[i]), spender[i].GetHash());
     }
 
     // It is not safe to stop and destroy the index until it finishes handling
