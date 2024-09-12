@@ -41,7 +41,7 @@ public:
     bool WriteSpenderInfos(const std::vector<std::pair<Key, CDiskTxPos>>& items);
     bool EraseSpenderInfos(const std::vector<Key>& items);
     std::optional<CDiskTxPos> FindSpender(const Key& key) const;
-    std::optional<Key> ComputeKey(const node::BlockManager& blockman, const COutPoint& prevout);
+    std::optional<Key> ComputeKey(const node::BlockManager& blockman, const COutPoint& prevout) EXCLUSIVE_LOCKS_REQUIRED(::cs_main);
 };
 
 TxoSpenderIndex::DB::DB(const TxIndex& tx_index LIFETIMEBOUND, size_t n_cache_size, bool f_memory, bool f_wipe)
@@ -94,7 +94,6 @@ std::optional<TxoSpenderIndex::DB::Key> TxoSpenderIndex::DB::ComputeKey(const no
         return std::nullopt;
     }
 
-    LOCK(::cs_main);
     const CBlockIndex* block_index{blockman.LookupBlockIndex(block_hash)};
     if (!block_index) return std::nullopt;
 
@@ -130,6 +129,7 @@ bool TxoSpenderIndex::CustomAppend(const interfaces::BlockInfo& block)
             continue;
         }
         for (const auto& input : tx->vin) {
+            LOCK(::cs_main);
             auto key{m_db->ComputeKey(m_chainstate->m_blockman, input.prevout)};
             assert(key);
             items.emplace_back(*key, value);

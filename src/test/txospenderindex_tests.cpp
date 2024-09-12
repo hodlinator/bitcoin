@@ -52,6 +52,7 @@ BOOST_FIXTURE_TEST_CASE(txospenderindex_initial_sync, TestChain100Setup)
 
     // Transaction should not be found in the index before it is started.
     for (const auto& outpoint : spent) {
+        LOCK(::cs_main);
         BOOST_CHECK(!txospenderindex.FindSpender(outpoint).has_value());
     }
 
@@ -70,6 +71,7 @@ BOOST_FIXTURE_TEST_CASE(txospenderindex_initial_sync, TestChain100Setup)
         UninterruptibleSleep(std::chrono::milliseconds{100});
     }
     for (size_t i = 0; i < spent.size(); i++) {
+        LOCK(::cs_main);
         BOOST_CHECK_EQUAL(txospenderindex.FindSpender(spent[i]), spender[i].GetHash());
     }
 

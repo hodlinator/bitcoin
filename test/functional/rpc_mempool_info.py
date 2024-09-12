@@ -16,8 +16,8 @@ class RPCMempoolInfoTest(BitcoinTestFramework):
     def set_test_params(self):
         self.num_nodes = 3
         self.extra_args = [
-            ["-txospenderindex", "-whitelist=noban@127.0.0.1"],
-            ["-txospenderindex", "-whitelist=noban@127.0.0.1"],
+            ["-txindex", "-txospenderindex", "-whitelist=noban@127.0.0.1"],
+            ["-txindex", "-txospenderindex", "-whitelist=noban@127.0.0.1"],
             ["-whitelist=noban@127.0.0.1"],
         ]
 

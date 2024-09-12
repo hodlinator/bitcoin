@@ -40,7 +40,7 @@ public:
     // Destroys unique_ptr to an incomplete type.
     virtual ~TxoSpenderIndex() override;
 
-    std::optional<Txid> FindSpender(const COutPoint& txo) const;
+    std::optional<Txid> FindSpender(const COutPoint& txo) const EXCLUSIVE_LOCKS_REQUIRED(::cs_main);
 };
 
 /// The global txo spender index. May be null.
