@@ -3,6 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <common/args.h>
+#include <crypto/common.h>
 #include <index/disktxpos.h>
 #include <index/txospenderindex.h>
 #include <logging.h>
@@ -14,28 +15,68 @@
 
 std::unique_ptr<TxoSpenderIndex> g_txospenderindex;
 
-/** Access to the txo spender index database (indexes/txospenderindex/) */
+/** Access to the txo spender index database (indexes/txospenderindex/)
+ *
+ * Since LevelDB only supports unique keys, prefix keyed versions of transaction
+ * outpoints may collide. (If non-unique keys were allowed like in a multimap,
+ * one could disambiguate identical prefix keys by de-serializing the
+ * transaction in each value and searching the vin's for the full outpoint being
+ * queried).
+ * We solve this by replacing collided prefixed keys with the tombstone value -1
+ * and writing the previous value into a "moved" entry, then writing otherwise
+ * colliding entries with full tx hash + n. */
 class TxoSpenderIndex::DB : public BaseIndex::DB
 {
-    // LeveLDB key prefix. We only have one key for now but it will make it easier to add others if needed.
-    static constexpr uint8_t DB_TXOSPENDERINDEX{'s'};
+    static constexpr int COLLISION_TOMBSTONE = -1;
+
+    // LevelDB key prefixes.
+    static constexpr uint8_t DB_TXOSPENDERINDEX_P{'p'}; // Prefixes, value may be COLLISION_TOMBSTONE
+    static constexpr uint8_t DB_TXOSPENDERINDEX_F{'f'}; // Fully unique outpoints: tx hash + n
+    static constexpr uint8_t DB_TXOSPENDERINDEX_M{'m'}; // Moved prefixes that ran into collisions
+
+    static constexpr size_t PREFIX_KEY_SIZE = 8;
+
+    static std::array<uint8_t, PREFIX_KEY_SIZE> MakePrefixKey(const COutPoint& txo)
+    {
+        std::array<uint8_t, PREFIX_KEY_SIZE> rv;
+        const uint256& hash = txo.hash.ToUint256();
+        std::copy(hash.begin(), hash.begin() + rv.size(), rv.begin());
+        // (Hash + N)
+        assert(rv.size() >= sizeof(txo.n));
+        // Endian-neutral
+        static_assert(sizeof(txo.n) == 4);
+        rv[0] += (txo.n >>  0) & 0xFF;
+        rv[1] += (txo.n >>  8) & 0xFF;
+        rv[2] += (txo.n >> 16) & 0xFF;
+        rv[3] += (txo.n >> 24) & 0xFF;
+        return rv;
+    }
+
+    static std::array<uint8_t, 36> MakeFullKey(const COutPoint& txo)
+    {
+        const uint256& hash = txo.hash.ToUint256();
+        std::array<uint8_t, uint256::size() + sizeof(COutPoint::n)> rv;
+        // In order to fully prevent collisions, the full version keeps hash + n separate.
+        // (Hash | N)
+        std::copy(hash.begin(), hash.end(), rv.begin());
+        static_assert(sizeof(txo.n) == 4);
+        WriteLE32(rv.begin() + uint256::size(), txo.n);
+        return rv;
+    }
 
 public:
     explicit DB(size_t n_cache_size, bool f_memory = false, bool f_wipe = false);
 
     struct Key {
-        uint64_t inner;
-        Key(const COutPoint& prevout)
-            : inner{prevout.hash.ToUint256().GetUint64(0) + prevout.n}
-        {
-        }
+        std::array<uint8_t, PREFIX_KEY_SIZE> inner;
+        Key(const COutPoint& txo) : inner{MakePrefixKey(txo)} {}
 
         SERIALIZE_METHODS(Key, k) { READWRITE(VARINT(k.inner)); }
     };
 
-    bool WriteSpenderInfos(const std::vector<std::pair<Key, CDiskTxPos>>& items);
-    bool EraseSpenderInfos(const std::vector<Key>& items);
-    std::optional<CDiskTxPos> FindSpender(const Key& key) const;
+    bool WriteSpenderInfos(const std::vector<std::pair<COutPoint, CDiskTxPos>>& items);
+    bool EraseSpenderInfos(const std::vector<COutPoint>& items);
+    std::optional<CDiskTxPos> FindSpender(const COutPoint& txo);
 };
 
 TxoSpenderIndex::DB::DB(size_t n_cache_size, bool f_memory, bool f_wipe)
@@ -51,36 +92,83 @@ TxoSpenderIndex::TxoSpenderIndex(std::unique_ptr<interfaces::Chain> chain, size_
 
 TxoSpenderIndex::~TxoSpenderIndex() = default;
 
-bool TxoSpenderIndex::DB::WriteSpenderInfos(const std::vector<std::pair<Key, CDiskTxPos>>& items)
+bool TxoSpenderIndex::DB::WriteSpenderInfos(const std::vector<std::pair<COutPoint, CDiskTxPos>>& items)
 {
     CDBBatch batch(*this);
-    for (const auto& [key, pos] : items) {
-        batch.Write(std::pair{DB_TXOSPENDERINDEX, key}, pos);
+    for (const auto& [txo, pos] : items) {
+        const auto prefix = MakePrefixKey(txo);
+        CDiskTxPos pos_old;
+        // Do we have a previous entry with the same key?
+        if (Read(std::pair{DB_TXOSPENDERINDEX_P, prefix}, pos_old)) {
+            if (pos_old == pos) {
+                // We already have this exact entry. Weird that we are getting writes for it multiple times, but okay.
+                continue;
+            } else if (pos_old.nFile != COLLISION_TOMBSTONE) {
+                // We found a different non-collision entry at the current prefix length. Write it into a moved entry.
+                batch.Write(std::pair{DB_TXOSPENDERINDEX_M, prefix}, pos_old);
+                // Replace old entry with tombstone.
+                batch.Write(std::pair{DB_TXOSPENDERINDEX_P, prefix}, CDiskTxPos{FlatFilePos{COLLISION_TOMBSTONE, 0}, 0});
+            }
+            batch.Write(std::pair{DB_TXOSPENDERINDEX_F, MakeFullKey(txo)}, pos);
+        } else {
+            batch.Write(std::pair{DB_TXOSPENDERINDEX_P, prefix}, pos);
+        }
     }
     return WriteBatch(batch);
 }
 
-bool TxoSpenderIndex::DB::EraseSpenderInfos(const std::vector<Key>& items)
+bool TxoSpenderIndex::DB::EraseSpenderInfos(const std::vector<COutPoint>& items)
 {
     CDBBatch batch(*this);
-    for (const auto& key : items) {
-        batch.Erase(std::pair{DB_TXOSPENDERINDEX, key});
+    for (const auto& txo : items) {
+        const auto prefix = MakePrefixKey(txo);
+        CDiskTxPos pos_old;
+        // Do we have a previous entry with the same key?
+        if (Read(std::pair{DB_TXOSPENDERINDEX_P, prefix}, pos_old)) {
+            if (pos_old.nFile == COLLISION_TOMBSTONE) {
+                const auto full_key = MakeFullKey(txo);
+                if (Exists(std::pair{DB_TXOSPENDERINDEX_F, full_key})) {
+                    batch.Erase(std::pair{DB_TXOSPENDERINDEX_F, full_key});
+                } else {
+                    // No full key match, this must be the moved one...
+                    // Assuming we never get duplicate deletes for the same entry.
+                    assert(Exists(std::pair{DB_TXOSPENDERINDEX_M, prefix}));
+                    batch.Erase(std::pair{DB_TXOSPENDERINDEX_M, prefix});
+                }
+            } else {
+                batch.Erase(std::pair{DB_TXOSPENDERINDEX_P, prefix});
+            }
+        } else {
+            assert(false); // Erasing an entry that doesn't exist?
+        }
     }
     return WriteBatch(batch);
 }
 
-std::optional<CDiskTxPos> TxoSpenderIndex::DB::FindSpender(const Key& key) const
+std::optional<CDiskTxPos> TxoSpenderIndex::DB::FindSpender(const COutPoint& txo)
 {
+    const auto prefix = MakePrefixKey(txo);
     CDiskTxPos pos_out;
-    if (Read(std::pair{DB_TXOSPENDERINDEX, key}, pos_out)) {
-        return pos_out;
+    if (Read(std::pair{DB_TXOSPENDERINDEX_P, prefix}, pos_out)) {
+        if (pos_out.nFile == COLLISION_TOMBSTONE) {
+            // We had a collision. Check if we have an exact match on the full key.
+            if (Read(std::pair{DB_TXOSPENDERINDEX_F, MakeFullKey(txo)}, pos_out)) {
+                return pos_out;
+            // No full key, check if we are the moved prefix version.
+            } else if (Read(std::pair{DB_TXOSPENDERINDEX_M, prefix}, pos_out)) {
+                return pos_out;
+            }
+        } else {
+            // We found an normal entry at the short prefix length.
+            return pos_out;
+        }
     }
     return std::nullopt;
 }
 
 bool TxoSpenderIndex::CustomAppend(const interfaces::BlockInfo& block)
 {
-    std::vector<std::pair<DB::Key, CDiskTxPos>> items;
+    std::vector<std::pair<COutPoint, CDiskTxPos>> items;
     items.reserve(block.data->vtx.size());
 
     CDiskTxPos pos({block.file_number, block.data_pos}, GetSizeOfCompactSize(block.data->vtx.size()));
@@ -109,7 +197,7 @@ bool TxoSpenderIndex::CustomRewind(const interfaces::BlockKey& current_tip, cons
             LogError("Failed to read block %s from disk\n", iter_tip->GetBlockHash().ToString());
             return false;
         }
-        std::vector<DB::Key> items;
+        std::vector<COutPoint> items;
         items.reserve(block.vtx.size());
         for (const auto& tx : block.vtx) {
             if (tx->IsCoinBase()) {
