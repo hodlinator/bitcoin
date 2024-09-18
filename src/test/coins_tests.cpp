@@ -682,37 +682,21 @@ BOOST_AUTO_TEST_CASE(ccoins_access)
     /* Check AccessCoin behavior, requesting a coin from a cache view layered on
      * top of a base view, and checking the resulting entry in the cache after
      * the access.
-     *              Base    Cache               Expected
+     *                  Base        Cache               Expected
      */
-    CheckAccessCoin(ABSENT, std::nullopt,       std::nullopt      );
-    CheckAccessCoin(ABSENT, SPENT_CLEAN,        SPENT_CLEAN       );
-    CheckAccessCoin(ABSENT, SPENT_FRESH,        SPENT_FRESH       );
-    CheckAccessCoin(ABSENT, SPENT_DIRTY,        SPENT_DIRTY       );
-    CheckAccessCoin(ABSENT, SPENT_DIRTY_FRESH,  SPENT_DIRTY_FRESH );
-    CheckAccessCoin(ABSENT, VALUE2_CLEAN,       VALUE2_CLEAN      );
-    CheckAccessCoin(ABSENT, VALUE2_FRESH,       VALUE2_FRESH      );
-    CheckAccessCoin(ABSENT, VALUE2_DIRTY,       VALUE2_DIRTY      );
-    CheckAccessCoin(ABSENT, VALUE2_DIRTY_FRESH, VALUE2_DIRTY_FRESH);
+    for (auto base_value : {ABSENT, SPENT, VALUE1}) {
+        CheckAccessCoin(base_value, std::nullopt,       base_value == VALUE1 ? VALUE1_CLEAN : MaybeCoin{});
 
-    CheckAccessCoin(SPENT,  std::nullopt,       std::nullopt      );
-    CheckAccessCoin(SPENT,  SPENT_CLEAN,        SPENT_CLEAN       );
-    CheckAccessCoin(SPENT,  SPENT_FRESH,        SPENT_FRESH       );
-    CheckAccessCoin(SPENT,  SPENT_DIRTY,        SPENT_DIRTY       );
-    CheckAccessCoin(SPENT,  SPENT_DIRTY_FRESH,  SPENT_DIRTY_FRESH );
-    CheckAccessCoin(SPENT,  VALUE2_CLEAN,       VALUE2_CLEAN      );
-    CheckAccessCoin(SPENT,  VALUE2_FRESH,       VALUE2_FRESH      );
-    CheckAccessCoin(SPENT,  VALUE2_DIRTY,       VALUE2_DIRTY      );
-    CheckAccessCoin(SPENT,  VALUE2_DIRTY_FRESH, VALUE2_DIRTY_FRESH);
+        CheckAccessCoin(base_value, SPENT_CLEAN,        SPENT_CLEAN       );
+        CheckAccessCoin(base_value, SPENT_FRESH,        SPENT_FRESH       );
+        CheckAccessCoin(base_value, SPENT_DIRTY,        SPENT_DIRTY       );
+        CheckAccessCoin(base_value, SPENT_DIRTY_FRESH,  SPENT_DIRTY_FRESH );
 
-    CheckAccessCoin(VALUE1, std::nullopt,       VALUE1_CLEAN      );
-    CheckAccessCoin(VALUE1, SPENT_CLEAN,        SPENT_CLEAN       );
-    CheckAccessCoin(VALUE1, SPENT_FRESH,        SPENT_FRESH       );
-    CheckAccessCoin(VALUE1, SPENT_DIRTY,        SPENT_DIRTY       );
-    CheckAccessCoin(VALUE1, SPENT_DIRTY_FRESH,  SPENT_DIRTY_FRESH );
-    CheckAccessCoin(VALUE1, VALUE2_CLEAN,       VALUE2_CLEAN      );
-    CheckAccessCoin(VALUE1, VALUE2_FRESH,       VALUE2_FRESH      );
-    CheckAccessCoin(VALUE1, VALUE2_DIRTY,       VALUE2_DIRTY      );
-    CheckAccessCoin(VALUE1, VALUE2_DIRTY_FRESH, VALUE2_DIRTY_FRESH);
+        CheckAccessCoin(base_value, VALUE2_CLEAN,       VALUE2_CLEAN      );
+        CheckAccessCoin(base_value, VALUE2_FRESH,       VALUE2_FRESH      );
+        CheckAccessCoin(base_value, VALUE2_DIRTY,       VALUE2_DIRTY      );
+        CheckAccessCoin(base_value, VALUE2_DIRTY_FRESH, VALUE2_DIRTY_FRESH);
+    }
 }
 
 static void CheckSpendCoins(CAmount base_value, const MaybeCoin& cache_coin, MaybeCoin expected)
@@ -728,37 +712,21 @@ BOOST_AUTO_TEST_CASE(ccoins_spend)
     /* Check SpendCoin behavior, requesting a coin from a cache view layered on
      * top of a base view, spending, and then checking
      * the resulting entry in the cache after the modification.
-     *              Base    Cache               Expected
+     *                  Base        Cache               Expected
      */
-    CheckSpendCoins(ABSENT, std::nullopt,       std::nullopt);
-    CheckSpendCoins(ABSENT, SPENT_CLEAN,        SPENT_DIRTY );
-    CheckSpendCoins(ABSENT, SPENT_FRESH,        std::nullopt);
-    CheckSpendCoins(ABSENT, SPENT_DIRTY,        SPENT_DIRTY );
-    CheckSpendCoins(ABSENT, SPENT_DIRTY_FRESH,  std::nullopt);
-    CheckSpendCoins(ABSENT, VALUE2_CLEAN,       SPENT_DIRTY );
-    CheckSpendCoins(ABSENT, VALUE2_FRESH,       std::nullopt);
-    CheckSpendCoins(ABSENT, VALUE2_DIRTY,       SPENT_DIRTY );
-    CheckSpendCoins(ABSENT, VALUE2_DIRTY_FRESH, std::nullopt);
+    for (auto base_value : {ABSENT, SPENT, VALUE1}) {
+        CheckSpendCoins(base_value, std::nullopt,       base_value == VALUE1 ? SPENT_DIRTY : MaybeCoin{});
 
-    CheckSpendCoins(SPENT,  std::nullopt,       std::nullopt);
-    CheckSpendCoins(SPENT,  SPENT_CLEAN,        SPENT_DIRTY );
-    CheckSpendCoins(SPENT,  SPENT_FRESH,        std::nullopt);
-    CheckSpendCoins(SPENT,  SPENT_DIRTY,        SPENT_DIRTY );
-    CheckSpendCoins(SPENT,  SPENT_DIRTY_FRESH,  std::nullopt);
-    CheckSpendCoins(SPENT,  VALUE2_CLEAN,       SPENT_DIRTY );
-    CheckSpendCoins(SPENT,  VALUE2_FRESH,       std::nullopt);
-    CheckSpendCoins(SPENT,  VALUE2_DIRTY,       SPENT_DIRTY );
-    CheckSpendCoins(SPENT,  VALUE2_DIRTY_FRESH, std::nullopt);
+        CheckSpendCoins(base_value, SPENT_CLEAN,        SPENT_DIRTY);
+        CheckSpendCoins(base_value, SPENT_FRESH,        std::nullopt);
+        CheckSpendCoins(base_value, SPENT_DIRTY,        SPENT_DIRTY);
+        CheckSpendCoins(base_value, SPENT_DIRTY_FRESH,  std::nullopt);
 
-    CheckSpendCoins(VALUE1, std::nullopt,       SPENT_DIRTY );
-    CheckSpendCoins(VALUE1, SPENT_CLEAN,        SPENT_DIRTY );
-    CheckSpendCoins(VALUE1, SPENT_FRESH,        std::nullopt);
-    CheckSpendCoins(VALUE1, SPENT_DIRTY,        SPENT_DIRTY );
-    CheckSpendCoins(VALUE1, SPENT_DIRTY_FRESH,  std::nullopt);
-    CheckSpendCoins(VALUE1, VALUE2_CLEAN,       SPENT_DIRTY );
-    CheckSpendCoins(VALUE1, VALUE2_FRESH,       std::nullopt);
-    CheckSpendCoins(VALUE1, VALUE2_DIRTY,       SPENT_DIRTY );
-    CheckSpendCoins(VALUE1, VALUE2_DIRTY_FRESH, std::nullopt);
+        CheckSpendCoins(base_value, VALUE2_CLEAN,       SPENT_DIRTY);
+        CheckSpendCoins(base_value, VALUE2_FRESH,       std::nullopt);
+        CheckSpendCoins(base_value, VALUE2_DIRTY,       SPENT_DIRTY);
+        CheckSpendCoins(base_value, VALUE2_DIRTY_FRESH, std::nullopt);
+    }
 }
 
 static void CheckAddCoin(CAmount base_value, const MaybeCoin& cache_coin, CAmount modify_value, const CoinOrError expected, bool coinbase)
