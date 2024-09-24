@@ -11,13 +11,28 @@ using namespace util;
 
 BOOST_AUTO_TEST_SUITE(util_string_tests)
 
+template <typename... Tt>
+void TfmF(const char* fmt, const std::tuple<Tt...>& t)
+{
+    std::apply([fmt](const Tt&... ta){
+        tfm::format(std::string{fmt}, ta...);
+    }, t);
+}
+
 // Helper to allow compile-time sanity checks while providing the number of
 // args directly. Normally PassFmt<sizeof...(Args)> would be used.
 template <unsigned NumArgs>
 inline void PassFmt(ConstevalFormatString<NumArgs> fmt)
 {
     // This was already executed at compile-time, but is executed again at run-time to avoid -Wunused.
+    // Run-time execution of the happy path also helps code coverage metrics.
     decltype(fmt)::Detail_CheckNumFormatSpecifiers(fmt.fmt);
+
+    // Prove parity with tinyformat
+    TfmF(fmt.fmt, std::tuple_cat(std::array<int, NumArgs>{}));
+    if constexpr (NumArgs > 0) {
+        BOOST_CHECK_THROW(TfmF(fmt.fmt, std::tuple_cat(std::array<int, NumArgs - 1>{})), tfm::format_error);
+    }
 }
 template <unsigned WrongNumArgs>
 inline void FailFmtWithError(const char* wrong_fmt, std::string_view error)
