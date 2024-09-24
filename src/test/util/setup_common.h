@@ -275,7 +275,13 @@ class HasReason
 {
 public:
     explicit HasReason(std::string_view reason) : m_reason(reason) {}
-    bool operator()(std::string_view s) const { return s.find(m_reason) != std::string_view::npos; }
+    bool operator()(std::string_view s) const
+    {
+        bool found{s.find(m_reason) != std::string_view::npos};
+        // Write unexpected value to failing test output.
+        if (!found) fprintf(stderr, "HasReason: Couldn't find '%s' in '%.*s'\n", m_reason.c_str(), static_cast<int>(s.length()), s.data());
+        return found;
+    }
     bool operator()(const std::exception& e) const { return (*this)(e.what()); }
 
 private:
