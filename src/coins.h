@@ -133,11 +133,13 @@ private:
     {
         Assume(flags & (DIRTY | FRESH));
         if (!pair.second.m_flags) {
+            Assume(!pair.second.m_prev && !pair.second.m_next);
             pair.second.m_prev = sentinel.second.m_prev;
             pair.second.m_next = &sentinel;
             sentinel.second.m_prev = &pair;
             pair.second.m_prev->second.m_next = &pair;
         }
+        Assume(pair.second.m_prev && pair.second.m_next);
         pair.second.m_flags |= flags;
     }
 
@@ -181,6 +183,7 @@ public:
         m_next->second.m_prev = m_prev;
         m_prev->second.m_next = m_next;
         m_flags = 0;
+        m_prev = m_next = nullptr;
     }
     inline bool IsDirty() const noexcept { return m_flags & DIRTY; }
     inline bool IsFresh() const noexcept { return m_flags & FRESH; }
