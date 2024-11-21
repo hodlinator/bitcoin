@@ -119,7 +119,12 @@ public:
 
 struct PayToAnchor : public WitnessUnknown
 {
-    PayToAnchor() : WitnessUnknown{1, {{0x4e, 0x73}}} {
+    /** Witness program for output script */
+    static constexpr std::array<unsigned char, 2> PROGRAM{0x4e, 0x73};
+
+    static constexpr unsigned int VERSION = 1;
+
+    PayToAnchor() : WitnessUnknown{VERSION, PROGRAM} {
         Assume(CScript::IsPayToAnchor(GetWitnessVersion(), GetWitnessProgram()));
     };
 };
