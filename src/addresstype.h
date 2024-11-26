@@ -99,8 +99,8 @@ private:
     std::vector<unsigned char> m_program;
 
 public:
-    WitnessUnknown(unsigned int version, const std::vector<unsigned char>& program) : m_version(version), m_program(program) {}
-    WitnessUnknown(int version, const std::vector<unsigned char>& program) : m_version(static_cast<unsigned int>(version)), m_program(program) {}
+    WitnessUnknown(unsigned int version, std::span<const unsigned char> program) : m_version{version}, m_program{program.begin(), program.end()} {}
+    WitnessUnknown(int version, std::span<const unsigned char> program) : m_version{static_cast<unsigned int>(version)}, m_program{program.begin(), program.end()} {}
 
     unsigned int GetWitnessVersion() const { return m_version; }
     const std::vector<unsigned char>& GetWitnessProgram() const LIFETIMEBOUND { return m_program; }
@@ -119,8 +119,8 @@ public:
 
 struct PayToAnchor : public WitnessUnknown
 {
-    PayToAnchor() : WitnessUnknown(1, {0x4e, 0x73}) {
-        Assume(CScript::IsPayToAnchor(1, {0x4e, 0x73}));
+    PayToAnchor() : WitnessUnknown{1, {{0x4e, 0x73}}} {
+        Assume(CScript::IsPayToAnchor(GetWitnessVersion(), GetWitnessProgram()));
     };
 };
 
