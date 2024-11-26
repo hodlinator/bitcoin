@@ -27,6 +27,14 @@ private:
 public:
     explicit DestinationEncoder(const CChainParams& params) : m_params(params) {}
 
+    std::string operator()(const PayToAnchor& p2a) const
+    {
+        std::vector<unsigned char> data = {(unsigned char)PayToAnchor::VERSION};
+        data.reserve(1 + (PayToAnchor::PROGRAM.size() * 8 + 4) / 5);
+        ConvertBits<8, 5, true>([&](unsigned char c) { data.push_back(c); }, PayToAnchor::PROGRAM.begin(), PayToAnchor::PROGRAM.end());
+        return bech32::Encode(bech32::Encoding::BECH32M, m_params.Bech32HRP(), data);
+    }
+
     std::string operator()(const PKHash& id) const
     {
         std::vector<unsigned char> data = m_params.Base58Prefix(CChainParams::PUBKEY_ADDRESS);

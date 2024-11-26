@@ -117,16 +117,20 @@ public:
     }
 };
 
-struct PayToAnchor : public WitnessUnknown
+struct PayToAnchor
 {
     /** Witness program for output script */
     static constexpr std::array<unsigned char, 2> PROGRAM{0x4e, 0x73};
 
     static constexpr unsigned int VERSION = 1;
 
-    PayToAnchor() : WitnessUnknown{VERSION, PROGRAM} {
-        Assume(CScript::IsPayToAnchor(GetWitnessVersion(), GetWitnessProgram()));
-    };
+    friend bool operator==(const PayToAnchor& a, const PayToAnchor& b) {
+        return true;
+    }
+
+    friend bool operator<(const PayToAnchor& a, const PayToAnchor& b) {
+        return false;
+    }
 };
 
 /**

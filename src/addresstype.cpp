@@ -113,6 +113,11 @@ public:
         return dest.GetScript();
     }
 
+    CScript operator()(const PayToAnchor& p2a) const
+    {
+        return CScript() << OP_1 << ToByteVector(PayToAnchor::PROGRAM);
+    }
+
     CScript operator()(const PubKeyDestination& dest) const
     {
         return CScript() << ToByteVector(dest.GetPubKey()) << OP_CHECKSIG;
@@ -153,6 +158,7 @@ class ValidDestinationVisitor
 {
 public:
     bool operator()(const CNoDestination& dest) const { return false; }
+    bool operator()(const PayToAnchor& dest) const { return true; }
     bool operator()(const PubKeyDestination& dest) const { return false; }
     bool operator()(const PKHash& dest) const { return true; }
     bool operator()(const ScriptHash& dest) const { return true; }
