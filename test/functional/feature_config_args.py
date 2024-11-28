@@ -37,6 +37,36 @@ class ConfArgsTest(BitcoinTestFramework):
         self.nodes[0].debug_log_path.parent.mkdir()
         self.nodes[0].debug_log_path.touch()
 
+    def test_negated_config(self):
+        self.log.info('Disabling configuration via -noconf')
+
+        conf_path = self.nodes[0].datadir_path / 'bitcoin.conf'
+        with open(conf_path, encoding='utf-8') as conf:
+            settings = [f'-{line.rstrip()}' for line in conf if len(line) > 1 and line[0] != '[']
+        os.rename(conf_path, conf_path.with_suffix('.confbkp'))
+
+        self.log.debug('Verifying garbage in config can be detected')
+        with open(conf_path, 'a', encoding='utf-8') as conf:
+            conf.write(f'garbage\n')
+        self.nodes[0].assert_start_raises_init_error(
+            extra_args=['-regtest'],
+            expected_msg='Error: Error reading configuration file: parse error on line 1: garbage',
+        )
+
+        self.log.debug('Verifying warning when disabling existing config file')
+        ignored_file_warning = [f'[warning] Data directory "{self.nodes[0].datadir_path}" contains a "bitcoin.conf" file which is explicitly ignored using -noconf.']
+        with self.nodes[0].assert_debug_log(timeout=60, expected_msgs=ignored_file_warning):
+            self.start_node(0, extra_args=settings + ['-noconf'])
+        self.stop_node(0)
+
+        self.log.debug('Verifying no warning occurs when removing config file')
+        os.remove(conf_path)
+        with self.nodes[0].assert_debug_log(timeout=60, expected_msgs=[], unexpected_msgs=ignored_file_warning):
+            self.start_node(0, extra_args=settings + ['-noconf'])
+        self.stop_node(0)
+
+        os.rename(conf_path.with_suffix('.confbkp'), conf_path)
+
     def test_config_file_parser(self):
         self.log.info('Test config file parser')
 
@@ -433,6 +463,7 @@ class ConfArgsTest(BitcoinTestFramework):
         self.test_networkactive()
         self.test_connect_with_seednode()
 
+        self.test_negated_config()
         self.test_config_file_parser()
         self.test_config_file_log()
         self.test_invalid_command_line_options()
