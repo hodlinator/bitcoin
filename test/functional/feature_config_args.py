@@ -27,9 +27,18 @@ class ConfArgsTest(BitcoinTestFramework):
         self.wallet_names = []
         self.disable_autoconnect = False
 
+    def setup_network(self):
+        self.setup_nodes()
+        # Don't attempt to sync nodes as we only have one and it hasn't been started yet.
+
+    def setup_nodes(self):
+        self.add_nodes(self.num_nodes, self.extra_args)
+        # Don't start node yet, just ensure a log file exists for TestNode.assert_debug_log()
+        self.nodes[0].debug_log_path.parent.mkdir()
+        self.nodes[0].debug_log_path.touch()
+
     def test_config_file_parser(self):
         self.log.info('Test config file parser')
-        self.stop_node(0)
 
         # Check that startup fails if conf= is set in bitcoin.conf or in an included conf file
         bad_conf_file_path = self.nodes[0].datadir_path / "bitcoin_bad.conf"
@@ -162,12 +171,11 @@ class ConfArgsTest(BitcoinTestFramework):
                 )
 
     def test_log_buffer(self):
-        self.stop_node(0)
         with self.nodes[0].assert_debug_log(expected_msgs=['Warning: parsed potentially confusing double-negative -connect=0\n']):
             self.start_node(0, extra_args=['-noconnect=0'])
+        self.stop_node(0)
 
     def test_args_log(self):
-        self.stop_node(0)
         self.log.info('Test config args logging')
         with self.nodes[0].assert_debug_log(
                 expected_msgs=[
@@ -196,10 +204,10 @@ class ConfArgsTest(BitcoinTestFramework):
                 '-rpcuser=secret-rpcuser',
                 '-torpassword=secret-torpassword',
             ])
+        # Leave node running for test_seed_peers()
 
     def test_networkactive(self):
         self.log.info('Test -networkactive option')
-        self.stop_node(0)
         with self.nodes[0].assert_debug_log(expected_msgs=['SetNetworkActive: true\n']):
             self.start_node(0)
 
@@ -222,6 +230,7 @@ class ConfArgsTest(BitcoinTestFramework):
         self.stop_node(0)
         with self.nodes[0].assert_debug_log(expected_msgs=['SetNetworkActive: false\n']):
             self.start_node(0, extra_args=['-nonetworkactive=1'])
+        self.stop_node(0)
 
     def test_seed_peers(self):
         self.log.info('Test seed peers')
@@ -294,13 +303,13 @@ class ConfArgsTest(BitcoinTestFramework):
                 "Adding fixed seeds as 60 seconds have passed and addrman is empty",
         ]):
             self.nodes[0].setmocktime(start + 65)
+        self.stop_node(0)
 
     def test_connect_with_seednode(self):
         self.log.info('Test -connect with -seednode')
         seednode_ignored = ['-seednode is ignored when -connect is used\n']
         dnsseed_ignored = ['-dnsseed is ignored when -connect is used and -proxy is specified\n']
         addcon_thread_started = ['addcon thread start\n']
-        self.stop_node(0)
 
         # When -connect is supplied, expanding addrman via getaddr calls to ADDR_FETCH(-seednode)
         # nodes is irrelevant and -seednode is ignored.
@@ -325,6 +334,7 @@ class ConfArgsTest(BitcoinTestFramework):
             with self.nodes[0].assert_debug_log(expected_msgs=addcon_thread_started,
                     unexpected_msgs=seednode_ignored):
                 self.restart_node(0, extra_args=[connect_arg, '-seednode=fakeaddress2'])
+        self.stop_node(0)
 
     def test_ignored_conf(self):
         self.log.info('Test error is triggered when the datadir in use contains a bitcoin.conf file that would be ignored '
