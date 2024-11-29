@@ -128,6 +128,19 @@ private:
     CoinsCachePair* m_next{nullptr};
     uint8_t m_flags{0};
 
+    //! Adding a flag requires a reference to the sentinel of the flagged pair linked list.
+    static inline void AddFlags(uint8_t flags, CoinsCachePair& pair, CoinsCachePair& sentinel) noexcept
+    {
+        Assume(flags & (DIRTY | FRESH));
+        if (!pair.second.m_flags) {
+            pair.second.m_prev = sentinel.second.m_prev;
+            pair.second.m_next = &sentinel;
+            sentinel.second.m_prev = &pair;
+            pair.second.m_prev->second.m_next = &pair;
+        }
+        pair.second.m_flags |= flags;
+    }
+
 public:
     Coin coin; // The actual cached data.
 
@@ -159,18 +172,6 @@ public:
         SetClean();
     }
 
-    //! Adding a flag requires a reference to the sentinel of the flagged pair linked list.
-    static inline void AddFlags(uint8_t flags, CoinsCachePair& pair, CoinsCachePair& sentinel) noexcept
-    {
-        Assume(flags & (DIRTY | FRESH));
-        if (!pair.second.m_flags) {
-            pair.second.m_prev = sentinel.second.m_prev;
-            pair.second.m_next = &sentinel;
-            sentinel.second.m_prev = &pair;
-            pair.second.m_prev->second.m_next = &pair;
-        }
-        pair.second.m_flags |= flags;
-    }
     static inline void SetDirty(CoinsCachePair& pair, CoinsCachePair& sentinel) noexcept { AddFlags(DIRTY, pair, sentinel); }
     static inline void SetFresh(CoinsCachePair& pair, CoinsCachePair& sentinel) noexcept { AddFlags(FRESH, pair, sentinel); }
 
@@ -181,7 +182,6 @@ public:
         m_prev->second.m_next = m_next;
         m_flags = 0;
     }
-    inline uint8_t GetFlags() const noexcept { return m_flags; }
     inline bool IsDirty() const noexcept { return m_flags & DIRTY; }
     inline bool IsFresh() const noexcept { return m_flags & FRESH; }
 
@@ -198,11 +198,11 @@ public:
     }
 
     //! Only use this for initializing the linked list sentinel
-    inline void SelfRef(CoinsCachePair& self) noexcept
+    inline void SelfRef(CoinsCachePair& pair) noexcept
     {
-        Assume(&self.second == this);
-        m_prev = &self;
-        m_next = &self;
+        Assume(&pair.second == this);
+        m_prev = &pair;
+        m_next = &pair;
         // Set sentinel to DIRTY so we can call Next on it
         m_flags = DIRTY;
     }
