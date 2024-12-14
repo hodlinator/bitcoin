@@ -96,9 +96,9 @@ BOOST_AUTO_TEST_CASE(logging_local_logger)
     LogTrace(log, "trace %s\n", "arg");
 
     constexpr auto expected{std::to_array({
-        "[net:error] error arg\n",
-        "[net:warning] warning arg\n",
-        "[net:info] info arg\n",
+        "[error] error arg\n",
+        "[warning] warning arg\n",
+        "info arg\n",
         "[net] debug arg\n",
         "[net:trace] trace arg\n",
     })};
@@ -115,23 +115,23 @@ BOOST_FIXTURE_TEST_CASE(logging_source_args, LogSetup)
     LogError("error\n");
     LogWarning("warning\n");
     LogInfo("info\n");
-    LogDebug("debug\n");
-    LogTrace("trace\n");
+    // LogDebug("debug\n"); // Not allowed because of take_category!
+    // LogTrace("trace\n"); // Not allowed because of take_category!
     LogError("error %s\n", "arg");
     LogWarning("warning %s\n", "arg");
     LogInfo("info %s\n", "arg");
-    LogDebug("debug %s\n", "arg");
-    LogTrace("trace %s\n", "arg");
+    // LogDebug("debug %s\n", "arg"); // Not allowed because of take_category!
+    // LogTrace("trace %s\n", "arg"); // Not allowed because of take_category!
 
     // Test logging with category arguments.
-    // LogError(BCLog::NET, "error\n"); // Not allowed because of forbid_category!
-    // LogWarning(BCLog::NET, "warning\n"); // Not allowed because of forbid_category!
-    // LogInfo(BCLog::NET, "info\n"); // Not allowed because of forbid_category!
+    // LogError(BCLog::NET, "error\n"); // Not allowed because of take_category!
+    // LogWarning(BCLog::NET, "warning\n"); // Not allowed because of take_category!
+    // LogInfo(BCLog::NET, "info\n"); // Not allowed because of take_category!
     LogDebug(BCLog::NET, "debug\n");
     LogTrace(BCLog::NET, "trace\n");
-    // LogError(BCLog::NET, "error %s\n", "arg"); // Not allowed because of forbid_category!
-    // LogWarning(BCLog::NET, "warning %s\n", "arg"); // Not allowed because of forbid_category!
-    // LogInfo(BCLog::NET, "info %s\n", "arg"); // Not allowed because of forbid_category!
+    // LogError(BCLog::NET, "error %s\n", "arg"); // Not allowed because of take_category!
+    // LogWarning(BCLog::NET, "warning %s\n", "arg"); // Not allowed because of take_category!
+    // LogInfo(BCLog::NET, "info %s\n", "arg"); // Not allowed because of take_category!
     LogDebug(BCLog::NET, "debug %s\n", "arg");
     LogTrace(BCLog::NET, "trace %s\n", "arg");
 
@@ -152,14 +152,10 @@ BOOST_FIXTURE_TEST_CASE(logging_source_args, LogSetup)
         "[error] error",
         "[warning] warning",
         "info",
-        "[debug] debug",
-        "[trace] trace",
 
         "[error] error arg",
         "[warning] warning arg",
         "info arg",
-        "[debug] debug arg",
-        "[trace] trace arg",
 
         "[net] debug",
         "[net:trace] trace",
@@ -167,15 +163,15 @@ BOOST_FIXTURE_TEST_CASE(logging_source_args, LogSetup)
         "[net] debug arg",
         "[net:trace] trace arg",
 
-        "[tor:error] error",
-        "[tor:warning] warning",
-        "[tor:info] info",
+        "[error] error",
+        "[warning] warning",
+        "info",
         "[tor] debug",
         "[tor:trace] trace",
 
-        "[tor:error] error arg",
-        "[tor:warning] warning arg",
-        "[tor:info] info arg",
+        "[error] error arg",
+        "[warning] warning arg",
+        "info arg",
         "[tor] debug arg",
         "[tor:trace] trace arg",
     })};
