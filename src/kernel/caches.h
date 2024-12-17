@@ -17,9 +17,9 @@ static constexpr int64_t MAX_COINS_DB_CACHE{8};
 
 namespace kernel {
 struct CacheSizes {
-    int64_t block_tree_db;
-    int64_t coins_db;
-    int64_t coins;
+    size_t block_tree_db;
+    size_t coins_db;
+    size_t coins;
 
     CacheSizes(int64_t total_cache)
     {
