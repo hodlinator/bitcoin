@@ -257,9 +257,8 @@ def generate_corpus(*, fuzz_pool, src_dir, fuzz_bin, corpus_dir, targets):
 
     def job(command, t, t_env):
         logging.debug(f"Running '{command}'")
-        logging.debug("Command '{}' output:\n'{}'\n".format(
-            command,
-            subprocess.run(
+        try:
+            process = subprocess.run(
                 command,
                 env={
                     **t_env,
@@ -268,8 +267,13 @@ def generate_corpus(*, fuzz_pool, src_dir, fuzz_bin, corpus_dir, targets):
                 check=True,
                 stderr=subprocess.PIPE,
                 text=True,
-            ).stderr,
-        ))
+            )
+            output = process.stderr
+        except subprocess.CalledProcessError as e:
+            output = e.stderr
+        else:
+            raise
+        logging.debug(f"Command '{command}' output:\n'{output}'\n")
 
     futures = []
     for target, t_env in targets:
