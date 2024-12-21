@@ -20,7 +20,7 @@ static constexpr int64_t MAX_FILTER_INDEX_CACHE{1024};
 using kernel::MiBToBytes;
 
 namespace node {
-std::tuple<IndexCacheSizes, kernel::CacheSizes> CalculateCacheSizes(const ArgsManager& args, size_t n_indexes)
+IndexAndKernelCacheSizes CalculateCacheSizes(const ArgsManager& args, size_t n_indexes)
 {
     size_t nTotalCache{MiBToBytes(args.GetIntArg("-dbcache", DEFAULT_DB_CACHE))};
     nTotalCache = std::max(nTotalCache, MiBToBytes(MIN_DB_CACHE));

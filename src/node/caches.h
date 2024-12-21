@@ -23,7 +23,11 @@ struct IndexCacheSizes {
     size_t tx_index;
     size_t filter_index;
 };
-std::tuple<IndexCacheSizes, kernel::CacheSizes> CalculateCacheSizes(const ArgsManager& args, size_t n_indexes = 0);
+struct IndexAndKernelCacheSizes {
+    IndexCacheSizes index;
+    kernel::CacheSizes kernel;
+};
+IndexAndKernelCacheSizes CalculateCacheSizes(const ArgsManager& args, size_t n_indexes = 0);
 } // namespace node
 
 #endif // BITCOIN_NODE_CACHES_H
