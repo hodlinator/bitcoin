@@ -17,22 +17,19 @@ static constexpr int64_t MAX_TX_INDEX_CACHE{1024};
 //! Max memory allocated to all block filter index caches combined in MiB.
 static constexpr int64_t MAX_FILTER_INDEX_CACHE{1024};
 
+using kernel::MiBToBytes;
+
 namespace node {
 std::tuple<IndexCacheSizes, kernel::CacheSizes> CalculateCacheSizes(const ArgsManager& args, size_t n_indexes)
 {
-    const int64_t dbcache_bytes{args.GetIntArg("-dbcache", DEFAULT_DB_CACHE) << 20};
-    Assert(dbcache_bytes >= 0 && static_cast<uint64_t>(dbcache_bytes) <= static_cast<uint64_t>(std::numeric_limits<size_t>::max()));
-    size_t nTotalCache{static_cast<size_t>(dbcache_bytes)};
-    static_assert((MIN_DB_CACHE << 20) <= std::numeric_limits<size_t>::max());
-    nTotalCache = std::max(nTotalCache, static_cast<size_t>(MIN_DB_CACHE << 20));
+    size_t nTotalCache{MiBToBytes(args.GetIntArg("-dbcache", DEFAULT_DB_CACHE))};
+    nTotalCache = std::max(nTotalCache, MiBToBytes(MIN_DB_CACHE));
     IndexCacheSizes sizes;
-    static_assert((MAX_TX_INDEX_CACHE << 20) <= std::numeric_limits<size_t>::max());
-    sizes.tx_index = {std::min(nTotalCache / 8, args.GetBoolArg("-txindex", DEFAULT_TXINDEX) ? static_cast<size_t>(MAX_TX_INDEX_CACHE << 20) : 0)};
+    sizes.tx_index = {std::min(nTotalCache / 8, args.GetBoolArg("-txindex", DEFAULT_TXINDEX) ? MiBToBytes(MAX_TX_INDEX_CACHE) : 0)};
     nTotalCache -= sizes.tx_index;
     sizes.filter_index = 0;
     if (n_indexes > 0) {
-        static_assert((MAX_FILTER_INDEX_CACHE << 20) <= std::numeric_limits<size_t>::max());
-        size_t max_cache{std::min(nTotalCache / 8, static_cast<size_t>(MAX_FILTER_INDEX_CACHE << 20))};
+        size_t max_cache{std::min(nTotalCache / 8, MiBToBytes(MAX_FILTER_INDEX_CACHE))};
         sizes.filter_index = max_cache / n_indexes;
         nTotalCache -= sizes.filter_index * n_indexes;
     }

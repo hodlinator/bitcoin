@@ -6,6 +6,7 @@
 #define BITCOIN_KERNEL_CACHES_H
 
 #include <algorithm>
+#include <cassert>
 #include <cstdint>
 #include <limits>
 
@@ -17,6 +18,16 @@ static constexpr int64_t MAX_BLOCK_DB_CACHE{2};
 static constexpr int64_t MAX_COINS_DB_CACHE{8};
 
 namespace kernel {
+
+constexpr size_t MiBToBytes(int64_t mib)
+{
+    assert(mib >= 0);
+    const int64_t bytes{mib << 20};
+    assert(bytes >= 0);
+    assert(static_cast<uint64_t>(bytes) <= static_cast<uint64_t>(std::numeric_limits<size_t>::max()));
+    return static_cast<size_t>(bytes);
+}
+
 struct CacheSizes {
     size_t block_tree_db;
     size_t coins_db;
@@ -24,11 +35,9 @@ struct CacheSizes {
 
     CacheSizes(size_t total_cache)
     {
-        static_assert((MAX_BLOCK_DB_CACHE << 20) <= std::numeric_limits<size_t>::max());
-        block_tree_db = {std::min(total_cache / 8, static_cast<size_t>(MAX_BLOCK_DB_CACHE << 20))};
+        block_tree_db = {std::min(total_cache / 8, MiBToBytes(MAX_BLOCK_DB_CACHE))};
         total_cache -= block_tree_db;
-        static_assert((MAX_COINS_DB_CACHE << 20) <= std::numeric_limits<size_t>::max());
-        coins_db = {std::min(total_cache / 2, static_cast<size_t>(MAX_COINS_DB_CACHE << 20))};
+        coins_db = {std::min(total_cache / 2, MiBToBytes(MAX_COINS_DB_CACHE))};
         total_cache -= coins_db;
         coins = {total_cache}; // the rest goes to the coins cache
     }
