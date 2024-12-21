@@ -20,14 +20,19 @@ static constexpr int64_t MAX_FILTER_INDEX_CACHE{1024};
 namespace node {
 std::tuple<IndexCacheSizes, kernel::CacheSizes> CalculateCacheSizes(const ArgsManager& args, size_t n_indexes)
 {
-    int64_t nTotalCache = (args.GetIntArg("-dbcache", DEFAULT_DB_CACHE) << 20);
-    nTotalCache = std::max(nTotalCache, MIN_DB_CACHE << 20);
+    const int64_t dbcache_bytes{args.GetIntArg("-dbcache", DEFAULT_DB_CACHE) << 20};
+    Assert(dbcache_bytes >= 0 && static_cast<uint64_t>(dbcache_bytes) <= static_cast<uint64_t>(std::numeric_limits<size_t>::max()));
+    size_t nTotalCache{static_cast<size_t>(dbcache_bytes)};
+    static_assert((MIN_DB_CACHE << 20) <= std::numeric_limits<size_t>::max());
+    nTotalCache = std::max(nTotalCache, static_cast<size_t>(MIN_DB_CACHE << 20));
     IndexCacheSizes sizes;
-    sizes.tx_index = std::min(nTotalCache / 8, args.GetBoolArg("-txindex", DEFAULT_TXINDEX) ? MAX_TX_INDEX_CACHE << 20 : 0);
+    static_assert((MAX_TX_INDEX_CACHE << 20) <= std::numeric_limits<size_t>::max());
+    sizes.tx_index = {std::min(nTotalCache / 8, args.GetBoolArg("-txindex", DEFAULT_TXINDEX) ? static_cast<size_t>(MAX_TX_INDEX_CACHE << 20) : 0)};
     nTotalCache -= sizes.tx_index;
     sizes.filter_index = 0;
     if (n_indexes > 0) {
-        int64_t max_cache = std::min(nTotalCache / 8, MAX_FILTER_INDEX_CACHE << 20);
+        static_assert((MAX_FILTER_INDEX_CACHE << 20) <= std::numeric_limits<size_t>::max());
+        size_t max_cache{std::min(nTotalCache / 8, static_cast<size_t>(MAX_FILTER_INDEX_CACHE << 20))};
         sizes.filter_index = max_cache / n_indexes;
         nTotalCache -= sizes.filter_index * n_indexes;
     }
