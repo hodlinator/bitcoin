@@ -19,42 +19,38 @@
 #include <memory>
 #include <vector>
 
-static FlatFilePos WriteBlockToDisk(ChainstateManager& chainman)
+static CBlock CreateTestBlock()
 {
     DataStream stream{benchmark::data::block413567};
     CBlock block;
     stream >> TX_WITH_WITNESS(block);
-
-    return chainman.m_blockman.SaveBlockToDisk(block, 0);
+    return block;
 }
 
-static void ReadBlockFromDiskTest(benchmark::Bench& bench)
+static void ReadBlockBench(benchmark::Bench& bench)
 {
     const auto testing_setup{MakeNoLogFileContext<const TestingSetup>(ChainType::MAIN)};
-    ChainstateManager& chainman{*testing_setup->m_node.chainman};
-
+    auto& blockman{testing_setup->m_node.chainman->m_blockman};
+    const auto pos{blockman.SaveBlockToDisk(CreateTestBlock(), 413'567)};
     CBlock block;
-    const auto pos{WriteBlockToDisk(chainman)};
-
     bench.run([&] {
-        const auto success{chainman.m_blockman.ReadBlockFromDisk(block, pos)};
+        const auto success{blockman.ReadBlockFromDisk(block, pos)};
         assert(success);
     });
 }
 
-static void ReadRawBlockFromDiskTest(benchmark::Bench& bench)
+static void ReadRawBlockBench(benchmark::Bench& bench)
 {
     const auto testing_setup{MakeNoLogFileContext<const TestingSetup>(ChainType::MAIN)};
-    ChainstateManager& chainman{*testing_setup->m_node.chainman};
-
+    auto& blockman{testing_setup->m_node.chainman->m_blockman};
+    const auto pos{blockman.SaveBlockToDisk(CreateTestBlock(), 413'567)};
     std::vector<uint8_t> block_data;
-    const auto pos{WriteBlockToDisk(chainman)};
-
+    blockman.ReadRawBlockFromDisk(block_data, pos); // warmup
     bench.run([&] {
-        const auto success{chainman.m_blockman.ReadRawBlockFromDisk(block_data, pos)};
+        const auto success{blockman.ReadRawBlockFromDisk(block_data, pos)};
         assert(success);
     });
 }
 
-BENCHMARK(ReadBlockFromDiskTest, benchmark::PriorityLevel::HIGH);
-BENCHMARK(ReadRawBlockFromDiskTest, benchmark::PriorityLevel::HIGH);
+BENCHMARK(ReadBlockBench, benchmark::PriorityLevel::HIGH);
+BENCHMARK(ReadRawBlockBench, benchmark::PriorityLevel::HIGH);
