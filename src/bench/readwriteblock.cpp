@@ -27,6 +27,17 @@ static CBlock CreateTestBlock()
     return block;
 }
 
+static void SaveBlockBench(benchmark::Bench& bench)
+{
+    const auto testing_setup{MakeNoLogFileContext<const TestingSetup>(ChainType::MAIN)};
+    auto& blockman{testing_setup->m_node.chainman->m_blockman};
+    const CBlock block{CreateTestBlock()};
+    bench.run([&] {
+        const auto pos{blockman.SaveBlockToDisk(block, 413'567)};
+        assert(!pos.IsNull());
+    });
+}
+
 static void ReadBlockBench(benchmark::Bench& bench)
 {
     const auto testing_setup{MakeNoLogFileContext<const TestingSetup>(ChainType::MAIN)};
@@ -52,5 +63,6 @@ static void ReadRawBlockBench(benchmark::Bench& bench)
     });
 }
 
+BENCHMARK(SaveBlockBench, benchmark::PriorityLevel::HIGH);
 BENCHMARK(ReadBlockBench, benchmark::PriorityLevel::HIGH);
 BENCHMARK(ReadRawBlockBench, benchmark::PriorityLevel::HIGH);
