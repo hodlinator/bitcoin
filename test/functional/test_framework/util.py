@@ -88,7 +88,7 @@ def assert_greater_than_or_equal(thing1, thing2):
 
 
 def assert_raises(exc, fun, *args, **kwds):
-    assert_raises_message(exc, None, fun, *args, **kwds)
+    return assert_raises_message(exc, None, fun, *args, **kwds)
 
 
 def assert_raises_message(exc, message, fun, *args, **kwds):
@@ -100,6 +100,7 @@ def assert_raises_message(exc, message, fun, *args, **kwds):
         if message is not None and message not in str(e):
             raise AssertionError(
                 f"Expected substring not found in error:\nsubstring: '{message}'\nerror: '{str(e)}'.")
+        return e
     except Exception as e:
         raise AssertionError("Unexpected exception raised: " + type(e).__name__)
     else:
