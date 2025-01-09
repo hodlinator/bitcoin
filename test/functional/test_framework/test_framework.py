@@ -315,7 +315,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         if not self.options.noshutdown:
             self.log.info("Stopping nodes")
             if self.nodes:
-                self.stop_nodes()
+                self.stop_nodes(avoid_exceptions=self.success != TestStatus.PASSED)
         else:
             for node in self.nodes:
                 node.cleanup_on_exit = False
@@ -569,7 +569,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
                 node.wait_for_rpc_connection()
         except Exception:
             # If one node failed to start, stop the others
-            self.stop_nodes()
+            self.stop_nodes(avoid_exceptions=True)
             raise
 
         if self.options.coveragedir is not None:
@@ -580,11 +580,11 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         """Stop a bitcoind test node"""
         self.nodes[i].stop_node(expected_stderr, wait=wait)
 
-    def stop_nodes(self, wait=0):
+    def stop_nodes(self, wait=0, avoid_exceptions=False):
         """Stop multiple bitcoind test nodes"""
         for node in self.nodes:
             # Issue RPC to stop nodes
-            node.stop_node(wait=wait, wait_until_stopped=False)
+            node.stop_node(wait=wait, wait_until_stopped=False, avoid_exceptions=avoid_exceptions)
 
         for node in self.nodes:
             # Wait for nodes to stop
