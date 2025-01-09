@@ -406,6 +406,7 @@ BASE_SCRIPTS = [
     'feature_help.py',
     'feature_framework_rpc_failure.py',
     'feature_framework_rpc_failure_details.py',
+    'feature_framework_stop_node.py',
     'feature_shutdown.py',
     'wallet_migration.py',
     'p2p_ibd_txrelay.py',
