@@ -88,6 +88,10 @@ BOOST_AUTO_TEST_CASE(headers_sync_state)
     const CBlockIndex* chain_start = WITH_LOCK(::cs_main, return m_node.chainman->m_blockman.LookupBlockIndex(Params().GenesisBlock().GetHash()));
     std::vector<CBlockHeader> headers_batch;
 
+    // Set our time to 4 approx years after genesis in order to ensure the
+    // presync cache obtains sufficient size.
+    SetMockTime(std::chrono::seconds{Params().GenesisBlock().nTime} + std::chrono::years(4));
+
     // Feed the first chain to HeadersSyncState, by delivering 1 header
     // initially and then the rest.
     headers_batch.insert(headers_batch.end(), std::next(first_chain.begin()), first_chain.end());
@@ -98,9 +102,10 @@ BOOST_AUTO_TEST_CASE(headers_sync_state)
     auto result = hss->ProcessNextHeaders(headers_batch, true);
 
     // This chain should look valid, and we should have met the proof-of-work
-    // requirement.
+    // requirement, causing us to progress to REDOWNLOAD.
     BOOST_CHECK(result.success);
     BOOST_CHECK(result.request_more);
+    BOOST_CHECK(!result.pow_validated_headers.empty());
     BOOST_CHECK_EQUAL(hss->GetState(), HeadersSyncState::State::REDOWNLOAD);
 
     // Try to sneakily feed back the second chain.
@@ -110,16 +115,14 @@ BOOST_AUTO_TEST_CASE(headers_sync_state)
 
     // Now try again, this time feeding the first chain twice.
     hss.reset(new HeadersSyncState(0, Params().GetConsensus(), chain_start, chain_work));
-    (void)hss->ProcessNextHeaders(first_chain, true);
-    BOOST_CHECK(hss->GetState() == HeadersSyncState::State::REDOWNLOAD);
-
-    result = hss->ProcessNextHeaders(first_chain, true);
+    result = hss->ProcessNextHeaders(first_chain, /*full_headers_message=*/false);
     BOOST_CHECK(result.success);
     BOOST_CHECK(!result.request_more);
+    // Nothing left for the sync logic to do:
+    BOOST_CHECK_EQUAL(hss->GetState(), HeadersSyncState::State::FINAL);
+
     // All headers should be ready for acceptance:
     BOOST_CHECK(result.pow_validated_headers.size() == first_chain.size());
-    // Nothing left for the sync logic to do:
-    BOOST_CHECK(hss->GetState() == HeadersSyncState::State::FINAL);
 
     // Finally, verify that just trying to process the second chain would not
     // succeed (too little work)

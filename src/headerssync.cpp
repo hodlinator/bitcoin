@@ -6,8 +6,11 @@
 #include <logging.h>
 #include <pow.h>
 #include <util/check.h>
+#include <util/sysinfo.h>
 #include <util/time.h>
 #include <util/vector.h>
+
+#include <algorithm>
 
 // The two constants below are computed using the simulation script in
 // contrib/devtools/headerssync-params.py.
@@ -31,7 +34,16 @@ HeadersSyncState::HeadersSyncState(NodeId id, const Consensus::Params& consensus
     m_minimum_required_work(minimum_required_work),
     m_current_chain_work(chain_start->nChainWork),
     m_last_header_received(m_chain_start->GetBlockHeader()),
-    m_current_height(chain_start->nHeight)
+    m_current_height(chain_start->nHeight),
+    m_presync_cache_max(std::clamp<size_t>(
+        1.25f * ((NodeClock::now() - NodeSeconds{std::chrono::seconds{chain_start->GetMedianTimePast()}}) / 10min),
+        REDOWNLOAD_BUFFER_SIZE,
+        std::clamp<size_t>(
+            // We try to make sure not to use more than 10% of
+            // available RAM for the presync cache.
+            (QueryRAMInfo().value_or(RAMInfo{}).free / 10) / sizeof(decltype(m_presync_cache)::value_type),
+            REDOWNLOAD_BUFFER_SIZE,
+            10'000'000)))
 {
     // Estimate the number of blocks that could possibly exist on the peer's
     // chain *right now* using 6 blocks/second (fastest blockrate given the MTP
@@ -43,7 +55,10 @@ HeadersSyncState::HeadersSyncState(NodeId id, const Consensus::Params& consensus
     // could try again, if necessary, to sync a longer chain).
     m_max_commitments = 6*(Ticks<std::chrono::seconds>(NodeClock::now() - NodeSeconds{std::chrono::seconds{chain_start->GetMedianTimePast()}}) + MAX_FUTURE_BLOCK_TIME) / HEADER_COMMITMENT_PERIOD;
 
-    LogDebug(BCLog::NET, "Initial headers sync started with peer=%d: height=%i, max_commitments=%i, min_work=%s\n", m_id, m_current_height, m_max_commitments, m_minimum_required_work.ToString());
+    // Pre-allocate a possibly large chunk of memory.
+    m_presync_cache.reserve(m_presync_cache_max);
+
+    LogDebug(BCLog::NET, "Initial headers sync started with peer=%d: height=%i, max_commitments=%i, min_work=%s, cache_size=%d", m_id, m_current_height, m_max_commitments, m_minimum_required_work.ToString(), m_presync_cache_max);
 }
 
 /** Free any memory in use, and mark this object as no longer usable. This is
@@ -85,9 +100,27 @@ HeadersSyncState::ProcessingResult HeadersSyncState::ProcessNextHeaders(const
         if (ret.success) {
             if (full_headers_message || m_download_state == State::REDOWNLOAD) {
                 // A full headers message means the peer may have more to give us;
-                // also if we just switched to REDOWNLOAD then we need to re-request
-                // headers from the beginning.
+                // also if we just switched to REDOWNLOAD we may need more headers
+                // if m_presync_cache was insufficient.
                 ret.request_more = true;
+
+                if (m_download_state == State::REDOWNLOAD) {
+                    if (!full_headers_message && m_last_header_received.GetHash() == m_redownload_buffer_last_hash) {
+                        // If the latest headers message was not full, and we've
+                        // already processed all headers from presync into the
+                        // redownload buffer, we must be on a very short chain,
+                        // and don't need to request more headers.
+                        // This will make us switch state again to FINAL at the
+                        // end of this function.
+                        ret.request_more = false;
+
+                        // Having reached the end of the headers implies we need
+                        // to return all remaining headers in the pop below.
+                        Assume(m_process_all_remaining_headers);
+                    }
+
+                    ret.pow_validated_headers = PopHeadersReadyForAcceptance();
+                }
             } else {
                 Assume(m_download_state == State::PRESYNC);
                 // If we're in PRESYNC and we get a non-full headers
@@ -169,7 +202,28 @@ bool HeadersSyncState::ValidateAndStoreHeadersCommitments(const std::vector<CBlo
         m_redownload_buffer_first_prev_hash = m_chain_start->GetBlockHash();
         m_redownload_buffer_last_hash = m_chain_start->GetBlockHash();
         m_redownload_chain_work = m_chain_start->nChainWork;
+
+        // Need to switch state before using m_presync_cache since we are
+        // calling ValidateAndStoreRedownloadedHeader() which requires it.
         m_download_state = State::REDOWNLOAD;
+
+        if (!m_presync_cache.empty()) {
+            uint256 prev_hash = m_chain_start->GetBlockHash();
+            for (const auto& compressed_header : m_presync_cache) {
+                const CBlockHeader header = compressed_header.GetFullHeader(prev_hash);
+                if (!ValidateAndStoreRedownloadedHeader(header)) {
+                    return false;
+                }
+                prev_hash = header.GetHash();
+            }
+
+            // We could add logic here to see if m_presync_cache.back() exists within
+            // the headers variable, and call ValidateAndStoreRedownloadedHeader()
+            // on any that didn't fit in the cache. Avoided to rein in complexity.
+            LogDebug(BCLog::NET, "Populated %d headers from presync cache.", m_presync_cache.size());
+            m_presync_cache.clear();
+        }
+
         LogDebug(BCLog::NET, "Initial headers sync transition with peer=%d: reached sufficient work at height=%i, redownloading from height=%i\n", m_id, m_current_height, m_redownload_buffer_last_height);
     }
     return true;
@@ -209,6 +263,10 @@ bool HeadersSyncState::ValidateAndProcessSingleHeader(const CBlockHeader& curren
     m_current_chain_work += GetBlockProof(CBlockIndex(current));
     m_last_header_received = current;
     m_current_height = next_height;
+
+    if (m_presync_cache.size() < m_presync_cache_max) {
+        m_presync_cache.emplace_back(current);
+    }
 
     return true;
 }

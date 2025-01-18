@@ -40,7 +40,8 @@ struct CompressedHeader {
         nNonce = header.nNonce;
     }
 
-    CBlockHeader GetFullHeader(const uint256& hash_prev_block) {
+    CBlockHeader GetFullHeader(const uint256& hash_prev_block) const
+    {
         CBlockHeader ret;
         ret.nVersion = nVersion;
         ret.hashPrevBlock = hash_prev_block;
@@ -241,6 +242,11 @@ private:
 
     /** Height of m_last_header_received */
     int64_t m_current_height{0};
+
+    /** During phase 1 (PRESYNC), we cache received headers so we don't have to
+     *  re-download all of them in phase 2. */
+    std::vector<CompressedHeader> m_presync_cache;
+    const size_t m_presync_cache_max;
 
     /** During phase 2 (REDOWNLOAD), we buffer redownloaded headers in memory
      *  until enough commitments have been verified; those are stored in
