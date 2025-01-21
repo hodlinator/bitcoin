@@ -101,12 +101,12 @@ BOOST_AUTO_TEST_CASE(headers_sync_state)
     // requirement.
     BOOST_CHECK(result.success);
     BOOST_CHECK(result.request_more);
-    BOOST_CHECK(hss->GetState() == HeadersSyncState::State::REDOWNLOAD);
+    BOOST_CHECK_EQUAL(hss->GetState(), HeadersSyncState::State::REDOWNLOAD);
 
     // Try to sneakily feed back the second chain.
     result = hss->ProcessNextHeaders(second_chain, true);
     BOOST_CHECK(!result.success); // foiled!
-    BOOST_CHECK(hss->GetState() == HeadersSyncState::State::FINAL);
+    BOOST_CHECK_EQUAL(hss->GetState(), HeadersSyncState::State::FINAL);
 
     // Now try again, this time feeding the first chain twice.
     hss.reset(new HeadersSyncState(0, Params().GetConsensus(), chain_start, chain_work));
@@ -124,10 +124,10 @@ BOOST_AUTO_TEST_CASE(headers_sync_state)
     // Finally, verify that just trying to process the second chain would not
     // succeed (too little work)
     hss.reset(new HeadersSyncState(0, Params().GetConsensus(), chain_start, chain_work));
-    BOOST_CHECK(hss->GetState() == HeadersSyncState::State::PRESYNC);
+    BOOST_CHECK_EQUAL(hss->GetState(), HeadersSyncState::State::PRESYNC);
      // Pretend just the first message is "full", so we don't abort.
     (void)hss->ProcessNextHeaders({second_chain.front()}, true);
-    BOOST_CHECK(hss->GetState() == HeadersSyncState::State::PRESYNC);
+    BOOST_CHECK_EQUAL(hss->GetState(), HeadersSyncState::State::PRESYNC);
 
     headers_batch.clear();
     headers_batch.insert(headers_batch.end(), std::next(second_chain.begin(), 1), second_chain.end());
@@ -135,7 +135,7 @@ BOOST_AUTO_TEST_CASE(headers_sync_state)
     // more headers can be requested. For a low-work-chain, this should causes
     // the sync to end with no headers for acceptance.
     result = hss->ProcessNextHeaders(headers_batch, false);
-    BOOST_CHECK(hss->GetState() == HeadersSyncState::State::FINAL);
+    BOOST_CHECK_EQUAL(hss->GetState(), HeadersSyncState::State::FINAL);
     BOOST_CHECK(result.pow_validated_headers.empty());
     BOOST_CHECK(!result.request_more);
     // Nevertheless, no validation errors should have been detected with the
