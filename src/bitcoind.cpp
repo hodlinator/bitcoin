@@ -28,7 +28,16 @@
 #include <util/tokenpipe.h>
 #include <util/translation.h>
 
+#ifdef WIN32
+#include <windows.h>
+#include <debugapi.h>
+#elif defined(__APPLE__)
+#include <sys/sysctl.h>
+#endif
+
 #include <any>
+#include <cstdlib>
+#include <fstream>
 #include <functional>
 #include <optional>
 
@@ -254,6 +263,51 @@ static bool AppInit(NodeContext& node)
 
 MAIN_FUNCTION
 {
+    for (int i = 0; i < argc; ++i) {
+        if (strcmp(argv[i], "-waitfordebugger") == 0) {
+            while (true) {
+                bool debugged{false};
+#if defined(__linux__)
+                std::ifstream sf("/proc/self/status", std::ios::in);
+                if (!sf.good()) {
+                    return EXIT_FAILURE;
+                }
+
+                std::string s;
+                uint pid = 0;
+                while (sf >> s) {
+                    if (s == "TracerPid:") {
+                        sf >> pid;
+                        break;
+                    }
+
+                    std::getline(sf, s);
+                }
+                debugged = pid > 0;
+#elif defined(__APPLE__)
+                int mib[] = { CTL_KERN, KERN_PROC, KERN_PROC_PID, getpid() };
+                kinfo_proc info;
+                size_t size = sizeof(info);
+                const int ret_code = sysctl(mib, sizeof(mib) / sizeof(*mib), &info, &size, nullptr, 0);
+                if (ret_code != EXIT_SUCCESS) {
+                    return ret_code;
+                }
+                debugged = info.kp_proc.p_flag & P_TRACED;
+#elif defined(WIN32)
+                debugged = IsDebuggerPresent();
+#else
+                std::cerr << "Platform doesn't support -waitfordebugger." << std::endl;
+                return EXIT_FAILURE;
+#endif
+                if (debugged) {
+                    break;
+                } else {
+                    std::this_thread::sleep_for(100ms);
+                }
+            }
+        }
+    }
+
 #ifdef WIN32
     common::WinCmdLineArgs winArgs;
     std::tie(argc, argv) = winArgs.get();
