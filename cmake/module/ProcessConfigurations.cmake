@@ -126,6 +126,7 @@ target_compile_definitions(core_interface_debug INTERFACE
   DEBUG_LOCKCONTENTION
   RPC_DOC_CHECK
   ABORT_ON_FAILED_ASSUME
+  WAIT_FOR_DEBUGGER
 )
 # We leave assertions on.
 if(MSVC)

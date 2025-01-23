@@ -207,6 +207,8 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
                             help="Explicitly use v1 transport (can be used to overwrite global --v2transport option)")
         parser.add_argument("--test_methods", dest="test_methods", nargs='*',
                             help="Run specified test methods sequentially instead of the full test. Use only for methods that do not depend on any context set up in run_test or other methods.")
+        parser.add_argument("--debugnode", dest="debugnode", nargs="*", type=int, default=[],
+                            help="Node index(es) in the test to stall and wait for debugger")
 
         self.add_options(parser)
         # Running TestShell in a Jupyter notebook causes an additional -f argument
@@ -561,6 +563,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
                 use_valgrind=self.options.valgrind,
                 descriptors=self.options.descriptors,
                 v2transport=self.options.v2transport,
+                wait_for_debugger=i in self.options.debugnode,
             )
             self.nodes.append(test_node_i)
             if not test_node_i.version_is_at_least(170000):

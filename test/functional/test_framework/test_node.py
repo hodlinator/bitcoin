@@ -75,7 +75,7 @@ class TestNode():
     To make things easier for the test writer, any unrecognised messages will
     be dispatched to the RPC connection."""
 
-    def __init__(self, i, datadir_path, *, chain, rpchost, timewait, timeout_factor, bitcoind, bitcoin_cli, coverage_dir, cwd, extra_conf=None, extra_args=None, use_cli=False, start_perf=False, use_valgrind=False, version=None, descriptors=False, v2transport=False):
+    def __init__(self, i, datadir_path, *, chain, rpchost, timewait, timeout_factor, bitcoind, bitcoin_cli, coverage_dir, cwd, extra_conf=None, extra_args=None, use_cli=False, start_perf=False, use_valgrind=False, version=None, descriptors=False, v2transport=False, wait_for_debugger=False):
         """
         Kwargs:
             start_perf (bool): If True, begin profiling the node with `perf` as soon as
@@ -96,6 +96,7 @@ class TestNode():
         self.cwd = cwd
         self.descriptors = descriptors
         self.has_explicit_bind = False
+        self.wait_for_debugger = wait_for_debugger
         if extra_conf is not None:
             append_config(self.datadir_path, extra_conf)
             # Remember if there is bind=... in the config file.
@@ -118,6 +119,8 @@ class TestNode():
             "-debugexclude=rand",
             "-uacomment=testnode%d" % i,  # required for subversion uniqueness across peers
         ]
+        if self.wait_for_debugger:
+            self.args.append("-waitfordebugger")
         if self.descriptors is None:
             self.args.append("-disablewallet")
 
@@ -256,7 +259,10 @@ class TestNode():
         self.process = subprocess.Popen(self.args + extra_args, env=subp_env, stdout=stdout, stderr=stderr, cwd=cwd, **kwargs)
 
         self.running = True
-        self.log.debug("bitcoind started, waiting for RPC to come up")
+        if self.wait_for_debugger:
+            self.log.info(f"bitcoind started, waiting for debugger, PID: {self.process.pid}")
+        else:
+            self.log.debug("bitcoind started, waiting for RPC to come up")
 
         if self.start_perf:
             self._start_perf()
