@@ -51,7 +51,7 @@ void ConnmanTestMsg::Handshake(CNode& node,
     connman.ProcessMessagesOnce(node);
     peerman.SendMessages(&node);
     FlushSendBuffer(node); // Drop the verack message added by SendMessages.
-    if (node.fDisconnect) return;
+    if (node.DisconnectionInitiated()) return;
     assert(node.nVersion == version);
     assert(node.GetCommonVersion() == std::min(version, PROTOCOL_VERSION));
     CNodeStateStats statestats;

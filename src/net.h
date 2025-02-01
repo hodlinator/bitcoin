@@ -15,6 +15,7 @@
 #include <hash.h>
 #include <i2p.h>
 #include <kernel/messagestartchars.h>
+#include <logging.h>
 #include <net_permissions.h>
 #include <netaddress.h>
 #include <netbase.h>
@@ -27,9 +28,11 @@
 #include <span.h>
 #include <streams.h>
 #include <sync.h>
+#include <tinyformat.h>
 #include <uint256.h>
 #include <util/check.h>
 #include <util/sock.h>
+#include <util/string.h>
 #include <util/threadinterrupt.h>
 
 #include <atomic>
@@ -941,6 +944,34 @@ public:
         nRefCount--;
     }
 
+    template <BCLog::Level level = BCLog::Level::Debug, typename... Args>
+    void QueueDisconnect(util::ConstevalFormatString<sizeof...(Args)> reason_fmt, const Args&... args)
+    {
+        auto reason = tfm::format(reason_fmt, args...);
+        LogPrintLevel(BCLog::NET, level, "%s, %s", reason, DisconnectMsg(fLogIPs));
+        fDisconnect = true;
+    }
+
+    template <typename... Args>
+    void DisconnectNow(util::ConstevalFormatString<sizeof...(Args)> reason_fmt, const Args&... args) EXCLUSIVE_LOCKS_REQUIRED(!m_sock_mutex)
+    {
+        if (!fDisconnect) {
+            auto reason = tfm::format(reason_fmt, args...);
+            LogDebug(BCLog::NET, "%s, %s\n", std::string{reason}, DisconnectMsg(fLogIPs));
+        }
+
+        CloseSocketDisconnect();
+    }
+
+    bool DisconnectionInitiated() const { return fDisconnect; }
+
+    /** Only to be used in tests */
+    void TestOnlyResetDisconnect() { fDisconnect = false; }
+
+    /**
+     * Only to be called by DisconnectNow() or CConnman::DisconnectNodes().
+     * Use DisconnectNow() for other cases.
+     */
     void CloseSocketDisconnect() EXCLUSIVE_LOCKS_REQUIRED(!m_sock_mutex);
 
     void CopyStats(CNodeStats& stats) EXCLUSIVE_LOCKS_REQUIRED(!m_subver_mutex, !m_addr_local_mutex, !cs_vSend, !cs_vRecv);
@@ -1317,8 +1348,8 @@ private:
 
     void DisconnectNodes() EXCLUSIVE_LOCKS_REQUIRED(!m_reconnections_mutex, !m_nodes_mutex);
     void NotifyNumConnectionsChanged();
-    /** Return true if the peer is inactive and should be disconnected. */
-    bool InactivityCheck(const CNode& node) const;
+    /** @return reason string if the peer is inactive and should be disconnected. */
+    std::optional<std::string> InactivityCheck(const CNode& node) const;
 
     /**
      * Generate a collection of sockets to check for IO readiness.

@@ -101,7 +101,7 @@ BOOST_AUTO_TEST_CASE(outbound_slow_chain_eviction)
     // Wait 3 more minutes
     SetMockTime(nStartTime+24*60);
     BOOST_CHECK(peerman.SendMessages(&dummyNode1)); // should result in disconnect
-    BOOST_CHECK(dummyNode1.fDisconnect == true);
+    BOOST_CHECK(dummyNode1.DisconnectionInitiated() == true);
 
     peerman.FinalizeNode(dummyNode1);
 }
@@ -164,7 +164,7 @@ BOOST_FIXTURE_TEST_CASE(stale_tip_peer_management, OutboundTest)
 
     // No nodes should be marked for disconnection while we have no extra peers
     for (const CNode *node : vNodes) {
-        BOOST_CHECK(node->fDisconnect == false);
+        BOOST_CHECK(node->DisconnectionInitiated() == false);
     }
 
     SetMockTime(time_later);
@@ -176,7 +176,7 @@ BOOST_FIXTURE_TEST_CASE(stale_tip_peer_management, OutboundTest)
 
     // Still no peers should be marked for disconnection
     for (const CNode *node : vNodes) {
-        BOOST_CHECK(node->fDisconnect == false);
+        BOOST_CHECK(node->DisconnectionInitiated() == false);
     }
 
     // If we add one more peer, something should get marked for eviction
@@ -188,12 +188,12 @@ BOOST_FIXTURE_TEST_CASE(stale_tip_peer_management, OutboundTest)
 
     peerLogic->CheckForStaleTipAndEvictPeers();
     for (int i = 0; i < max_outbound_full_relay; ++i) {
-        BOOST_CHECK(vNodes[i]->fDisconnect == false);
+        BOOST_CHECK(vNodes[i]->DisconnectionInitiated() == false);
     }
     // Last added node should get marked for eviction
-    BOOST_CHECK(vNodes.back()->fDisconnect == true);
+    BOOST_CHECK(vNodes.back()->DisconnectionInitiated() == true);
 
-    vNodes.back()->fDisconnect = false;
+    vNodes.back()->TestOnlyResetDisconnect();
 
     // Update the last announced block time for the last
     // peer, and check that the next newest node gets evicted.
@@ -201,12 +201,12 @@ BOOST_FIXTURE_TEST_CASE(stale_tip_peer_management, OutboundTest)
 
     peerLogic->CheckForStaleTipAndEvictPeers();
     for (int i = 0; i < max_outbound_full_relay - 1; ++i) {
-        BOOST_CHECK(vNodes[i]->fDisconnect == false);
+        BOOST_CHECK(vNodes[i]->DisconnectionInitiated() == false);
     }
-    BOOST_CHECK(vNodes[max_outbound_full_relay-1]->fDisconnect == true);
-    BOOST_CHECK(vNodes.back()->fDisconnect == false);
+    BOOST_CHECK(vNodes[max_outbound_full_relay-1]->DisconnectionInitiated() == true);
+    BOOST_CHECK(vNodes.back()->DisconnectionInitiated() == false);
 
-    vNodes[max_outbound_full_relay - 1]->fDisconnect = false;
+    vNodes[max_outbound_full_relay - 1]->TestOnlyResetDisconnect();
 
     // Add an onion peer, that will be protected because it is the only one for
     // its network, so another peer gets disconnected instead.
@@ -216,11 +216,11 @@ BOOST_FIXTURE_TEST_CASE(stale_tip_peer_management, OutboundTest)
     peerLogic->CheckForStaleTipAndEvictPeers();
 
     for (int i = 0; i < max_outbound_full_relay - 2; ++i) {
-        BOOST_CHECK(vNodes[i]->fDisconnect == false);
+        BOOST_CHECK(vNodes[i]->DisconnectionInitiated() == false);
     }
-    BOOST_CHECK(vNodes[max_outbound_full_relay - 2]->fDisconnect == false);
-    BOOST_CHECK(vNodes[max_outbound_full_relay - 1]->fDisconnect == true);
-    BOOST_CHECK(vNodes[max_outbound_full_relay]->fDisconnect == false);
+    BOOST_CHECK(vNodes[max_outbound_full_relay - 2]->DisconnectionInitiated() == false);
+    BOOST_CHECK(vNodes[max_outbound_full_relay - 1]->DisconnectionInitiated() == true);
+    BOOST_CHECK(vNodes[max_outbound_full_relay]->DisconnectionInitiated() == false);
 
     // Add a second onion peer which won't be protected
     SetMockTime(time_init);
@@ -228,7 +228,7 @@ BOOST_FIXTURE_TEST_CASE(stale_tip_peer_management, OutboundTest)
     SetMockTime(time_later);
     peerLogic->CheckForStaleTipAndEvictPeers();
 
-    BOOST_CHECK(vNodes.back()->fDisconnect == true);
+    BOOST_CHECK(vNodes.back()->DisconnectionInitiated() == true);
 
     for (const CNode *node : vNodes) {
         peerLogic->FinalizeNode(*node);
@@ -258,7 +258,7 @@ BOOST_FIXTURE_TEST_CASE(block_relay_only_eviction, OutboundTest)
     peerLogic->CheckForStaleTipAndEvictPeers();
 
     for (int i = 0; i < max_outbound_block_relay; ++i) {
-        BOOST_CHECK(vNodes[i]->fDisconnect == false);
+        BOOST_CHECK(vNodes[i]->DisconnectionInitiated() == false);
     }
 
     // Add an extra block-relay-only peer breaking the limit (mocks logic in ThreadOpenConnections)
@@ -267,28 +267,28 @@ BOOST_FIXTURE_TEST_CASE(block_relay_only_eviction, OutboundTest)
 
     // The extra peer should only get marked for eviction after MINIMUM_CONNECT_TIME
     for (int i = 0; i < max_outbound_block_relay; ++i) {
-        BOOST_CHECK(vNodes[i]->fDisconnect == false);
+        BOOST_CHECK(vNodes[i]->DisconnectionInitiated() == false);
     }
-    BOOST_CHECK(vNodes.back()->fDisconnect == false);
+    BOOST_CHECK(vNodes.back()->DisconnectionInitiated() == false);
 
     SetMockTime(GetTime() + MINIMUM_CONNECT_TIME + 1);
     peerLogic->CheckForStaleTipAndEvictPeers();
     for (int i = 0; i < max_outbound_block_relay; ++i) {
-        BOOST_CHECK(vNodes[i]->fDisconnect == false);
+        BOOST_CHECK(vNodes[i]->DisconnectionInitiated() == false);
     }
-    BOOST_CHECK(vNodes.back()->fDisconnect == true);
+    BOOST_CHECK(vNodes.back()->DisconnectionInitiated() == true);
 
     // Update the last block time for the extra peer,
     // and check that the next youngest peer gets evicted.
-    vNodes.back()->fDisconnect = false;
+    vNodes.back()->TestOnlyResetDisconnect();
     vNodes.back()->m_last_block_time = GetTime<std::chrono::seconds>();
 
     peerLogic->CheckForStaleTipAndEvictPeers();
     for (int i = 0; i < max_outbound_block_relay - 1; ++i) {
-        BOOST_CHECK(vNodes[i]->fDisconnect == false);
+        BOOST_CHECK(vNodes[i]->DisconnectionInitiated() == false);
     }
-    BOOST_CHECK(vNodes[max_outbound_block_relay - 1]->fDisconnect == true);
-    BOOST_CHECK(vNodes.back()->fDisconnect == false);
+    BOOST_CHECK(vNodes[max_outbound_block_relay - 1]->DisconnectionInitiated() == true);
+    BOOST_CHECK(vNodes.back()->DisconnectionInitiated() == false);
 
     for (const CNode* node : vNodes) {
         peerLogic->FinalizeNode(*node);
@@ -336,7 +336,7 @@ BOOST_AUTO_TEST_CASE(peer_discouragement)
     BOOST_CHECK(peerLogic->SendMessages(nodes[0]));
 
     BOOST_CHECK(banman->IsDiscouraged(addr[0]));
-    BOOST_CHECK(nodes[0]->fDisconnect);
+    BOOST_CHECK(nodes[0]->DisconnectionInitiated());
     BOOST_CHECK(!banman->IsDiscouraged(other_addr)); // Different address, not discouraged
 
     nodes[1] = new CNode{id++,
@@ -355,17 +355,17 @@ BOOST_AUTO_TEST_CASE(peer_discouragement)
     BOOST_CHECK(peerLogic->SendMessages(nodes[1]));
     // [0] is still discouraged/disconnected.
     BOOST_CHECK(banman->IsDiscouraged(addr[0]));
-    BOOST_CHECK(nodes[0]->fDisconnect);
+    BOOST_CHECK(nodes[0]->DisconnectionInitiated());
     // [1] is not discouraged/disconnected yet.
     BOOST_CHECK(!banman->IsDiscouraged(addr[1]));
-    BOOST_CHECK(!nodes[1]->fDisconnect);
+    BOOST_CHECK(!nodes[1]->DisconnectionInitiated());
     peerLogic->UnitTestMisbehaving(nodes[1]->GetId());
     BOOST_CHECK(peerLogic->SendMessages(nodes[1]));
     // Expect both [0] and [1] to be discouraged/disconnected now.
     BOOST_CHECK(banman->IsDiscouraged(addr[0]));
-    BOOST_CHECK(nodes[0]->fDisconnect);
+    BOOST_CHECK(nodes[0]->DisconnectionInitiated());
     BOOST_CHECK(banman->IsDiscouraged(addr[1]));
-    BOOST_CHECK(nodes[1]->fDisconnect);
+    BOOST_CHECK(nodes[1]->DisconnectionInitiated());
 
     // Make sure non-IP peers are discouraged and disconnected properly.
 
@@ -387,9 +387,9 @@ BOOST_AUTO_TEST_CASE(peer_discouragement)
     BOOST_CHECK(banman->IsDiscouraged(addr[0]));
     BOOST_CHECK(banman->IsDiscouraged(addr[1]));
     BOOST_CHECK(banman->IsDiscouraged(addr[2]));
-    BOOST_CHECK(nodes[0]->fDisconnect);
-    BOOST_CHECK(nodes[1]->fDisconnect);
-    BOOST_CHECK(nodes[2]->fDisconnect);
+    BOOST_CHECK(nodes[0]->DisconnectionInitiated());
+    BOOST_CHECK(nodes[1]->DisconnectionInitiated());
+    BOOST_CHECK(nodes[2]->DisconnectionInitiated());
 
     for (CNode* node : nodes) {
         peerLogic->FinalizeNode(*node);
