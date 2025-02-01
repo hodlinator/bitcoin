@@ -729,9 +729,6 @@ public:
     }
     /** fSuccessfullyConnected is set to true on receiving VERACK from the peer. */
     std::atomic_bool fSuccessfullyConnected{false};
-    // Setting fDisconnect to true will cause the node to be disconnected the
-    // next time DisconnectNodes() runs
-    std::atomic_bool fDisconnect{false};
     CSemaphoreGrant grantOutbound;
     std::atomic<int> nRefCount{0};
 
@@ -986,6 +983,13 @@ public:
      */
     std::string LogIP(bool log_ip) const;
 
+    /** A ping-pong round trip has completed successfully. Update latest and minimum ping times. */
+    void PongReceived(std::chrono::microseconds ping_time) {
+        m_last_ping_time = ping_time;
+        m_min_ping_time = std::min(m_min_ping_time.load(), ping_time);
+    }
+
+private:
     /**
      * Helper function to log disconnects.
      *
@@ -994,13 +998,10 @@ public:
      */
     std::string DisconnectMsg(bool log_ip) const;
 
-    /** A ping-pong round trip has completed successfully. Update latest and minimum ping times. */
-    void PongReceived(std::chrono::microseconds ping_time) {
-        m_last_ping_time = ping_time;
-        m_min_ping_time = std::min(m_min_ping_time.load(), ping_time);
-    }
+    // Setting fDisconnect to true will cause the node to be disconnected the
+    // next time DisconnectNodes() runs
+    std::atomic_bool fDisconnect{false};
 
-private:
     const NodeId id;
     const uint64_t nLocalHostNonce;
     std::atomic<int> m_greatest_common_version{INIT_PROTO_VERSION};
