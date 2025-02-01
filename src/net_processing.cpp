@@ -5824,7 +5824,7 @@ bool PeerManagerImpl::SendMessages(CNode* pto)
                         pto->fDisconnect = true;
                         return true;
                     } else {
-                        LogInfo("Timeout downloading headers from noban peer, not %s\n", pto->DisconnectMsg(fLogIPs));
+                        LogInfo("Timeout downloading headers from noban peer, not disconnecting peer=%d%s\n", pto->GetId(), pto->LogIP(fLogIPs));
                         // Reset the headers sync state so that we have a
                         // chance to try downloading from a different peer.
                         // Note: this will also result in at least one more
