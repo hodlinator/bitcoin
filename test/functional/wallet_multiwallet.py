@@ -12,6 +12,7 @@ import os
 import platform
 import shutil
 import stat
+import subprocess
 
 from test_framework.authproxy import JSONRPCException
 from test_framework.blocktools import COINBASE_MATURITY
@@ -132,27 +133,36 @@ class MultiWalletTest(BitcoinTestFramework):
             walletlist = self.nodes[0].listwalletdir()['wallets']
         assert_equal(sorted(map(lambda w: w['name'], walletlist)), sorted(in_wallet_dir))
         # 1. "Permission denied" error.
-        if platform.system() != 'Windows' and os.geteuid() != 0:
+        if platform.system() != 'Windows' and os.geteuid() == 0:
+            self.log.warning('Skipping "permission denied"-test requiring non-root user.')
+        else:
             os.mkdir(wallet_dir('no_access'))
-            os.chmod(wallet_dir('no_access'), 0)
+            if platform.system() == 'Windows':
+                subprocess.run(['icacls', wallet_dir('no_access'), '/deny', f'{os.getlogin()}:R', '/Q'], check=True)
+            else:
+                os.chmod(wallet_dir('no_access'), 0)
             try:
                 with self.nodes[0].assert_debug_log(expected_msgs=['Error scanning']):
-                    walletlist = self.nodes[0].listwalletdir()['wallets']
+                    _ = self.nodes[0].listwalletdir()['wallets']
             finally:
                 # Need to ensure access is restored for cleanup
-                os.chmod(wallet_dir('no_access'), stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
-            assert_equal(sorted(map(lambda w: w['name'], walletlist)), sorted(in_wallet_dir))
-        # 2. "Too many levels of symbolic links" error.
-        # This test cannot be conducted robustly on Windows
-        # because it depends on the build toolchain:
-        # - A cross-compiled bitcoind.exe parses self_walletdat_symlink without errors.
-        # - A natively compiled bitcoind.exe logs the "Error scanning" message.
-        if platform.system() != 'Windows':
-            os.mkdir(wallet_dir('self_walletdat_symlink'))
-            os.symlink('wallet.dat', wallet_dir('self_walletdat_symlink/wallet.dat'))
-            with self.nodes[0].assert_debug_log(expected_msgs=['Error scanning']):
+                if platform.system() == 'Windows':
+                    subprocess.run(['takeown', '/f', wallet_dir('no_access')], check=True)
+                    subprocess.run(['icacls', wallet_dir('no_access'), '/reset', '/Q'], check=True)
+                else:
+                    os.chmod(wallet_dir('no_access'), stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
+            # Now that we have reset permissions, we should retrieve the full list again.
+            # (On Windows one would have gotten an incomplete list on the prior call).
+            with self.nodes[0].assert_debug_log(expected_msgs=[], unexpected_msgs=['Error scanning']):
                 walletlist = self.nodes[0].listwalletdir()['wallets']
             assert_equal(sorted(map(lambda w: w['name'], walletlist)), sorted(in_wallet_dir))
+        # 2. "Too many levels of symbolic links" error.
+        os.mkdir(wallet_dir('self_walletdat_symlink'))
+        # Effectively creates a symlink targeting itself.
+        os.symlink('wallet.dat', wallet_dir('self_walletdat_symlink/wallet.dat'))
+        with self.nodes[0].assert_debug_log(expected_msgs=['Error scanning']):
+            walletlist = self.nodes[0].listwalletdir()['wallets']
+        assert_equal(sorted(map(lambda w: w['name'], walletlist)), sorted(in_wallet_dir))
 
         assert_equal(set(node.listwallets()), set(wallet_names))
 
