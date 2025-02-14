@@ -7,6 +7,7 @@
 from base64 import b64encode
 from decimal import Decimal
 from subprocess import CalledProcessError
+import ast
 import hashlib
 import inspect
 import json
@@ -69,12 +70,42 @@ def summarise_dict_differences(thing1, thing2):
             d2[k] = thing2[k]
     return d1, d2
 
+
+def get_calling_context():
+    calling_context = ""
+    current_frame = inspect.currentframe()
+    if current_frame and current_frame.f_back:
+        current_frame = current_frame.f_back  # The callers caller.
+        frame_info = inspect.getframeinfo(current_frame.f_back)
+        with open(frame_info.filename, encoding="utf8") as file:
+            source_code = file.read()
+            tree = ast.parse(source_code)
+            for node in ast.walk(tree):
+                if hasattr(node, 'lineno') and node.lineno == frame_info.lineno:
+                    min_line_no = max_line_no = node.lineno
+                    if isinstance(node, ast.Expr):
+                        value = node.value
+                        # TODO: Doesn't handle nested assert_*(assert_*())..
+                        if isinstance(value, ast.Call) and value.func.id == current_frame.f_code.co_name:
+                            for n in ast.walk(value):
+                                if hasattr(n, 'lineno'):
+                                    max_line_no = max(n.lineno, max_line_no)
+                        lines = source_code.split("\n")
+                        calling_context = f"{frame_info.filename}:{min_line_no}"
+                        if min_line_no != max_line_no:
+                            calling_context += f" - {max_line_no}"
+                        for lineno in range(min_line_no, max_line_no+1):
+                            calling_context += f"\n{lines[lineno-1]}"
+                        return calling_context
+
+
 def assert_equal(thing1, thing2, *args):
     if thing1 != thing2 and not args and isinstance(thing1, dict) and isinstance(thing2, dict):
         d1,d2 = summarise_dict_differences(thing1, thing2)
         raise AssertionError("not(%s == %s)\n  in particular not(%s == %s)" % (thing1, thing2, d1, d2))
     if thing1 != thing2 or any(thing1 != arg for arg in args):
-        raise AssertionError("not(%s)" % " == ".join(str(arg) for arg in (thing1, thing2) + args))
+        calling_context = get_calling_context()
+        raise AssertionError("not(%s)" % " == ".join(str(arg) for arg in (thing1, thing2) + args) + (f"\nFailing expression: {calling_context}" if calling_context else ""))
 
 
 def assert_greater_than(thing1, thing2):

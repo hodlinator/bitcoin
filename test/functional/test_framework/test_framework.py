@@ -189,7 +189,7 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
             # reduce noise.
             tb = e.__traceback__
             while tb:
-                if tb.tb_next == None and tb.tb_frame.f_code.co_filename.endswith("test/functional/test_framework/util.py") and "assert_" in tb.tb_frame.f_code.co_name:
+                if tb.tb_next is not None and tb.tb_next.tb_frame.f_code.co_filename.endswith("test/functional/test_framework/util.py") and "assert_" in tb.tb_next.tb_frame.f_code.co_name:
                     prev.tb_next = None
                     break
                 else:
