@@ -183,7 +183,18 @@ class BitcoinTestFramework(metaclass=BitcoinTestMetaClass):
         except SkipTest as e:
             self.log.warning("Test Skipped: %s" % e.message)
             self.success = TestStatus.SKIPPED
-        except AssertionError:
+        except AssertionError as e:
+            prev = None
+            # Chomp off the assert_-function itself for the logged traceback to
+            # reduce noise.
+            tb = e.__traceback__
+            while tb:
+                if tb.tb_next == None and tb.tb_frame.f_code.co_filename.endswith("test/functional/test_framework/util.py") and "assert_" in tb.tb_frame.f_code.co_name:
+                    prev.tb_next = None
+                    break
+                else:
+                    prev = tb
+                    tb = tb.tb_next
             self.log.exception("Assertion failed")
             self.success = TestStatus.FAILED
         except KeyError:
