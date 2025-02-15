@@ -77,6 +77,11 @@ class WalletMultisigDescriptorPSBTTest(BitcoinTestFramework):
         self.name = f"{self.M}_of_{self.N}_multisig"
         self.log.info(f"Testing {self.name}...")
 
+        assert_equal(
+            123 if (False and
+            True) else 0,
+            123)
+
         participants = {
             # Every participant generates an xpub. The most straightforward way is to create a new descriptor wallet.
             # This wallet will be the participant's `signer` for the resulting multisig. Avoid reusing this wallet for any other purpose (for privacy reasons).
