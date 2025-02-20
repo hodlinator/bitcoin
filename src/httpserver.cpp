@@ -196,12 +196,6 @@ public:
     {
         return WITH_LOCK(m_mutex, return m_tracker.size());
     }
-    //! Wait until there are no more connections with active requests in the tracker
-    void WaitUntilEmpty() const EXCLUSIVE_LOCKS_REQUIRED(!m_mutex)
-    {
-        WAIT_LOCK(m_mutex, lock);
-        m_cv.wait(lock, [this]() EXCLUSIVE_LOCKS_REQUIRED(m_mutex) { return m_tracker.empty(); });
-    }
 };
 //! Track active requests
 static HTTPRequestTracker g_requests;
@@ -535,26 +529,38 @@ void StopHTTPServer()
         evhttp_del_accept_socket(eventHTTP, socket);
     }
     boundSockets.clear();
-    {
-        if (const auto n_connections{g_requests.CountActiveConnections()}; n_connections != 0) {
-            LogDebug(BCLog::HTTP, "Waiting for %d connections to stop HTTP server\n", n_connections);
-        }
-        g_requests.WaitUntilEmpty();
-    }
-    if (eventHTTP) {
-        // Schedule a callback to call evhttp_free in the event base thread, so
-        // that evhttp_free does not need to be called again after the handling
-        // of unfinished request connections that follows.
-        event_base_once(eventBase, -1, EV_TIMEOUT, [](evutil_socket_t, short, void*) {
-            evhttp_free(eventHTTP);
-            eventHTTP = nullptr;
-        }, nullptr, nullptr);
-    }
     if (eventBase) {
+        // Stop processing events on ThreadHTTP after completing the active ones.
+        if (event_base_loopexit(eventBase, nullptr) != 0) {
+            LogDebug(BCLog::HTTP, "event_base_loopexit failed");
+        }
         LogDebug(BCLog::HTTP, "Waiting for HTTP event thread to exit\n");
         if (g_thread_http.joinable()) g_thread_http.join();
+        // Schedule a callback to call evhttp_free, so
+        // that evhttp_free does not need to be called again after the handling
+        // of unfinished request connections that follows.
+        if (event_base_once(eventBase, -1, EV_TIMEOUT, [](evutil_socket_t, short, void*) {
+            evhttp_free(eventHTTP);
+            eventHTTP = nullptr;
+        }, nullptr, nullptr) != 0) {
+            LogDebug(BCLog::HTTP, "event_base_once failed");
+        }
+        // Runs in the context of our thread.
+        LogDebug(BCLog::HTTP, "Processing remaining events");
+        if (int ret{event_base_dispatch(eventBase)}; ret < 0) {
+            LogDebug(BCLog::HTTP, "Failed dispatching events, error: %d", ret);
+        }
+        Assume(!eventHTTP);
+        if (size_t connections{g_requests.CountActiveConnections()}; connections > 0) {
+            // If we get here, it must mean that evhttp_del_accept_socket above
+            // and waiting on ThreadHTTP to finish wasn't enough for the callback(s)
+            // we registered with evhttp_connection_set_closecb to be called.
+            LogWarning("%d remaining HTTP connection(s) after event thread exited", connections);
+        }
         event_base_free(eventBase);
         eventBase = nullptr;
+    } else {
+        Assume(!g_thread_http.joinable());
     }
     g_work_queue.reset();
     LogDebug(BCLog::HTTP, "Stopped HTTP server\n");
