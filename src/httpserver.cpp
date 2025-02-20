@@ -2,8 +2,6 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include <bits/types/struct_timeval.h>
-#include <chrono>
 #include <httpserver.h>
 
 #include <chainparamsbase.h>
@@ -163,7 +161,7 @@ private:
     mutable Mutex m_mutex;
     mutable std::condition_variable m_cv;
     //! For each connection, keep a counter of how many requests are open
-    std::unordered_map<const evhttp_connection*, std::vector<evhttp_request*>> m_tracker GUARDED_BY(m_mutex);
+    std::unordered_map<const evhttp_connection*, size_t> m_tracker GUARDED_BY(m_mutex);
 
     void RemoveConnectionInternal(const decltype(m_tracker)::iterator it) EXCLUSIVE_LOCKS_REQUIRED(m_mutex)
     {
@@ -175,7 +173,7 @@ public:
     void AddRequest(evhttp_request* req) EXCLUSIVE_LOCKS_REQUIRED(!m_mutex)
     {
         const evhttp_connection* conn{Assert(evhttp_request_get_connection(Assert(req)))};
-        WITH_LOCK(m_mutex, m_tracker[conn].push_back(req));
+        WITH_LOCK(m_mutex, ++m_tracker[conn]);
     }
     //! Decrease request counter for the associated connection by 1, remove connection if counter is 0
     void RemoveRequest(evhttp_request* req) EXCLUSIVE_LOCKS_REQUIRED(!m_mutex)
@@ -183,10 +181,8 @@ public:
         const evhttp_connection* conn{Assert(evhttp_request_get_connection(Assert(req)))};
         LOCK(m_mutex);
         auto it{m_tracker.find(conn)};
-        if (it != m_tracker.end() && !it->second.empty()) {
-            auto to_remove = std::ranges::remove(it->second, req);
-            it->second.erase(to_remove.begin(), to_remove.end());
-            if (it->second.empty()) RemoveConnectionInternal(it);
+        if (it != m_tracker.end() && it->second > 0) {
+            if (--(it->second) == 0) RemoveConnectionInternal(it);
         }
     }
     //! Remove a connection entirely
@@ -194,11 +190,7 @@ public:
     {
         LOCK(m_mutex);
         auto it{m_tracker.find(Assert(conn))};
-        if (it != m_tracker.end()) {
-            Assert(!it->second.empty());
-            LogWarning("Removing connection with %d pending requests", it->second.size());
-            RemoveConnectionInternal(it);
-        }
+        if (it != m_tracker.end()) RemoveConnectionInternal(it);
     }
     size_t CountActiveConnections() const EXCLUSIVE_LOCKS_REQUIRED(!m_mutex)
     {
@@ -269,8 +261,6 @@ std::string RequestMethodString(HTTPRequest::RequestMethod m)
 /** HTTP request callback */
 static void http_request_cb(struct evhttp_request* req, void* arg)
 {
-    LogDebug(BCLog::HTTP, "req->flags: %d", req->flags);
-    Assert((req->flags & (EVHTTP_USER_OWNED)) == 0);
     evhttp_connection* conn{evhttp_request_get_connection(req)};
     // Track active requests
     {
@@ -539,55 +529,36 @@ void StopHTTPServer()
         }
         g_thread_http_workers.clear();
     }
-    // Unlisten sockets, these are what make the event loop running, which means
-    // that after this and all connections are closed the event loop will quit. <-- not true?
+    // Unlisten sockets, these keep the event loop running, which means
+    // no new connections will be created and the existing ones can complete.
     for (evhttp_bound_socket *socket : boundSockets) {
         evhttp_del_accept_socket(eventHTTP, socket);
-    }//evutil_closesocket
+    }
     boundSockets.clear();
     if (eventBase) {
-        // We wait here to avoid abrupt closing of connections leading to issues
-        // like RemoteDisconnected exceptions on the Python side.
+        // We wait here to give clients time to close down TCP connections
+        // before we free eventHTTP, this avoids issues like RemoteDisconnected
+        // exceptions in the test framework.
         g_requests.WaitUntilEmpty(5min);
-        if (size_t connections{g_requests.CountActiveConnections()}; connections > 0) {
-            LogWarning("%d remaining HTTP connection(s) as we are about to free eventHTTP which will destroy them.", connections);
+        if (const auto n_connections{g_requests.CountActiveConnections()}; n_connections != 0) {
+            LogWarning("%d remaining HTTP connection(s) as we are about to free eventHTTP which will destroy them.", n_connections);
         }
-
-///TODO: evhttp_cancel_request? evhttp_connection_free_on_completion
-
-        // Stop processing events on ThreadHTTP after completing the active ones.
-        if (event_base_loopexit(eventBase, nullptr) != 0) {
-            LogDebug(BCLog::HTTP, "event_base_loopexit failed");
-        }
-        LogDebug(BCLog::HTTP, "Waiting for HTTP event thread to exit\n");
-        if (g_thread_http.joinable()) g_thread_http.join();
-        // Schedule a callback to call evhttp_free, so
-        // that evhttp_free does not need to be called again after the handling
-        // of unfinished request connections that follows.
+        // Schedule a callback to call evhttp_free, as otherwise eventHTTP often
+        // seems to keep internal events alive, meaning eventBase dispatch will
+        // never run out of events.
         if (event_base_once(eventBase, -1, EV_TIMEOUT, [](evutil_socket_t, short, void*) {
-            if (size_t connections{g_requests.CountActiveConnections()}; connections > 0) {
-                // If we get here, it must mean that evhttp_del_accept_socket above
-                // and waiting on ThreadHTTP to finish wasn't enough for the callback(s)
-                // we registered with evhttp_connection_set_closecb to be called.
-                LogWarning("%d remaining HTTP connection(s) after we stopped processing events.", connections);
-            }
             evhttp_free(eventHTTP);
             eventHTTP = nullptr;
         }, nullptr, nullptr) != 0) {
             LogDebug(BCLog::HTTP, "event_base_once failed");
         }
-        // Runs in the context of our thread.
-        LogDebug(BCLog::HTTP, "Processing remaining events");
-        while (event_base_get_num_events(eventBase, EVENT_BASE_COUNT_ACTIVE | EVENT_BASE_COUNT_ADDED) > 0) {
-            if (int ret{event_base_dispatch(eventBase)}; ret < 0) {
-                LogDebug(BCLog::HTTP, "Failed dispatching events, error: %d", ret);
-            }
-        }
-        Assume(!eventHTTP);
-        /*if (eventHTTP) {
+        LogDebug(BCLog::HTTP, "Waiting for HTTP event thread to exit\n");
+        if (g_thread_http.joinable()) g_thread_http.join();
+        if (eventHTTP) {
+            LogDebug(BCLog::HTTP, "event_base_once-event was not triggered, freeing eventHTTP ourselves");
             evhttp_free(eventHTTP);
             eventHTTP = nullptr;
-        }*/
+        }
         event_base_free(eventBase);
         eventBase = nullptr;
     } else {
@@ -690,16 +661,8 @@ void HTTPRequest::WriteReply(int nStatus, std::span<const std::byte> reply)
 {
     assert(!replySent && req);
     if (m_interrupt) {
+        // Instruct the *other side* to close the TCP connection.
         WriteHeader("Connection", "close");
-        /* Still ran into RemoteDisconnected when running full functional test suite.
-        // Queue an extra event just to give the TCP connection time to return the response before closing.
-        timeval tv{.tv_sec = 1, .tv_usec = 0, };
-        if (event_base_once(EventBase(), -1, EV_TIMEOUT, [](evutil_socket_t, short, void*) {
-            LogWarning("Close timed out.");
-        }, nullptr, &tv) != 0) {
-            LogWarning("Failed queueing timeout.");
-        }
-        */
     }
     // Send event to main http thread to send reply message
     struct evbuffer* evb = evhttp_request_get_output_buffer(req);
