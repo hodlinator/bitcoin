@@ -258,6 +258,8 @@ std::string RequestMethodString(HTTPRequest::RequestMethod m)
     assert(false);
 }
 
+static std::atomic_uint32_t g_request_id{0};
+
 /** HTTP request callback */
 static void http_request_cb(struct evhttp_request* req, void* arg)
 {
@@ -284,7 +286,8 @@ static void http_request_cb(struct evhttp_request* req, void* arg)
             }
         }
     }
-    auto hreq{std::make_unique<HTTPRequest>(req, *static_cast<const util::SignalInterrupt*>(arg))};
+    const uint32_t request_id = g_request_id++;
+    auto hreq{std::make_unique<HTTPRequest>(req, *static_cast<const util::SignalInterrupt*>(arg), request_id, /*replySent=*/false)};
 
     // Early address-based allow check
     if (!ClientAllowed(hreq->GetPeer())) {
@@ -302,8 +305,8 @@ static void http_request_cb(struct evhttp_request* req, void* arg)
         return;
     }
 
-    LogDebug(BCLog::HTTP, "Received a %s request for %s from %s\n",
-             RequestMethodString(hreq->GetRequestMethod()), SanitizeString(hreq->GetURI(), SAFE_CHARS_URI).substr(0, 100), hreq->GetPeer().ToStringAddrPort());
+    LogDebug(BCLog::HTTP, "Received a %s request for %s from %s, id: %d\n",
+             RequestMethodString(hreq->GetRequestMethod()), SanitizeString(hreq->GetURI(), SAFE_CHARS_URI).substr(0, 100), hreq->GetPeer().ToStringAddrPort(), request_id);
 
     // Find registered handler for prefix
     std::string strURI = hreq->GetURI();
@@ -609,8 +612,8 @@ void HTTPEvent::trigger(struct timeval* tv)
     else
         evtimer_add(ev, tv); // trigger after timeval passed
 }
-HTTPRequest::HTTPRequest(struct evhttp_request* _req, const util::SignalInterrupt& interrupt, bool _replySent)
-    : req(_req), m_interrupt(interrupt), replySent(_replySent)
+HTTPRequest::HTTPRequest(struct evhttp_request* _req, const util::SignalInterrupt& interrupt, uint32_t id, bool _replySent)
+    : req(_req), m_interrupt(interrupt), m_id(id), replySent(_replySent)
 {
 }
 
@@ -671,7 +674,7 @@ void HTTPRequest::WriteReply(int nStatus, std::span<const std::byte> reply)
 {
     assert(!replySent && req);
     if (m_interrupt) {
-        LogDebug(BCLog::HTTP, "Instructing client to close their TCP connection to us.");
+        LogDebug(BCLog::HTTP, "Instructing client to close their TCP connection to us (request id %d).", m_id);
         WriteHeader("Connection", "close");
     }
     // Send event to main http thread to send reply message
@@ -679,8 +682,9 @@ void HTTPRequest::WriteReply(int nStatus, std::span<const std::byte> reply)
     assert(evb);
     evbuffer_add(evb, reply.data(), reply.size());
     auto req_copy = req;
-    HTTPEvent* ev = new HTTPEvent(eventBase, true, [req_copy, nStatus]{
+    HTTPEvent* ev = new HTTPEvent(eventBase, true, [req_copy, nStatus, id = m_id](){
         evhttp_send_reply(req_copy, nStatus, nullptr, nullptr);
+        LogDebug(BCLog::HTTP, "Replied to request: %d", id);
         // Re-enable reading from the socket. This is the second part of the libevent
         // workaround above.
         if (event_get_version_number() >= 0x02010600 && event_get_version_number() < 0x02010900) {
