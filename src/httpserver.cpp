@@ -529,8 +529,9 @@ void StopHTTPServer()
         }
         g_thread_http_workers.clear();
     }
-    // Unlisten sockets, these are what make the event loop running, which means
-    // that after this and all connections are closed the event loop will quit.
+    // Unlisten sockets which would otherwise keep the event loop running. Doing
+    // so avoids new connections being created, while existing ones continue
+    // being processed in parallel with this thread until they complete.
     for (evhttp_bound_socket *socket : boundSockets) {
         evhttp_del_accept_socket(eventHTTP, socket);
     }
@@ -542,9 +543,9 @@ void StopHTTPServer()
         g_requests.WaitUntilEmpty();
     }
     if (eventHTTP) {
-        // Schedule a callback to call evhttp_free in the event base thread, so
-        // that evhttp_free does not need to be called again after the handling
-        // of unfinished request connections that follows.
+        // Schedule a callback to call evhttp_free in the event base thread, as
+        // otherwise eventHTTP often keeps internal events alive, meaning
+        // aforementioned thread would never run out of events and exit.
         event_base_once(eventBase, -1, EV_TIMEOUT, [](evutil_socket_t, short, void*) {
             evhttp_free(eventHTTP);
             eventHTTP = nullptr;
@@ -653,6 +654,7 @@ void HTTPRequest::WriteReply(int nStatus, std::span<const std::byte> reply)
 {
     assert(!replySent && req);
     if (m_interrupt) {
+        LogDebug(BCLog::HTTP, "Instructing client to close their TCP connection to us.");
         WriteHeader("Connection", "close");
     }
     // Send event to main http thread to send reply message
