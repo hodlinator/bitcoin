@@ -197,10 +197,10 @@ public:
         return WITH_LOCK(m_mutex, return m_tracker.size());
     }
     //! Wait until there are no more connections with active requests in the tracker
-    void WaitUntilEmpty() const EXCLUSIVE_LOCKS_REQUIRED(!m_mutex)
+    void WaitUntilEmpty(std::chrono::seconds timeout) const EXCLUSIVE_LOCKS_REQUIRED(!m_mutex)
     {
         WAIT_LOCK(m_mutex, lock);
-        m_cv.wait(lock, [this]() EXCLUSIVE_LOCKS_REQUIRED(m_mutex) { return m_tracker.empty(); });
+        m_cv.wait_for(lock, timeout, [this]() EXCLUSIVE_LOCKS_REQUIRED(m_mutex) { return m_tracker.empty(); });
     }
 };
 //! Track active requests
@@ -536,11 +536,19 @@ void StopHTTPServer()
         evhttp_del_accept_socket(eventHTTP, socket);
     }
     boundSockets.clear();
-    {
-        if (const auto n_connections{g_requests.CountActiveConnections()}; n_connections != 0) {
-            LogDebug(BCLog::HTTP, "Waiting for %d connections to stop HTTP server\n", n_connections);
+    // Give clients time to close down TCP connections from their side before we
+    // free eventHTTP, this avoids issues like RemoteDisconnected exceptions in
+    // the test framework.
+    g_requests.WaitUntilEmpty(/*timeout=*/30s);
+    if (auto connections{g_requests.CountActiveConnections()}) {
+        LogWarning("%d remaining HTTP connection(s) after 30s timeout, waiting for longer.", connections);
+        g_requests.WaitUntilEmpty(/*timeout=*/10min);
+        if ((connections = g_requests.CountActiveConnections())) {
+            LogError("%d remaining HTTP connection(s) after long timeout. "
+                     "Aborting to avoid potential use-after-frees from "
+                     "connections still running after freeing eventHTTP.", connections);
+            std::abort();
         }
-        g_requests.WaitUntilEmpty();
     }
     if (eventHTTP) {
         // Schedule a callback to call evhttp_free in the event base thread, as
