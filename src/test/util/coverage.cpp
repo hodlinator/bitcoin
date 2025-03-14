@@ -5,8 +5,8 @@
 #include <test/util/coverage.h>
 
 #if defined(__clang__)
-extern "C" void __llvm_profile_reset_counters(void) __attribute__((weak));
-extern "C" void __gcov_reset(void) __attribute__((weak));
+extern "C" __attribute__((weak)) void __llvm_profile_reset_counters(void);
+extern "C" __attribute__((weak)) void __gcov_reset(void);
 
 // Fallback implementations
 extern "C" __attribute__((weak)) void __llvm_profile_reset_counters(void) {}
