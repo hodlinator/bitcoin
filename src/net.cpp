@@ -1921,14 +1921,9 @@ void CConnman::DisconnectNodes()
         }
 
         // Disconnect unused nodes
-        std::vector<CNode*> nodes_copy = m_nodes;
-        for (CNode* pnode : nodes_copy)
-        {
-            if (pnode->fDisconnect)
-            {
-                // remove from m_nodes
-                m_nodes.erase(remove(m_nodes.begin(), m_nodes.end(), pnode), m_nodes.end());
-
+        for (auto it = m_nodes.begin(); it != m_nodes.end(); ) {
+            CNode* pnode = *it;
+            if (pnode->fDisconnect) {
                 // Add to reconnection list if appropriate. We don't reconnect right here, because
                 // the creation of a connection is a blocking operation (up to several seconds),
                 // and we don't want to hold up the socket handler thread for that long.
@@ -1954,19 +1949,23 @@ void CConnman::DisconnectNodes()
                 // hold in disconnected pool until all refs are released
                 pnode->Release();
                 m_nodes_disconnected.push_back(pnode);
+
+                // remove entry from m_nodes
+                it = m_nodes.erase(it);
+            } else {
+                ++it;
             }
         }
     }
-    {
-        // Delete disconnected nodes
-        std::list<CNode*> nodes_disconnected_copy = m_nodes_disconnected;
-        for (CNode* pnode : nodes_disconnected_copy)
-        {
-            // Destroy the object only after other threads have stopped using it.
-            if (pnode->GetRefCount() <= 0) {
-                m_nodes_disconnected.remove(pnode);
-                DeleteNode(pnode);
-            }
+    // Delete disconnected nodes
+    for (auto it = m_nodes_disconnected.begin(); it != m_nodes_disconnected.end(); ) {
+        CNode* pnode = *it;
+        // Destroy the object only after other threads have stopped using it.
+        if (pnode->GetRefCount() <= 0) {
+            DeleteNode(pnode);
+            it = m_nodes_disconnected.erase(it);
+        } else {
+            ++it;
         }
     }
     {
@@ -3916,15 +3915,13 @@ void CConnman::PushMessage(CNode* pnode, CSerializedNetMsg&& msg)
 
 bool CConnman::ForNode(NodeId id, std::function<bool(CNode* pnode)> func)
 {
-    CNode* found = nullptr;
     LOCK(m_nodes_mutex);
-    for (auto&& pnode : m_nodes) {
-        if(pnode->GetId() == id) {
-            found = pnode;
-            break;
+    for (auto& pnode : m_nodes) {
+        if (pnode->GetId() == id) {
+            return NodeFullyConnected(pnode) && func(pnode);
         }
     }
-    return found != nullptr && NodeFullyConnected(found) && func(found);
+    return false;
 }
 
 CSipHasher CConnman::GetDeterministicRandomizer(uint64_t id) const
