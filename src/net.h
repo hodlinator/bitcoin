@@ -730,6 +730,7 @@ public:
     // next time DisconnectNodes() runs
     std::atomic_bool fDisconnect{false};
     CSemaphoreGrant grantOutbound;
+    /** Used to track NodesSnapshot references. */
     std::atomic<int> nRefCount{0};
 
     const uint64_t nKeyedNetGroup;
@@ -1123,9 +1124,6 @@ public:
     ~CConnman();
 
     bool Start(CScheduler& scheduler, const Options& options) EXCLUSIVE_LOCKS_REQUIRED(!m_total_bytes_sent_mutex, !m_added_nodes_mutex, !m_addr_fetches_mutex, !mutexMsgProc);
-
-    void StopThreads();
-    void StopNodes();
     void Stop()
     {
         StopThreads();
@@ -1151,18 +1149,18 @@ public:
     void ForEachNode(const NodeFn& func)
     {
         LOCK(m_nodes_mutex);
-        for (auto&& node : m_nodes) {
-            if (NodeFullyConnected(node))
-                func(node);
+        for (auto& node : m_nodes) {
+            if (NodeFullyConnected(*node))
+                func(node.get());
         }
     };
 
     void ForEachNode(const NodeFn& func) const
     {
         LOCK(m_nodes_mutex);
-        for (auto&& node : m_nodes) {
-            if (NodeFullyConnected(node))
-                func(node);
+        for (auto& node : m_nodes) {
+            if (NodeFullyConnected(*node))
+                func(node.get());
         }
     };
 
@@ -1286,6 +1284,9 @@ private:
         NetPermissionFlags m_permissions;
     };
 
+    void StopThreads();
+    void StopNodes();
+
     //! returns the time left in the current max outbound cycle
     //! in case of no limit, it will always return 0
     std::chrono::seconds GetMaxOutboundTimeLeftInCycle_() const EXCLUSIVE_LOCKS_REQUIRED(m_total_bytes_sent_mutex);
@@ -1363,10 +1364,10 @@ private:
     bool AlreadyConnectedToAddress(const CAddress& addr);
 
     bool AttemptToEvictConnection();
-    CNode* ConnectNode(CAddress addrConnect, const char *pszDest, bool fCountFailure, ConnectionType conn_type, bool use_v2transport) EXCLUSIVE_LOCKS_REQUIRED(!m_unused_i2p_sessions_mutex);
+    std::unique_ptr<CNode> ConnectNode(CAddress addrConnect, const char *pszDest, bool fCountFailure, ConnectionType conn_type, bool use_v2transport) EXCLUSIVE_LOCKS_REQUIRED(!m_unused_i2p_sessions_mutex);
     void AddWhitelistPermissionFlags(NetPermissionFlags& flags, const CNetAddr &addr, const std::vector<NetWhitelistPermissions>& ranges) const;
 
-    void DeleteNode(CNode* pnode);
+    void DeleteNode(std::unique_ptr<CNode> pnode);
 
     NodeId GetNewNodeId();
 
@@ -1403,7 +1404,7 @@ private:
     bool MaybePickPreferredNetwork(std::optional<Network>& network);
 
     // Whether the node should be passed out in ForEach* callbacks
-    static bool NodeFullyConnected(const CNode* pnode);
+    static bool NodeFullyConnected(const CNode& node);
 
     uint16_t GetDefaultPort(Network net) const;
     uint16_t GetDefaultPort(const std::string& addr) const;
@@ -1442,8 +1443,8 @@ private:
     std::vector<AddedNodeParams> m_added_node_params GUARDED_BY(m_added_nodes_mutex);
 
     mutable Mutex m_added_nodes_mutex;
-    std::vector<CNode*> m_nodes GUARDED_BY(m_nodes_mutex);
-    std::list<CNode*> m_nodes_disconnected;
+    std::vector<std::unique_ptr<CNode>> m_nodes GUARDED_BY(m_nodes_mutex);
+    std::list<std::unique_ptr<CNode>> m_nodes_disconnected;
     mutable RecursiveMutex m_nodes_mutex;
     std::atomic<NodeId> nLastNodeId{0};
     unsigned int nPrevNodeCount{0};
@@ -1645,9 +1646,9 @@ private:
         {
             {
                 LOCK(connman.m_nodes_mutex);
-                m_nodes_copy = connman.m_nodes;
-                for (auto& node : m_nodes_copy) {
+                for (auto& node : connman.m_nodes) {
                     node->AddRef();
+                    m_nodes_copy.push_back(node.get());
                 }
             }
             if (shuffle) {

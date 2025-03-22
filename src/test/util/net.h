@@ -48,25 +48,27 @@ struct ConnmanTestMsg : public CConnman {
     std::vector<CNode*> TestNodes()
     {
         LOCK(m_nodes_mutex);
-        return m_nodes;
+        std::vector<CNode*> ret;
+        for (auto& node : m_nodes)
+            ret.push_back(node.get());
+        return ret;
     }
 
-    void AddTestNode(CNode& node)
+    void AddTestNode(std::unique_ptr<CNode> node)
     {
         LOCK(m_nodes_mutex);
-        m_nodes.push_back(&node);
+        m_nodes.push_back(std::move(node));
 
-        if (node.IsManualOrFullOutboundConn()) ++m_network_conn_counts[node.addr.GetNetwork()];
+        if (m_nodes.back()->IsManualOrFullOutboundConn()) ++m_network_conn_counts[m_nodes.back()->addr.GetNetwork()];
     }
 
     void ClearTestNodes()
     {
         LOCK(m_nodes_mutex);
-        for (CNode* node : m_nodes) {
-            delete node;
-        }
         m_nodes.clear();
     }
+
+    void StopNodes() { CConnman::StopNodes(); } // Expose protected method.
 
     void Handshake(CNode& node,
                    bool successfully_connected,

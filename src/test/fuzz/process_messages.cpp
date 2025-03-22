@@ -55,12 +55,12 @@ FUZZ_TARGET(process_messages, .init = initialize_process_messages)
     std::vector<CNode*> peers;
     const auto num_peers_to_add = fuzzed_data_provider.ConsumeIntegralInRange(1, 3);
     for (int i = 0; i < num_peers_to_add; ++i) {
-        peers.push_back(ConsumeNodeAsUniquePtr(fuzzed_data_provider, i).release());
-        CNode& p2p_node = *peers.back();
+        auto p2p_node{ConsumeNodeAsUniquePtr(fuzzed_data_provider, i)};
+        peers.push_back(p2p_node.get());
 
-        FillNode(fuzzed_data_provider, connman, p2p_node);
+        FillNode(fuzzed_data_provider, connman, *p2p_node);
 
-        connman.AddTestNode(p2p_node);
+        connman.AddTestNode(std::move(p2p_node));
     }
 
     LIMITED_WHILE(fuzzed_data_provider.ConsumeBool(), 30)
@@ -91,5 +91,5 @@ FUZZ_TARGET(process_messages, .init = initialize_process_messages)
         }
     }
     g_setup->m_node.validation_signals->SyncWithValidationInterfaceQueue();
-    g_setup->m_node.connman->StopNodes();
+    connman.StopNodes();
 }

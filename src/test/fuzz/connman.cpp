@@ -69,8 +69,8 @@ FUZZ_TARGET(connman, .init = initialize_connman)
     std::string random_string;
 
     LIMITED_WHILE(fuzzed_data_provider.ConsumeBool(), 100) {
-        CNode& p2p_node{*ConsumeNodeAsUniquePtr(fuzzed_data_provider).release()};
-        connman.AddTestNode(p2p_node);
+        std::unique_ptr<CNode> p2p_node{ConsumeNodeAsUniquePtr(fuzzed_data_provider).release()};
+        connman.AddTestNode(std::move(p2p_node));
     }
 
     LIMITED_WHILE(fuzzed_data_provider.ConsumeBool(), 10000) {

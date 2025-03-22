@@ -66,9 +66,10 @@ FUZZ_TARGET(process_message, .init = initialize_process_message)
     if (!LIMIT_TO_MESSAGE_TYPE.empty() && random_message_type != LIMIT_TO_MESSAGE_TYPE) {
         return;
     }
-    CNode& p2p_node = *ConsumeNodeAsUniquePtr(fuzzed_data_provider).release();
+    auto p2p_node_ptr{ConsumeNodeAsUniquePtr(fuzzed_data_provider)};
+    CNode& p2p_node{*p2p_node_ptr};
 
-    connman.AddTestNode(p2p_node);
+    connman.AddTestNode(std::move(p2p_node_ptr));
     FillNode(fuzzed_data_provider, connman, p2p_node);
 
     const auto mock_time = ConsumeTime(fuzzed_data_provider);
@@ -91,5 +92,5 @@ FUZZ_TARGET(process_message, .init = initialize_process_message)
         g_setup->m_node.peerman->SendMessages(&p2p_node);
     }
     g_setup->m_node.validation_signals->SyncWithValidationInterfaceQueue();
-    g_setup->m_node.connman->StopNodes();
+    connman.StopNodes();
 }
