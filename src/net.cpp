@@ -546,7 +546,6 @@ std::unique_ptr<CNode> CConnman::ConnectNode(CAddress addrConnect, const char *p
                                     .recv_flood_size = nReceiveFloodSize,
                                     .use_v2transport = use_v2transport,
                                 })};
-        pnode->AddRef();
 
         // We're making a new connection, harvest entropy from the time (and our peer count)
         RandAddEvent((uint32_t)id);
@@ -1843,7 +1842,6 @@ void CConnman::CreateNodeFromAcceptedSocket(std::unique_ptr<Sock>&& sock,
                                  .recv_flood_size = nReceiveFloodSize,
                                  .use_v2transport = use_v2transport,
                              })};
-    pnode->AddRef();
     m_msgproc->InitializeNode(*pnode, local_services);
     {
         LOCK(m_nodes_mutex);
@@ -1948,7 +1946,6 @@ void CConnman::DisconnectNodes()
                 if (pnode->IsManualOrFullOutboundConn()) --m_network_conn_counts[pnode->addr.GetNetwork()];
 
                 // hold in disconnected pool until all refs are released
-                pnode->Release();
                 m_nodes_disconnected.emplace_back(std::move(pnode));
 
                 // remove moved-from entry from m_nodes
@@ -1962,7 +1959,7 @@ void CConnman::DisconnectNodes()
     for (auto it = m_nodes_disconnected.begin(); it != m_nodes_disconnected.end(); ) {
         std::unique_ptr<CNode>& pnode = *it;
         // Destroy the object only after other threads have stopped using it.
-        if (pnode->GetRefCount() <= 0) {
+        if (pnode->GetSnapshotCount() == 0) {
             DeleteNode(std::move(pnode));
             it = m_nodes_disconnected.erase(it);
         } else {
@@ -3491,6 +3488,7 @@ void CConnman::StopNodes()
 void CConnman::DeleteNode(std::unique_ptr<CNode> pnode)
 {
     assert(pnode);
+    assert(pnode->GetSnapshotCount() == 0);
     m_msgproc->FinalizeNode(*pnode);
     pnode.reset();
 }

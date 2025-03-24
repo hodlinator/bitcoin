@@ -900,7 +900,7 @@ public:
         return nLocalHostNonce;
     }
 
-    int GetRefCount() const
+    int GetSnapshotCount() const
     {
         assert(nRefCount >= 0);
         return nRefCount;
@@ -931,13 +931,12 @@ public:
     //! May not be called more than once
     void SetAddrLocal(const CService& addrLocalIn) EXCLUSIVE_LOCKS_REQUIRED(!m_addr_local_mutex);
 
-    CNode* AddRef()
+    void AddSnapshot()
     {
         nRefCount++;
-        return this;
     }
 
-    void Release()
+    void ReleaseSnapshot()
     {
         nRefCount--;
     }
@@ -1647,7 +1646,7 @@ private:
             {
                 LOCK(connman.m_nodes_mutex);
                 for (auto& node : connman.m_nodes) {
-                    node->AddRef();
+                    node->AddSnapshot();
                     m_nodes_copy.push_back(node.get());
                 }
             }
@@ -1659,7 +1658,7 @@ private:
         ~NodesSnapshot()
         {
             for (auto& node : m_nodes_copy) {
-                node->Release();
+                node->ReleaseSnapshot();
             }
         }
 
