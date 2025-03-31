@@ -8,7 +8,7 @@ use std::fs::{read_dir, DirEntry, File};
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 use std::str;
-use std::thread::{self, ScopedJoinHandle};
+use std::thread::{self};
 
 /// A type for a complete and readable error message.
 type AppError = String;
@@ -222,28 +222,24 @@ The coverage was not deterministic between runs.
     thread::scope(|s| -> AppResult {
         let mut handles = VecDeque::with_capacity(par);
         let mut res = Ok(());
-        let set_err = |res: &mut _, handle: ScopedJoinHandle<_>| {
-            let r = match handle.join() {
-                Err(_e) => Err("a scoped thread panicked".to_string()),
-                Ok(r) => r,
-            };
-            if r.is_err() {
-                *res = r;
-            }
-        };
         for (i, entry) in entries.iter().enumerate() {
-            println!("[{i}/{}]", entries.len());
-            handles.push_back(s.spawn(move || check_individual(entry, i % par)));
-            if handles.len() >= par {
-                let h = handles.pop_front().expect("unreachable: must not be empty");
-                set_err(&mut res, h);
-                if res.is_err() {
-                    break;
+            if res.is_ok() {
+                println!("[{i}/{}]", entries.len());
+                handles.push_back(s.spawn(move || check_individual(entry, i % par)));
+            }
+            while handles.len() >= par || (i == (entries.len() - 1) && !handles.is_empty()) {
+                let thread_result = match handles
+                    .pop_front()
+                    .expect("unreachable: must not be empty")
+                    .join()
+                {
+                    Err(_e) => Err("A scoped thread panicked".to_string()),
+                    Ok(r) => r,
+                };
+                if thread_result.is_err() {
+                    res = thread_result;
                 }
             }
-        }
-        for h in handles {
-            set_err(&mut res, h);
         }
         res
     })?;
