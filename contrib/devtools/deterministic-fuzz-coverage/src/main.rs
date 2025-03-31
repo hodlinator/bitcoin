@@ -5,8 +5,9 @@
 use std::collections::VecDeque;
 use std::env;
 use std::fs::{read_dir, DirEntry, File};
+use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::{Command, ExitCode};
+use std::process::{Command, ExitCode, Stdio};
 use std::str;
 use std::thread::{self};
 
@@ -124,8 +125,8 @@ fn deterministic_coverage(
         let cov_txt_path = build_dir.join(format!("fuzz_det_cov.show.t{thread_id}.r{run_id}.txt"));
         let profraw_file = build_dir.join(format!("fuzz_det_cov.t{thread_id}.r{run_id}.profraw"));
         let profdata_file = build_dir.join(format!("fuzz_det_cov.t{thread_id}.r{run_id}.profdata"));
-        if !{
-            {
+        {
+            let output = {
                 let mut cmd = Command::new(fuzz_exe);
                 if using_libfuzzer {
                     cmd.arg("-runs=1");
@@ -134,12 +135,21 @@ fn deterministic_coverage(
             }
             .env("LLVM_PROFILE_FILE", &profraw_file)
             .env("FUZZ", fuzz_target)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
             .arg(entry)
-            .status()
-            .map_err(|e| format!("fuzz failed with {e}"))?
-            .success()
-        } {
-            Err("fuzz failed".to_string())?;
+            .output()
+            .map_err(|e| format!("fuzz failed: {e}"))?;
+            if !output.status.success() {
+                std::io::stdout()
+                    .write_all(&output.stdout)
+                    .expect("Failed to write to stdout");
+                std::io::stderr()
+                    .write_all(&output.stderr)
+                    .expect("Failed to write to stderr");
+
+                Err("fuzz failed".to_string())?;
+            }
         }
         if !Command::new(LLVM_PROFDATA)
             .arg("merge")
