@@ -939,24 +939,28 @@ bool BlockManager::WriteBlockUndo(const CBlockUndo& blockundo, BlockValidationSt
             LogError("FindUndoPos failed for %s while writing", pos.ToString());
             return false;
         }
-        // Open history file to append
-        AutoFile file{OpenUndoFile(pos)};
-        if (file.IsNull()) {
-            LogError("OpenUndoFile failed for %s while writing", pos.ToString());
-            return FatalError(m_opts.notifications, state, _("Failed to write undo data."));
-        }
-        BufferedWriter fileout{file};
 
-        // Write index header
-        fileout << GetParams().MessageStart() << blockundo_size;
-        pos.nPos += BLOCK_HEADER_BYTES;
         {
-            // Calculate checksum
-            HashWriter hasher{};
-            hasher << block.pprev->GetBlockHash() << blockundo;
-            // Write undo data & checksum
-            fileout << blockundo << hasher.GetHash();
-        }
+            // Open history file to append
+            AutoFile file{OpenUndoFile(pos)};
+            if (file.IsNull()) {
+                LogError("OpenUndoFile failed for %s while writing", pos.ToString());
+                return FatalError(m_opts.notifications, state, _("Failed to write undo data."));
+            }
+
+            BufferedWriter fileout{file};
+
+            // Write index header
+            fileout << GetParams().MessageStart() << blockundo_size;
+            pos.nPos += BLOCK_HEADER_BYTES;
+            {
+                // Calculate checksum
+                HashWriter hasher{};
+                hasher << block.pprev->GetBlockHash() << blockundo;
+                // Write undo data & checksum
+                fileout << blockundo << hasher.GetHash();
+            }
+        } // Make sure file with buffering goes out of scope in case we call FlushUndoFile below.
 
         // rev files are written in block height order, whereas blk files are written as blocks come in (often out of order)
         // we want to flush the rev (undo) file once we've written the last block, which is indicated by the last height

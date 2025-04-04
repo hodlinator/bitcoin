@@ -470,7 +470,7 @@ public:
     void write_buffer(std::span<std::byte> src);
 };
 
-using BufferData = std::vector<std::byte>;
+using DataBuffer = std::vector<std::byte>;
 
 /** Wrapper around an AutoFile& that implements a ring buffer to
  *  deserialize from. It guarantees the ability to rewind a given number of bytes.
@@ -486,7 +486,7 @@ private:
     uint64_t m_read_pos{0}; //!< how many bytes have been read from this
     uint64_t nReadLimit;  //!< up to which position we're allowed to read
     uint64_t nRewind;     //!< how many bytes we guarantee to rewind
-    BufferData vchBuf;
+    DataBuffer vchBuf;
 
     //! read data from the source to fill the buffer
     bool Fill() {
@@ -624,31 +624,42 @@ public:
  * Requires underlying stream to support read() and detail_fread() calls
  * to support fixed-size and variable-sized reads, respectively.
  */
-template <typename S>
+template <typename S, size_t N = 1 << 16>
 class BufferedReader
 {
     S& m_src;
-    BufferData m_buf;
-    size_t m_buf_pos;
+    std::array<std::byte, N> m_buf;
+    std::span<std::byte> m_buf_used;
 
 public:
-    explicit BufferedReader(S&& stream, size_t size = 1 << 16)
+    explicit BufferedReader(S&& stream)
         requires std::is_rvalue_reference_v<S&&>
-        : m_src{stream}, m_buf(size), m_buf_pos{size} {}
+        : m_src{stream} {}
 
     void read(std::span<std::byte> dst)
     {
-        if (const auto available{std::min(dst.size(), m_buf.size() - m_buf_pos)}) {
-            std::copy_n(m_buf.begin() + m_buf_pos, available, dst.begin());
-            m_buf_pos += available;
+        if (const auto available{std::min(dst.size(), m_buf_used.size())}) {
+            std::copy_n(m_buf_used.begin(), available, dst.begin());
+            m_buf_used = m_buf_used.subspan(available);
             dst = dst.subspan(available);
         }
         if (dst.size()) {
-            assert(m_buf_pos == m_buf.size());
-            m_src.read(dst);
+            assert(m_buf_used.empty());
 
-            m_buf_pos = 0;
-            m_buf.resize(m_src.detail_fread(m_buf));
+            // Read large things directly without buffering.
+            if (dst.size() > m_buf.size()) {
+                m_src.read(dst);
+            } else {
+                // First populate buffer.
+                m_buf_used = {m_buf.begin(), m_src.detail_fread(m_buf)};
+
+                if (m_buf_used.size() < dst.size()) {
+                    throw std::ios_base::failure(m_src.feof() ? "BufferedReader::read: end of file" : "BufferedReader::read: fread failed");
+                }
+
+                std::copy_n(m_buf_used.begin(), dst.size(), dst.begin());
+                m_buf_used = m_buf_used.subspan(dst.size());
+            }
         }
     }
 
@@ -665,15 +676,15 @@ public:
  * Requires underlying stream to support write_buffer() method
  * for efficient buffer flushing and obfuscation.
  */
-template <typename S>
+template <typename S, size_t N = 1 << 16>
 class BufferedWriter
 {
     S& m_dst;
-    BufferData m_buf;
+    std::array<std::byte, N> m_buf;
     size_t m_buf_pos{0};
 
 public:
-    explicit BufferedWriter(S& stream, size_t size = 1 << 16) : m_dst{stream}, m_buf(size) {}
+    explicit BufferedWriter(S& stream) : m_dst{stream} {}
 
     ~BufferedWriter() { flush(); }
 
