@@ -731,7 +731,7 @@ public:
     std::atomic_bool fDisconnect{false};
     CSemaphoreGrant grantOutbound;
     /** Used to track NodesSnapshot references. */
-    std::atomic<int> nRefCount{0};
+    std::atomic<uint32_t> m_snapshot_count{0};
 
     const uint64_t nKeyedNetGroup;
     std::atomic_bool fPauseRecv{false};
@@ -900,12 +900,6 @@ public:
         return nLocalHostNonce;
     }
 
-    int GetRefCount() const
-    {
-        assert(nRefCount >= 0);
-        return nRefCount;
-    }
-
     /**
      * Receive bytes from the buffer and deserialize them into messages.
      *
@@ -931,16 +925,9 @@ public:
     //! May not be called more than once
     void SetAddrLocal(const CService& addrLocalIn) EXCLUSIVE_LOCKS_REQUIRED(!m_addr_local_mutex);
 
-    CNode* AddRef()
-    {
-        nRefCount++;
-        return this;
-    }
-
-    void Release()
-    {
-        nRefCount--;
-    }
+    int GetSnapshotCount() const { return m_snapshot_count; }
+    void AddSnapshot() { ++m_snapshot_count; }
+    void ReleaseSnapshot() { --m_snapshot_count; }
 
     void CloseSocketDisconnect() EXCLUSIVE_LOCKS_REQUIRED(!m_sock_mutex);
 
@@ -1648,7 +1635,7 @@ private:
                 LOCK(connman.m_nodes_mutex);
                 m_nodes_copy = connman.m_nodes;
                 for (auto& node : m_nodes_copy) {
-                    node->AddRef();
+                    node->AddSnapshot();
                 }
             }
             if (shuffle) {
@@ -1659,7 +1646,7 @@ private:
         ~NodesSnapshot()
         {
             for (auto& node : m_nodes_copy) {
-                node->Release();
+                node->ReleaseSnapshot();
             }
         }
 

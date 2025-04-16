@@ -50,12 +50,11 @@ FUZZ_TARGET(net, .init = initialize_net)
                 node.CopyStats(stats);
             },
             [&] {
-                const CNode* add_ref_node = node.AddRef();
-                assert(add_ref_node == &node);
+                node.AddSnapshot();
             },
             [&] {
-                if (node.GetRefCount() > 0) {
-                    node.Release();
+                if (node.GetSnapshotCount() > 0) {
+                    node.ReleaseSnapshot();
                 }
             },
             [&] {
@@ -68,8 +67,6 @@ FUZZ_TARGET(net, .init = initialize_net)
     (void)node.GetAddrLocal();
     (void)node.GetId();
     (void)node.GetLocalNonce();
-    const int ref_count = node.GetRefCount();
-    assert(ref_count >= 0);
     (void)node.GetCommonVersion();
 
     const NetPermissionFlags net_permission_flags = ConsumeWeakEnum(fuzzed_data_provider, ALL_NET_PERMISSION_FLAGS);

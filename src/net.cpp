@@ -1962,7 +1962,7 @@ void CConnman::DisconnectNodes()
     for (auto it = m_nodes_disconnected.begin(); it != m_nodes_disconnected.end(); ) {
         CNode* pnode = *it;
         // Destroy the object only after other threads have stopped using it.
-        if (pnode->GetRefCount() == 0) {
+        if (pnode->GetSnapshotCount() == 0) {
             DeleteNode(pnode);
             it = m_nodes_disconnected.erase(it);
         } else {
@@ -3490,7 +3490,7 @@ void CConnman::StopNodes()
 void CConnman::DeleteNode(CNode* pnode)
 {
     assert(pnode);
-    assert(pnode->GetRefCount() == 0);
+    assert(pnode->GetSnapshotCount() == 0);
     m_msgproc->FinalizeNode(*pnode);
     delete pnode;
 }
