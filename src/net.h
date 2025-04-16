@@ -1123,9 +1123,6 @@ public:
     ~CConnman();
 
     bool Start(CScheduler& scheduler, const Options& options) EXCLUSIVE_LOCKS_REQUIRED(!m_total_bytes_sent_mutex, !m_added_nodes_mutex, !m_addr_fetches_mutex, !mutexMsgProc);
-
-    void StopThreads();
-    void StopNodes();
     void Stop()
     {
         StopThreads();
@@ -1285,6 +1282,9 @@ private:
     private:
         NetPermissionFlags m_permissions;
     };
+
+    void StopThreads();
+    void StopNodes();
 
     //! returns the time left in the current max outbound cycle
     //! in case of no limit, it will always return 0
