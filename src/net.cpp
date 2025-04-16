@@ -2491,7 +2491,7 @@ std::unordered_set<Network> CConnman::GetReachableEmptyNetworks() const
 
 bool CConnman::MultipleManualOrFullOutboundConns(Network net) const
 {
-    AssertLockHeld(m_nodes_mutex);
+    LOCK(m_nodes_mutex);
     return m_network_conn_counts[net] > 1;
 }
 
@@ -3923,11 +3923,11 @@ void CConnman::PushMessage(CNode* pnode, CSerializedNetMsg&& msg)
 
 bool CConnman::ForNode(NodeId id, std::function<bool(CNode* pnode)> func)
 {
-    LOCK(m_nodes_mutex);
-    for (auto& pnode : m_nodes) {
-        if (pnode->GetId() == id) {
-            return NodeFullyConnected(*pnode) && func(pnode.get());
-        }
+    NodesSnapshot snap{*this, id};
+    std::vector<CNode*> nodes{snap.Nodes()};
+    if (!nodes.empty()) {
+        assert(nodes.size() == 1);
+        return NodeFullyConnected(*nodes.front()) && func(nodes.front());
     }
     return false;
 }

@@ -1136,19 +1136,19 @@ public:
     using NodeFn = std::function<void(CNode*)>;
     void ForEachNode(const NodeFn& func)
     {
-        LOCK(m_nodes_mutex);
-        for (auto& node : m_nodes) {
+        NodesSnapshot snap{*this, /*shuffle=*/false};
+        for (auto& node : snap.Nodes()) {
             if (NodeFullyConnected(*node))
-                func(node.get());
+                func(node);
         }
     };
 
     void ForEachNode(const NodeFn& func) const
     {
-        LOCK(m_nodes_mutex);
-        for (auto& node : m_nodes) {
+        NodesSnapshot snap{*this, /*shuffle=*/false};
+        for (auto& node : snap.Nodes()) {
             if (NodeFullyConnected(*node))
-                func(node.get());
+                func(node);
         }
     };
 
@@ -1256,7 +1256,7 @@ public:
     /** Return true if we should disconnect the peer for failing an inactivity check. */
     bool ShouldRunInactivityChecks(const CNode& node, std::chrono::seconds now) const;
 
-    bool MultipleManualOrFullOutboundConns(Network net) const EXCLUSIVE_LOCKS_REQUIRED(m_nodes_mutex);
+    bool MultipleManualOrFullOutboundConns(Network net) const;
 
 private:
     struct ListenSocket {
@@ -1642,6 +1642,18 @@ private:
             }
             if (shuffle) {
                 std::shuffle(m_nodes_copy.begin(), m_nodes_copy.end(), FastRandomContext{});
+            }
+        }
+
+        explicit NodesSnapshot(const CConnman& connman, NodeId id)
+        {
+            LOCK(connman.m_nodes_mutex);
+            for (auto& node : connman.m_nodes) {
+                if (node->GetId() == id) {
+                    node->AddSnapshot();
+                    m_nodes_copy.push_back(node.get());
+                    return;
+                }
             }
         }
 
