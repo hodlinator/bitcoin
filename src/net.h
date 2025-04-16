@@ -730,6 +730,7 @@ public:
     // next time DisconnectNodes() runs
     std::atomic_bool fDisconnect{false};
     CSemaphoreGrant grantOutbound;
+    /** Used to track NodesSnapshot references. */
     std::atomic<int> nRefCount{0};
 
     const uint64_t nKeyedNetGroup;
