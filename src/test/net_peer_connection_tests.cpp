@@ -64,22 +64,24 @@ void AddPeer(NodeId& id, std::vector<CNode*>& nodes, PeerManager& peerman, Connm
 
     const bool inbound_onion{onion_peer && conn_type == ConnectionType::INBOUND};
 
-    nodes.emplace_back(new CNode{++id,
-                                 /*sock=*/nullptr,
-                                 addr,
-                                 /*nKeyedNetGroupIn=*/0,
-                                 /*nLocalHostNonceIn=*/0,
-                                 CAddress{},
-                                 /*addrNameIn=*/"",
-                                 conn_type,
-                                 /*inbound_onion=*/inbound_onion});
+    auto pnode{std::make_unique<CNode>(++id,
+                                       /*sock=*/nullptr,
+                                       addr,
+                                       /*nKeyedNetGroupIn=*/0,
+                                       /*nLocalHostNonceIn=*/0,
+                                       CAddress{},
+                                       /*addrNameIn=*/"",
+                                       conn_type,
+                                       /*inbound_onion=*/inbound_onion)};
+
+    nodes.emplace_back(pnode.get());
     CNode& node = *nodes.back();
     node.SetCommonVersion(PROTOCOL_VERSION);
 
     peerman.InitializeNode(node, ServiceFlags(NODE_NETWORK | NODE_WITNESS));
     node.fSuccessfullyConnected = true;
 
-    connman.AddTestNode(node);
+    connman.AddTestNode(std::move(pnode));
 }
 }; // struct PeerTest
 

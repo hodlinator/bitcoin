@@ -67,6 +67,9 @@ FUZZ_TARGET(net, .init = initialize_net)
     (void)node.GetAddrLocal();
     (void)node.GetId();
     (void)node.GetLocalNonce();
+    while (node.GetSnapshotCount() > 0) { // Avoid triggering assert in ~CNode.
+        node.ReleaseSnapshot();
+    }
     (void)node.GetCommonVersion();
 
     const NetPermissionFlags net_permission_flags = ConsumeWeakEnum(fuzzed_data_provider, ALL_NET_PERMISSION_FLAGS);

@@ -70,18 +70,18 @@ void HeadersSyncSetup::ResetAndInitialize()
 
     for (auto conn_type : conn_types) {
         CAddress addr{};
-        m_connections.push_back(new CNode(id++, nullptr, addr, 0, 0, addr, "", conn_type, false));
-        CNode& p2p_node = *m_connections.back();
+        auto p2p_node{std::make_unique<CNode>(id++, nullptr, addr, 0, 0, addr, "", conn_type, false)};
+        m_connections.push_back(p2p_node.get());
 
         connman.Handshake(
-            /*node=*/p2p_node,
+            /*node=*/*p2p_node,
             /*successfully_connected=*/true,
             /*remote_services=*/ServiceFlags(NODE_NETWORK | NODE_WITNESS),
             /*local_services=*/ServiceFlags(NODE_NETWORK | NODE_WITNESS),
             /*version=*/PROTOCOL_VERSION,
             /*relay_txs=*/true);
 
-        connman.AddTestNode(p2p_node);
+        connman.AddTestNode(std::move(p2p_node));
     }
 }
 
