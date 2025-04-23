@@ -273,7 +273,7 @@ public:
      *
      * @param[in] key    The key used to XOR the data in this stream.
      */
-    void Xor(const std::vector<unsigned char>& key)
+    void Xor(const std::span<const unsigned char>& key)
     {
         util::Xor(MakeWritableByteSpan(*this), MakeByteSpan(key));
     }
