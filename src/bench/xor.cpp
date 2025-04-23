@@ -17,11 +17,12 @@ static void XorObfuscationBench(benchmark::Bench& bench)
     constexpr size_t bytes{10_MiB};
     auto test_data{rng.randbytes<std::byte>(bytes)};
 
-    std::array key_bytes{rng.randbytes<sizeof(uint64_t), std::byte>()};
+    const Obfuscation obfuscation{rng.rand64()};
+    assert(obfuscation);
 
     size_t offset{0};
     bench.batch(bytes / 1_MiB).unit("MiB").run([&] {
-        util::Xor(test_data, key_bytes, offset++);
+        obfuscation(test_data, offset++);
         ankerl::nanobench::doNotOptimizeAway(test_data);
     });
 }
