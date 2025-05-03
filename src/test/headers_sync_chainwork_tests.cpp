@@ -8,6 +8,7 @@
 #include <headerssync.h>
 #include <pow.h>
 #include <test/util/setup_common.h>
+#include <tinyformat.h>
 #include <validation.h>
 #include <vector>
 
@@ -65,13 +66,13 @@ BOOST_FIXTURE_TEST_SUITE(headers_sync_chainwork_tests, HeadersGeneratorSetup)
 //    updates to the REDOWNLOAD phase successfully.
 // 2. Then we deliver the second set of headers and verify that they fail
 //    processing (presumably due to commitments not matching).
-static void SneakyRedownload(const std::vector<CBlockHeader>& first_chain, const std::vector<CBlockHeader>& second_chain, const CBlockIndex* chain_start);
+static void SneakyRedownload(const std::vector<CBlockHeader>& first_chain, const std::vector<CBlockHeader>& second_chain, const CBlockIndex* chain_start, size_t cached_headers);
 // 3. Verify that repeating with the first set of headers in both phases is
 //    successful.
-static void HappyPath(const std::vector<CBlockHeader>& first_chain, const CBlockIndex* chain_start);
+static void HappyPath(const std::vector<CBlockHeader>& first_chain, const CBlockIndex* chain_start, size_t cached_headers);
 // 4. Finally, repeat the second set of headers in both phases to demonstrate
 //    behavior when the chain a peer provides has too little work.
-static void TooLittleWork(const std::vector<CBlockHeader>& second_chain, const CBlockIndex* chain_start);
+static void TooLittleWork(const std::vector<CBlockHeader>& second_chain, const CBlockIndex* chain_start, size_t cached_headers);
 
 BOOST_AUTO_TEST_CASE(headers_sync_state)
 {
@@ -90,12 +91,15 @@ BOOST_AUTO_TEST_CASE(headers_sync_state)
 
     const CBlockIndex* chain_start = WITH_LOCK(::cs_main, return m_node.chainman->m_blockman.LookupBlockIndex(genesis.GetHash()));
 
-    SneakyRedownload(first_chain, second_chain, chain_start);
-    HappyPath(first_chain, chain_start);
-    TooLittleWork(second_chain, chain_start);
+    for (size_t cached_headers : {0, 1, TARGET_BLOCKS-3, TARGET_BLOCKS-2, TARGET_BLOCKS-1, TARGET_BLOCKS, TARGET_BLOCKS+1}) {
+        BOOST_TEST_MESSAGE(strprintf("Testing with cache size of %d", cached_headers));
+        SneakyRedownload(first_chain, second_chain, chain_start, cached_headers);
+        HappyPath(first_chain, chain_start, cached_headers);
+        TooLittleWork(second_chain, chain_start, cached_headers);
+    }
 }
 
-static void SneakyRedownload(const std::vector<CBlockHeader>& first_chain, const std::vector<CBlockHeader>& second_chain, const CBlockIndex* chain_start)
+static void SneakyRedownload(const std::vector<CBlockHeader>& first_chain, const std::vector<CBlockHeader>& second_chain, const CBlockIndex* chain_start, size_t cached_headers)
 {
     std::vector<CBlockHeader> headers_batch;
 
@@ -103,7 +107,7 @@ static void SneakyRedownload(const std::vector<CBlockHeader>& first_chain, const
     // initially and then the rest.
     headers_batch.insert(headers_batch.end(), std::next(first_chain.begin()), first_chain.end());
 
-    HeadersSyncState hss{0, Params().GetConsensus(), chain_start, CHAIN_WORK, /*cache_bytes=*/sizeof(CompressedHeader)};
+    HeadersSyncState hss{0, Params().GetConsensus(), chain_start, CHAIN_WORK, /*cache_bytes=*/cached_headers * sizeof(CompressedHeader)};
     auto result = hss.ProcessNextHeaders({first_chain.front()}, true);
     BOOST_REQUIRE_EQUAL(hss.GetState(), HeadersSyncState::State::PRESYNC);
     BOOST_CHECK(result.success);
@@ -113,49 +117,80 @@ static void SneakyRedownload(const std::vector<CBlockHeader>& first_chain, const
 
     // Pretend the first header is still "full", so we don't abort.
     result = hss.ProcessNextHeaders(headers_batch, true);
-    // This chain should look valid, and we should have met the proof-of-work
-    // requirement during PRESYNC and transitioned to REDOWNLOAD.
-    BOOST_REQUIRE_EQUAL(hss.GetState(), HeadersSyncState::State::REDOWNLOAD);
-    BOOST_CHECK(result.success);
-    BOOST_CHECK(result.request_more);
-    // The locator should reset to the first header after genesis, since it was cached.
-    BOOST_CHECK_EQUAL(hss.NextHeadersRequestLocator().vHave.front(), first_chain.front().GetHash());
-    BOOST_CHECK(result.pow_validated_headers.empty());
+    if (cached_headers < first_chain.size()) {
+        // This chain should look valid, and we should have met the proof-of-work
+        // requirement during PRESYNC and transitioned to REDOWNLOAD.
+        BOOST_REQUIRE_EQUAL(hss.GetState(), HeadersSyncState::State::REDOWNLOAD);
+        BOOST_CHECK(result.success);
+        BOOST_CHECK(result.request_more);
+        if (cached_headers == 0) {
+            // The locator should reset to genesis.
+            BOOST_CHECK_EQUAL(hss.NextHeadersRequestLocator().vHave.front(), Params().GenesisBlock().GetHash());
+        } else {
+            // The locator should reset to the Nth header after genesis, since it was cached.
+            BOOST_CHECK_EQUAL(hss.NextHeadersRequestLocator().vHave.front(), (first_chain.begin() + std::min(cached_headers, first_chain.size()) - 1)->GetHash());
+        }
+        if (cached_headers <= 1) {
+            BOOST_CHECK(result.pow_validated_headers.empty());
+        } else if (cached_headers >= TARGET_BLOCKS-1) {
+            BOOST_CHECK(!result.pow_validated_headers.empty());
+        }
 
-    // Try to sneakily feed back the second chain during REDOWNLOAD.
-    result = hss.ProcessNextHeaders(second_chain, true);
-    BOOST_REQUIRE_EQUAL(hss.GetState(), HeadersSyncState::State::FINAL);
-    BOOST_CHECK(!result.success); // foiled!
-    BOOST_CHECK(result.pow_validated_headers.empty());
+        // Try to sneakily feed back the second chain during REDOWNLOAD.
+        result = hss.ProcessNextHeaders(second_chain, true);
+        BOOST_REQUIRE_EQUAL(hss.GetState(), HeadersSyncState::State::FINAL);
+        BOOST_CHECK(!result.success); // foiled!
+        BOOST_CHECK(result.pow_validated_headers.empty());
+    } else {
+        // If our cache was big enough to fit the first set of headers, we actually succeed.
+        BOOST_REQUIRE_EQUAL(hss.GetState(), HeadersSyncState::State::FINAL);
+        BOOST_CHECK(result.success);
+        BOOST_CHECK(!result.request_more);
+        BOOST_CHECK(result.pow_validated_headers.size() == first_chain.size());
+    }
 }
 
-static void HappyPath(const std::vector<CBlockHeader>& first_chain, const CBlockIndex* chain_start)
+static void HappyPath(const std::vector<CBlockHeader>& first_chain, const CBlockIndex* chain_start, size_t cached_headers)
 {
     // This time we feed the first chain twice.
-    HeadersSyncState hss{0, Params().GetConsensus(), chain_start, CHAIN_WORK, /*cache_bytes=*/sizeof(CompressedHeader)};
+    HeadersSyncState hss{0, Params().GetConsensus(), chain_start, CHAIN_WORK, /*cache_bytes=*/cached_headers * sizeof(CompressedHeader)};
     auto result = hss.ProcessNextHeaders(first_chain, true);
-    BOOST_REQUIRE_EQUAL(hss.GetState(), HeadersSyncState::State::REDOWNLOAD);
-    BOOST_CHECK(result.success);
-    BOOST_CHECK(result.request_more);
-    // The locator should reset to the first header after genesis, since it was cached.
-    BOOST_CHECK_EQUAL(hss.NextHeadersRequestLocator().vHave.front(), first_chain.front().GetHash());
+    std::vector<CBlockHeader> validated_headers;
+    if (cached_headers < first_chain.size()) {
+        // Well, we only feed it a second time if our cache is insufficient.
+        BOOST_REQUIRE_EQUAL(hss.GetState(), HeadersSyncState::State::REDOWNLOAD);
+        BOOST_CHECK(result.success);
+        BOOST_CHECK(result.request_more);
+        if (cached_headers == 0) {
+            // The locator should reset to genesis.
+            BOOST_CHECK_EQUAL(hss.NextHeadersRequestLocator().vHave.front(), Params().GenesisBlock().GetHash());
+            BOOST_CHECK(result.pow_validated_headers.empty());
+        } else {
+            // The locator should reset to the Nth header after genesis, since it was cached.
+            BOOST_CHECK_EQUAL(hss.NextHeadersRequestLocator().vHave.front(), (first_chain.begin() + std::min(cached_headers, first_chain.size()) - 1)->GetHash());
+        }
+        validated_headers = std::move(result.pow_validated_headers);
 
-    std::vector<CBlockHeader> headers_batch;
-    headers_batch.insert(headers_batch.end(), std::next(first_chain.begin()), first_chain.end());
-    result = hss.ProcessNextHeaders(headers_batch, /*full_headers_message=*/true);
+        std::vector<CBlockHeader> headers_batch;
+        if (cached_headers < first_chain.size()) {
+            headers_batch.insert(headers_batch.end(), first_chain.begin() + std::min(cached_headers, first_chain.size()), first_chain.end());
+        }
+        result = hss.ProcessNextHeaders(headers_batch, /*full_headers_message=*/true);
+    }
     // Nothing left for the sync logic to do:
     BOOST_REQUIRE_EQUAL(hss.GetState(), HeadersSyncState::State::FINAL);
     BOOST_CHECK(result.success);
     BOOST_CHECK(!result.request_more);
     // All headers should be ready for acceptance:
-    BOOST_CHECK_EQUAL(result.pow_validated_headers.size(), first_chain.size());
+    validated_headers.insert(validated_headers.end(), result.pow_validated_headers.begin(), result.pow_validated_headers.end());
+    BOOST_CHECK_EQUAL(validated_headers.size(), first_chain.size());
 }
 
-static void TooLittleWork(const std::vector<CBlockHeader>& second_chain, const CBlockIndex* chain_start)
+static void TooLittleWork(const std::vector<CBlockHeader>& second_chain, const CBlockIndex* chain_start, size_t cached_headers)
 {
     // Verify that just trying to process the second chain would not succeed
     // (too little work).
-    HeadersSyncState hss{0, Params().GetConsensus(), chain_start, CHAIN_WORK, /*cache_bytes=*/TARGET_BLOCKS * sizeof(CompressedHeader)};
+    HeadersSyncState hss{0, Params().GetConsensus(), chain_start, CHAIN_WORK, /*cache_bytes=*/cached_headers * sizeof(CompressedHeader)};
     BOOST_REQUIRE_EQUAL(hss.GetState(), HeadersSyncState::State::PRESYNC);
     // Pretend just the first message is "full", so we don't abort.
     auto result = hss.ProcessNextHeaders({second_chain.front()}, true);
