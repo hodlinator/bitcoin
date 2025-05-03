@@ -6,6 +6,7 @@
 #include <test/fuzz/util.h>
 #include <test/util/setup_common.h>
 #include <uint256.h>
+#include <util/byte_units.h>
 #include <util/chaintype.h>
 #include <util/time.h>
 #include <validation.h>
@@ -39,8 +40,8 @@ void MakeHeadersContinuous(
 class FuzzedHeadersSyncState : public HeadersSyncState
 {
 public:
-    FuzzedHeadersSyncState(const unsigned commit_offset, const CBlockIndex* chain_start, const arith_uint256& minimum_required_work)
-        : HeadersSyncState(/*id=*/0, Params().GetConsensus(), chain_start, minimum_required_work)
+    FuzzedHeadersSyncState(const unsigned commit_offset, const CBlockIndex* chain_start, const arith_uint256& minimum_required_work, size_t cache_bytes)
+        : HeadersSyncState(/*id=*/0, Params().GetConsensus(), chain_start, minimum_required_work, cache_bytes)
     {
         const_cast<unsigned&>(m_commit_offset) = commit_offset;
     }
@@ -63,7 +64,8 @@ FUZZ_TARGET(headers_sync_state, .init = initialize_headers_sync_state_fuzz)
     FuzzedHeadersSyncState headers_sync(
         /*commit_offset=*/fuzzed_data_provider.ConsumeIntegralInRange<unsigned>(1, 1024),
         /*chain_start=*/&start_index,
-        /*minimum_required_work=*/min_work);
+        /*minimum_required_work=*/min_work,
+        /*cache_bytes=*/fuzzed_data_provider.ConsumeIntegralInRange<size_t>(0, 20_MiB));
 
     // Store headers for potential redownload phase.
     std::vector<CBlockHeader> all_headers;
