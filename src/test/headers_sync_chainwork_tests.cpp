@@ -14,7 +14,7 @@
 
 #include <boost/test/unit_test.hpp>
 
-static constexpr int TARGET_BLOCKS{15000};
+static constexpr int TARGET_BLOCKS{15000}; // Do NOT like how close this is to REDOWNLOAD_BUFFER_SIZE/14827
 static const arith_uint256 CHAIN_WORK{TARGET_BLOCKS*2};
 
 struct HeadersGeneratorSetup : public RegTestingSetup {
