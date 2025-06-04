@@ -955,4 +955,9 @@ std::optional<std::pair<std::unique_ptr<Sock>, CService>> HTTPServer::AcceptConn
 
     return std::pair{std::move(sock), addr};
 }
+
+HTTPServer::Id HTTPServer::GetNewId()
+{
+    return m_next_id.fetch_add(1, std::memory_order_relaxed);
+}
 } // namespace http_bitcoin

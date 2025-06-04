@@ -5,6 +5,7 @@
 #ifndef BITCOIN_HTTPSERVER_H
 #define BITCOIN_HTTPSERVER_H
 
+#include <atomic>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -289,6 +290,11 @@ class HTTPServer
 {
 public:
     /**
+     * Each connection is assigned an unique id of this type.
+     */
+    using Id = int64_t;
+
+    /**
      * Bind to a new address:port, start listening and add the listen socket to `m_listen`.
      * @param[in] to Where to bind.
      * @returns {} or the reason for failure.
@@ -322,11 +328,21 @@ private:
     std::vector<std::shared_ptr<Sock>> m_listen;
 
     /**
+     * The id to assign to the next created connection.
+     */
+    std::atomic<Id> m_next_id{0};
+
+    /**
      * Accept a connection.
      * @param[in] listen_sock Socket on which to accept the connection.
      * @return Newly created socket for the accepted connection and address for the peer.
      */
     std::optional<std::pair<std::unique_ptr<Sock>, CService>> AcceptConnection(const Sock& listen_sock);
+
+    /**
+     * Generate an id for a newly created connection.
+     */
+    Id GetNewId();
 };
 } // namespace http_bitcoin
 
