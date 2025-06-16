@@ -2580,13 +2580,13 @@ bool PeerManagerImpl::IsContinuationOfLowWorkHeadersSync(Peer& peer, CNode& pfro
     if (peer.m_headers_sync) {
         auto result = peer.m_headers_sync->ProcessNextHeaders(headers, headers.size() == m_opts.max_headers_result);
         // If it is a valid continuation, we should treat the existing getheaders request as responded to.
-        if (result.success) peer.m_last_getheaders_timestamp = {};
-        if (result.request_more) {
+        if (result != HeadersSyncState::ProcessingResult::ABORTED) {
+            peer.m_last_getheaders_timestamp = {};
+        }
+        if (result == HeadersSyncState::ProcessingResult::REQUEST_MORE) {
             auto locator = peer.m_headers_sync->NextHeadersRequestLocator();
             // If we were instructed to ask for a locator, it should not be empty.
             Assume(!locator.vHave.empty());
-            // We can only be instructed to request more if processing was successful.
-            Assume(result.success);
             if (!locator.vHave.empty()) {
                 // It should be impossible for the getheaders request to fail,
                 // because we just cleared the last getheaders timestamp.
@@ -2643,7 +2643,7 @@ bool PeerManagerImpl::IsContinuationOfLowWorkHeadersSync(Peer& peer, CNode& pfro
             }
         }
 
-        return result.success;
+        return result != HeadersSyncState::ProcessingResult::ABORTED;
     }
     // Either we didn't have a sync in progress, or something went wrong
     // processing these headers, or we are returning headers to the caller to

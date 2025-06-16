@@ -136,10 +136,16 @@ public:
     HeadersSyncState(NodeId id, const Consensus::Params& consensus_params,
             const CBlockIndex& chain_start, const arith_uint256& minimum_required_work);
 
-    /** Result data structure for ProcessNextHeaders. */
-    struct ProcessingResult {
-        bool success{false};
-        bool request_more{false};
+    /** Result type for ProcessNextHeaders. */
+    enum class ProcessingResult {
+        /** Error detected and the sync is aborted. */
+        ABORTED,
+        /** Caller is suggested to call NextHeadersRequestLocator and send a
+         * getheaders message using it. */
+        REQUEST_MORE,
+        /** Reached the end of headers from this peer, regardless of whether we
+         * met the PoW threshold. All encountered headers were valid. */
+        VALID,
     };
 
     /** Process a batch of headers, once a sync via this mechanism has started
@@ -156,10 +162,6 @@ public:
      *                   returned headers are on a chain with sufficient work).
      * full_headers_message: true if the message was at max capacity,
      *                       indicating more headers may be available
-     * ProcessingResult.success: set to false if an error is detected and the sync is
-     *                       aborted; true otherwise.
-     * ProcessingResult.request_more: if true, the caller is suggested to call
-     *                       NextHeadersRequestLocator and send a getheaders message using it.
      */
     ProcessingResult ProcessNextHeaders(std::vector<CBlockHeader>& headers, bool full_headers_message);
 

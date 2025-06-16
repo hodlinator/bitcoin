@@ -101,14 +101,13 @@ BOOST_AUTO_TEST_CASE(headers_sync_state)
 
     // This chain should look valid, and we should have met the proof-of-work
     // requirement.
-    BOOST_CHECK(result.success);
-    BOOST_CHECK(result.request_more);
+    BOOST_CHECK_EQUAL(result, HeadersSyncState::ProcessingResult::REQUEST_MORE);
     BOOST_CHECK(hss->GetState() == HeadersSyncState::State::REDOWNLOAD);
 
     // Try to sneakily feed back the second chain.
     to_proc = second_chain;
     result = hss->ProcessNextHeaders(to_proc, true);
-    BOOST_CHECK(!result.success); // foiled!
+    BOOST_CHECK_EQUAL(result, HeadersSyncState::ProcessingResult::ABORTED); // foiled!
     BOOST_CHECK(hss->GetState() == HeadersSyncState::State::FINAL);
 
     // Now try again, this time feeding the first chain twice.
@@ -119,8 +118,7 @@ BOOST_AUTO_TEST_CASE(headers_sync_state)
 
     to_proc = first_chain;
     result = hss->ProcessNextHeaders(to_proc, true);
-    BOOST_CHECK(result.success);
-    BOOST_CHECK(!result.request_more);
+    BOOST_CHECK_EQUAL(result, HeadersSyncState::ProcessingResult::VALID);
     // All headers should be ready for acceptance:
     BOOST_CHECK(to_proc.size() == first_chain.size());
     // Nothing left for the sync logic to do:
@@ -144,10 +142,9 @@ BOOST_AUTO_TEST_CASE(headers_sync_state)
     result = hss->ProcessNextHeaders(to_proc, false);
     BOOST_CHECK(hss->GetState() == HeadersSyncState::State::FINAL);
     BOOST_CHECK(to_proc.empty());
-    BOOST_CHECK(!result.request_more);
     // Nevertheless, no validation errors should have been detected with the
     // chain:
-    BOOST_CHECK(result.success);
+    BOOST_CHECK_EQUAL(result, HeadersSyncState::ProcessingResult::VALID);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
