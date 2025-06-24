@@ -533,12 +533,11 @@ public:
         // Destroy the subexpressions iteratively after moving out their
         // subexpressions to avoid a stack-overflow due to recursive calls to
         // the subs' destructors.
-        while (!subs.empty()) {
-            auto node = std::move(subs.back());
-            subs.pop_back();
-            while (!node.subs.empty()) {
-                subs.push_back(std::move(node.subs.back()));
-                node.subs.pop_back();
+        for (auto to_be_stripped{Vector(std::move(subs))}; !to_be_stripped.empty();) {
+            auto stripping{std::move(to_be_stripped.back())};
+            to_be_stripped.pop_back();
+            for (auto& i : stripping) {
+                to_be_stripped.push_back(std::move(i.subs));
             }
         }
     }
