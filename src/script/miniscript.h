@@ -188,7 +188,7 @@ inline consteval Type operator""_mst(const char* c, size_t l)
 
 using Opcode = std::pair<opcodetype, std::vector<unsigned char>>;
 
-template<typename Key> struct Node;
+template<typename Key> class Node;
 template<typename Key> using NodeRef = std::unique_ptr<const Node<Key>>;
 
 //! Construct a miniscript node as a unique_ptr.
@@ -347,13 +347,18 @@ struct InputResult {
 };
 
 //! Class whose objects represent the maximum of a list of integers.
-template<typename I>
-struct MaxInt {
+template <typename I>
+class MaxInt
+{
     bool valid;
     I value;
 
+public:
     MaxInt() : valid(false), value(0) {}
     MaxInt(I val) : valid(true), value(val) {}
+
+    bool IsValid() const { return valid; }
+    I Value() const { return value; }
 
     friend MaxInt<I> operator+(const MaxInt<I>& a, const MaxInt<I>& b) {
         if (!a.valid || !b.valid) return {};
@@ -419,7 +424,8 @@ struct Ops {
  * - It is not a commutative semiring, because a+b can differ from b+a. For example, "OP_1 OP_DROP"
  *   has exec=1, while "OP_DROP OP_1" has exec=0.
  */
-struct SatInfo {
+class SatInfo
+{
     //! Whether a canonical satisfaction/dissatisfaction is possible at all.
     bool valid;
     //! How much higher the stack size at start of execution can be compared to at the end.
@@ -427,12 +433,17 @@ struct SatInfo {
     //! How much higher the stack size can be during execution compared to at the end.
     int32_t exec;
 
+public:
     /** Empty script set. */
     constexpr SatInfo() noexcept : valid(false), netdiff(0), exec(0) {}
 
     /** Script set with a single script in it, with specified netdiff and exec. */
     constexpr SatInfo(int32_t in_netdiff, int32_t in_exec) noexcept :
         valid{true}, netdiff{in_netdiff}, exec{in_exec} {}
+
+    bool IsValid() const { return valid; }
+    int32_t NetDiff() const { return netdiff; }
+    int32_t Exec() const { return exec; }
 
     /** Script set union. */
     constexpr friend SatInfo operator|(const SatInfo& a, const SatInfo& b) noexcept
@@ -479,11 +490,16 @@ struct SatInfo {
     static constexpr SatInfo OP_VERIFY() noexcept { return {1, 1}; }
 };
 
-struct StackSize {
+class StackSize
+{
     SatInfo sat, dsat;
 
+public:
     constexpr StackSize(SatInfo in_sat, SatInfo in_dsat) noexcept : sat(in_sat), dsat(in_dsat) {};
     constexpr StackSize(SatInfo in_both) noexcept : sat(in_both), dsat(in_both) {};
+
+    const SatInfo& Sat() const { return sat; }
+    const SatInfo& Dsat() const { return dsat; }
 };
 
 struct WitnessSize {
@@ -500,8 +516,9 @@ struct NoDupCheck {};
 } // namespace internal
 
 //! A node in a miniscript expression.
-template<typename Key>
-struct Node {
+template <typename Key>
+class Node
+{
     //! What node type this node is.
     Fragment fragment;
     //! The k parameter (time for OLDER/AFTER, threshold for THRESH(_M))
@@ -515,6 +532,7 @@ struct Node {
     //! The Script context for this node. Either P2WSH or Tapscript.
     MiniscriptContext m_script_ctx;
 
+public:
     ~Node()
     {
         // Destroy the subexpressions iteratively after moving out their
@@ -543,6 +561,12 @@ struct Node {
         };
         return TreeEval<NodeRef<Key>>(upfn);
     }
+
+    Fragment GetFragment() const { return fragment; }
+    uint32_t GetK() const { return k; }
+    const std::vector<Key>& GetKeys() const { return keys; }
+    const std::vector<unsigned char>& GetData() const { return data; }
+    const std::vector<NodeRef<Key>>& GetSubs() const { return subs; }
 
 private:
     //! Cached ops counts.
@@ -1039,45 +1063,45 @@ private:
                 const auto& y{subs[1]->ss};
                 const auto& z{subs[2]->ss};
                 return {
-                    (x.sat + SatInfo::If() + y.sat) | (x.dsat + SatInfo::If() + z.sat),
-                    x.dsat + SatInfo::If() + z.dsat
+                    (x.Sat() + SatInfo::If() + y.Sat()) | (x.Dsat() + SatInfo::If() + z.Sat()),
+                    x.Dsat() + SatInfo::If() + z.Dsat()
                 };
             }
             case Fragment::AND_V: {
                 const auto& x{subs[0]->ss};
                 const auto& y{subs[1]->ss};
-                return {x.sat + y.sat, {}};
+                return {x.Sat() + y.Sat(), {}};
             }
             case Fragment::AND_B: {
                 const auto& x{subs[0]->ss};
                 const auto& y{subs[1]->ss};
-                return {x.sat + y.sat + SatInfo::BinaryOp(), x.dsat + y.dsat + SatInfo::BinaryOp()};
+                return {x.Sat() + y.Sat() + SatInfo::BinaryOp(), x.Dsat() + y.Dsat() + SatInfo::BinaryOp()};
             }
             case Fragment::OR_B: {
                 const auto& x{subs[0]->ss};
                 const auto& y{subs[1]->ss};
                 return {
-                    ((x.sat + y.dsat) | (x.dsat + y.sat)) + SatInfo::BinaryOp(),
-                    x.dsat + y.dsat + SatInfo::BinaryOp()
+                    ((x.Sat() + y.Dsat()) | (x.Dsat() + y.Sat())) + SatInfo::BinaryOp(),
+                    x.Dsat() + y.Dsat() + SatInfo::BinaryOp()
                 };
             }
             case Fragment::OR_C: {
                 const auto& x{subs[0]->ss};
                 const auto& y{subs[1]->ss};
-                return {(x.sat + SatInfo::If()) | (x.dsat + SatInfo::If() + y.sat), {}};
+                return {(x.Sat() + SatInfo::If()) | (x.Dsat() + SatInfo::If() + y.Sat()), {}};
             }
             case Fragment::OR_D: {
                 const auto& x{subs[0]->ss};
                 const auto& y{subs[1]->ss};
                 return {
-                    (x.sat + SatInfo::OP_IFDUP(true) + SatInfo::If()) | (x.dsat + SatInfo::OP_IFDUP(false) + SatInfo::If() + y.sat),
-                    x.dsat + SatInfo::OP_IFDUP(false) + SatInfo::If() + y.dsat
+                    (x.Sat() + SatInfo::OP_IFDUP(true) + SatInfo::If()) | (x.Dsat() + SatInfo::OP_IFDUP(false) + SatInfo::If() + y.Sat()),
+                    x.Dsat() + SatInfo::OP_IFDUP(false) + SatInfo::If() + y.Dsat()
                 };
             }
             case Fragment::OR_I: {
                 const auto& x{subs[0]->ss};
                 const auto& y{subs[1]->ss};
-                return {SatInfo::If() + (x.sat | y.sat), SatInfo::If() + (x.dsat | y.dsat)};
+                return {SatInfo::If() + (x.Sat() | y.Sat()), SatInfo::If() + (x.Dsat() | y.Dsat())};
             }
             // multi(k, key1, key2, ..., key_n) starts off with k+1 stack elements (a 0, plus k
             // signatures), then reaches n+k+3 stack elements after pushing the n keys, plus k and
@@ -1092,16 +1116,16 @@ private:
             case Fragment::WRAP_N:
             case Fragment::WRAP_S: return subs[0]->ss;
             case Fragment::WRAP_C: return {
-                subs[0]->ss.sat + SatInfo::OP_CHECKSIG(),
-                subs[0]->ss.dsat + SatInfo::OP_CHECKSIG()
+                subs[0]->ss.Sat() + SatInfo::OP_CHECKSIG(),
+                subs[0]->ss.Dsat() + SatInfo::OP_CHECKSIG()
             };
             case Fragment::WRAP_D: return {
-                SatInfo::OP_DUP() + SatInfo::If() + subs[0]->ss.sat,
+                SatInfo::OP_DUP() + SatInfo::If() + subs[0]->ss.Sat(),
                 SatInfo::OP_DUP() + SatInfo::If()
             };
-            case Fragment::WRAP_V: return {subs[0]->ss.sat + SatInfo::OP_VERIFY(), {}};
+            case Fragment::WRAP_V: return {subs[0]->ss.Sat() + SatInfo::OP_VERIFY(), {}};
             case Fragment::WRAP_J: return {
-                SatInfo::OP_SIZE() + SatInfo::OP_0NOTEQUAL() + SatInfo::If() + subs[0]->ss.sat,
+                SatInfo::OP_SIZE() + SatInfo::OP_0NOTEQUAL() + SatInfo::If() + subs[0]->ss.Sat(),
                 SatInfo::OP_SIZE() + SatInfo::OP_0NOTEQUAL() + SatInfo::If()
             };
             case Fragment::THRESH: {
@@ -1112,13 +1136,13 @@ private:
                     // element i we need to add OP_ADD (if i>0).
                     auto add = i ? SatInfo::BinaryOp() : SatInfo::Empty();
                     // Construct a variable that will become the next sats, starting with index 0.
-                    auto next_sats = Vector(sats[0] + subs[i]->ss.dsat + add);
+                    auto next_sats = Vector(sats[0] + subs[i]->ss.Dsat() + add);
                     // Then loop to construct next_sats[1..i].
                     for (size_t j = 1; j < sats.size(); ++j) {
-                        next_sats.push_back(((sats[j] + subs[i]->ss.dsat) | (sats[j - 1] + subs[i]->ss.sat)) + add);
+                        next_sats.push_back(((sats[j] + subs[i]->ss.Dsat()) | (sats[j - 1] + subs[i]->ss.Sat())) + add);
                     }
                     // Finally construct next_sats[i+1].
-                    next_sats.push_back(sats[sats.size() - 1] + subs[i]->ss.sat + add);
+                    next_sats.push_back(sats[sats.size() - 1] + subs[i]->ss.Sat() + add);
                     // Switch over.
                     sats = std::move(next_sats);
                 }
@@ -1503,8 +1527,8 @@ public:
 
     //! Return the maximum number of ops needed to satisfy this script non-malleably.
     std::optional<uint32_t> GetOps() const {
-        if (!ops.sat.valid) return {};
-        return ops.count + ops.sat.value;
+        if (!ops.sat.IsValid()) return {};
+        return ops.count + ops.sat.Value();
     }
 
     //! Return the number of ops in the script (not counting the dynamic ones that depend on execution).
@@ -1524,14 +1548,14 @@ public:
 
     /** Return the maximum number of stack elements needed to satisfy this script non-malleably. */
     std::optional<uint32_t> GetStackSize() const {
-        if (!ss.sat.valid) return {};
-        return ss.sat.netdiff + static_cast<int32_t>(IsBKW());
+        if (!ss.Sat().IsValid()) return {};
+        return ss.Sat().NetDiff() + static_cast<int32_t>(IsBKW());
     }
 
     //! Return the maximum size of the stack during execution of this script.
     std::optional<uint32_t> GetExecStackSize() const {
-        if (!ss.sat.valid) return {};
-        return ss.sat.exec + static_cast<int32_t>(IsBKW());
+        if (!ss.Sat().IsValid()) return {};
+        return ss.Sat().Exec() + static_cast<int32_t>(IsBKW());
     }
 
     //! Check the maximum stack size for this script against the policy limit.
@@ -1552,8 +1576,8 @@ public:
     /** Return the maximum size in bytes of a witness to satisfy this script non-malleably. Note this does
      * not include the witness script push. */
     std::optional<uint32_t> GetWitnessSize() const {
-        if (!ws.sat.valid) return {};
-        return ws.sat.value;
+        if (!ws.sat.IsValid()) return {};
+        return ws.sat.Value();
     }
 
     //! Return the expression type.
