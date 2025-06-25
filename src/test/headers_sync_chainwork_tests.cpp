@@ -66,13 +66,13 @@ BOOST_FIXTURE_TEST_SUITE(headers_sync_chainwork_tests, RegTestingSetup)
 // sufficient proof of work and one without.
 // 1. We deliver the first set of headers and verify that the headers sync state
 //    updates to the REDOWNLOAD phase successfully.
-// 2. Then we deliver the second set of headers and verify that they fail
+//    Then we deliver the second set of headers and verify that they fail
 //    processing (presumably due to commitments not matching).
 static void SneakyRedownload(const CBlockIndex*, const std::vector<CBlockHeader>&, const std::vector<CBlockHeader>&);
-// 3. Verify that repeating with the first set of headers in both phases is
+// 2. Verify that repeating with the first set of headers in both phases is
 //    successful.
 static void HappyPath(const CBlockIndex*, const std::vector<CBlockHeader>&);
-// 4. Repeat the second set of headers in both phases to demonstrate behavior
+// 3. Repeat the second set of headers in both phases to demonstrate behavior
 //    when the chain a peer provides has too little work.
 static void TooLittleWork(const CBlockIndex*, const std::vector<CBlockHeader>&);
 
@@ -104,17 +104,20 @@ static void SneakyRedownload(const CBlockIndex* chain_start,
     // Feed the first chain to HeadersSyncState, by delivering 1 header
     // initially and then the rest.
     HeadersSyncState hss{CreateState(chain_start)};
+
+    // Just feed one header.
     (void)hss.ProcessNextHeaders({{first_chain.front()}}, true);
-    // Pretend the first header is still "full", so we don't abort.
+
+    // Pretend the message is still "full", so we don't abort.
     auto result{hss.ProcessNextHeaders(std::span{first_chain}.last(first_chain.size() - 1), true)};
 
     // This chain should look valid, and we should have met the proof-of-work
-    // requirement.
+    // requirement during PRESYNC and transitioned to REDOWNLOAD.
     BOOST_CHECK(result.success);
     BOOST_CHECK(result.request_more);
     BOOST_CHECK(hss.GetState() == HeadersSyncState::State::REDOWNLOAD);
 
-    // Try to sneakily feed back the second chain.
+    // Try to sneakily feed back the second chain during REDOWNLOAD.
     result = hss.ProcessNextHeaders(second_chain, true);
     BOOST_CHECK(!result.success); // foiled!
     BOOST_CHECK(hss.GetState() == HeadersSyncState::State::FINAL);
@@ -125,6 +128,8 @@ static void HappyPath(const CBlockIndex* chain_start,
 {
     // This time we feed the first chain twice.
     HeadersSyncState hss{CreateState(chain_start)};
+
+    // Sufficient work transitions us from PRESYNC to REDOWNLOAD:
     (void)hss.ProcessNextHeaders(first_chain, true);
     BOOST_CHECK(hss.GetState() == HeadersSyncState::State::REDOWNLOAD);
 
@@ -144,12 +149,13 @@ static void TooLittleWork(const CBlockIndex* chain_start,
     // (too little work).
     HeadersSyncState hss{CreateState(chain_start)};
     BOOST_CHECK(hss.GetState() == HeadersSyncState::State::PRESYNC);
-     // Pretend just the first message is "full", so we don't abort.
+
+    // Pretend just the first message is "full", so we don't abort.
     (void)hss.ProcessNextHeaders({{second_chain.front()}}, true);
     BOOST_CHECK(hss.GetState() == HeadersSyncState::State::PRESYNC);
 
     // Tell the sync logic that the headers message was not full, implying no
-    // more headers can be requested. For a low-work-chain, this should causes
+    // more headers can be requested. For a low-work-chain, this should cause
     // the sync to end with no headers for acceptance.
     const auto result{hss.ProcessNextHeaders(std::span{second_chain}.last(second_chain.size() - 1), false)};
     BOOST_CHECK(hss.GetState() == HeadersSyncState::State::FINAL);
