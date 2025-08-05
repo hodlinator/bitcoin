@@ -525,7 +525,7 @@ public:
     bool ProcessMessages(CNode* pfrom, std::atomic<bool>& interrupt) override
         EXCLUSIVE_LOCKS_REQUIRED(!m_peer_mutex, !m_most_recent_block_mutex, !m_headers_presync_mutex, g_msgproc_mutex, !m_tx_download_mutex);
     bool SendMessages(CNode* pto) override
-        EXCLUSIVE_LOCKS_REQUIRED(!m_peer_mutex, !m_most_recent_block_mutex, g_msgproc_mutex, !m_tx_download_mutex);
+        EXCLUSIVE_LOCKS_REQUIRED(!m_peer_mutex, !m_most_recent_block_mutex, g_msgproc_mutex, !m_tx_download_mutex, !m_headers_presync_mutex);
 
     /** Implement PeerManager */
     void StartScheduledTasks(CScheduler& scheduler) override;
@@ -695,6 +695,9 @@ private:
                                   const CBlockIndex* chain_start_header,
                                   std::vector<CBlockHeader>& headers)
         EXCLUSIVE_LOCKS_REQUIRED(!peer.m_headers_sync_mutex, !m_peer_mutex, !m_headers_presync_mutex, g_msgproc_mutex);
+
+    void RemoveHeadersSync(Peer& peer) EXCLUSIVE_LOCKS_REQUIRED(g_msgproc_mutex, !m_headers_presync_mutex, peer.m_headers_sync_mutex);
+    void RemoveHeadersSync(Peer& peer, CNodeState& state) EXCLUSIVE_LOCKS_REQUIRED(cs_main, g_msgproc_mutex, !m_headers_presync_mutex, peer.m_headers_sync_mutex);
 
     /** Return true if the given header is an ancestor of
      *  m_chainman.m_best_header or our current tip */
@@ -2602,13 +2605,7 @@ bool PeerManagerImpl::IsContinuationOfLowWorkHeadersSync(Peer& peer, CNode& pfro
         }
 
         if (peer.m_headers_sync->GetState() == HeadersSyncState::State::FINAL) {
-            peer.m_headers_sync.reset(nullptr);
-
-            // Delete this peer's entry in m_headers_presync_stats.
-            // If this is m_headers_presync_bestpeer, it will be replaced later
-            // by the next peer that triggers the else{} branch below.
-            LOCK(m_headers_presync_mutex);
-            m_headers_presync_stats.erase(pfrom.GetId());
+            RemoveHeadersSync(peer);
         } else {
             // Build statistics for this peer's sync.
             HeadersPresyncStats stats;
@@ -2705,6 +2702,36 @@ bool PeerManagerImpl::TryLowWorkHeadersSync(Peer& peer, CNode& pfrom, const CBlo
     }
 
     return false;
+}
+
+void PeerManagerImpl::RemoveHeadersSync(Peer& peer)
+{
+    LOCK(cs_main);
+    RemoveHeadersSync(peer, *Assert(State(peer.m_id)));
+}
+
+void PeerManagerImpl::RemoveHeadersSync(Peer& peer, CNodeState& state)
+{
+    AssertLockHeld(cs_main);
+    AssertLockHeld(g_msgproc_mutex);
+    AssertLockNotHeld(m_headers_presync_mutex);
+    AssertLockHeld(peer.m_headers_sync_mutex);
+
+    peer.m_headers_sync_timeout = 0us;
+    peer.m_headers_sync.reset(nullptr);
+
+    {
+        // Delete this peer's entry in m_headers_presync_stats.
+        // If this is m_headers_presync_bestpeer, it will be replaced later
+        // by the next peer that triggers the else{} branch below.
+        LOCK(m_headers_presync_mutex);
+        m_headers_presync_stats.erase(peer.m_id);
+    }
+
+    if (state.fSyncStarted) {
+        state.fSyncStarted = false;
+        --nSyncStarted;
+    }
 }
 
 bool PeerManagerImpl::IsAncestorOfBestHeaderOrTip(const CBlockIndex* header)
@@ -2866,11 +2893,8 @@ void PeerManagerImpl::ProcessHeadersMessage(CNode& pfrom, Peer& peer,
         // message suggests that the peer suddenly has nothing to give us
         // (perhaps it reorged to our chain). Clear download state for this peer.
         LOCK(peer.m_headers_sync_mutex);
-        if (peer.m_headers_sync) {
-            peer.m_headers_sync.reset(nullptr);
-            LOCK(m_headers_presync_mutex);
-            m_headers_presync_stats.erase(pfrom.GetId());
-        }
+        RemoveHeadersSync(peer);
+
         // A headers message with no headers cannot be an announcement, so assume
         // it is a response to our last getheaders request, if there is one.
         peer.m_last_getheaders_timestamp = {};
@@ -5895,9 +5919,8 @@ bool PeerManagerImpl::SendMessages(CNode* pto)
                         // Note: this will also result in at least one more
                         // getheaders message to be sent to
                         // this peer (eventually).
-                        state.fSyncStarted = false;
-                        nSyncStarted--;
-                        peer->m_headers_sync_timeout = 0us;
+                        LOCK(peer->m_headers_sync_mutex);
+                        RemoveHeadersSync(*peer, state);
                     }
                 }
             } else {
