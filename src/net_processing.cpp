@@ -941,6 +941,7 @@ private:
 
     /* Multimap used to preserve insertion order */
     typedef std::multimap<uint256, std::pair<NodeId, std::list<QueuedBlock>::iterator>> BlockDownloadMap;
+    /** Blocks we have requested from specific nodes. */
     BlockDownloadMap mapBlocksInFlight GUARDED_BY(cs_main);
 
     /** When our tip was last updated. */
