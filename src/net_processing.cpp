@@ -382,8 +382,8 @@ struct Peer {
     /** Total number of addresses that were processed (excludes rate-limited ones). */
     std::atomic<uint64_t> m_addr_processed{0};
 
-    /** Whether we've sent this peer a getheaders in response to an inv prior to initial-headers-sync completing */
-    bool m_inv_triggered_getheaders_before_sync GUARDED_BY(NetEventsInterface::g_msgproc_mutex){false};
+    /** */
+    bool m_unrecognized_block_inv_sender{false};
 
     /** Protects m_getdata_requests **/
     Mutex m_getdata_requests_mutex;
@@ -820,9 +820,6 @@ private:
 
     /** Number of nodes with fSyncStarted. */
     int nSyncStarted GUARDED_BY(cs_main) = 0;
-
-    /** Hash of the last block we received via INV */
-    uint256 m_last_block_inv_triggering_headers_sync GUARDED_BY(g_msgproc_mutex){};
 
     /**
      * Sources of received blocks, saved to be able punish them when processing
@@ -3989,7 +3986,6 @@ void PeerManagerImpl::ProcessMessage(CNode& pfrom, const std::string& msg_type, 
         LOCK2(cs_main, m_tx_download_mutex);
 
         const auto current_time{GetTime<std::chrono::microseconds>()};
-        uint256* best_block{nullptr};
 
         for (CInv& inv : vInv) {
             if (interruptMsgProc) return;
@@ -4012,10 +4008,9 @@ void PeerManagerImpl::ProcessMessage(CNode& pfrom, const std::string& msg_type, 
                     // Headers-first is the primary method of announcement on
                     // the network. If a node fell back to sending blocks by
                     // inv, it may be for a re-org, or because we haven't
-                    // completed initial headers sync. The final block hash
-                    // provided should be the highest, so send a getheaders and
-                    // then fetch the blocks we need to catch up.
-                    best_block = &inv.hash;
+                    // completed initial headers sync.
+                    // Flag peer as having announced an unknown block hash.
+                    peer->m_unrecognized_block_inv_sender = true;
                 }
             } else if (inv.IsGenTxMsg()) {
                 if (reject_tx_invs) {
@@ -4032,34 +4027,6 @@ void PeerManagerImpl::ProcessMessage(CNode& pfrom, const std::string& msg_type, 
                 }
             } else {
                 LogDebug(BCLog::NET, "Unknown inv type \"%s\" received from peer=%d\n", inv.ToString(), pfrom.GetId());
-            }
-        }
-
-        if (best_block != nullptr) {
-            // If we haven't started initial headers-sync with this peer, then
-            // consider sending a getheaders now. On initial startup, there's a
-            // reliability vs bandwidth tradeoff, where we are only trying to do
-            // initial headers sync with one peer at a time, with a long
-            // timeout (at which point, if the sync hasn't completed, we will
-            // disconnect the peer and then choose another). In the meantime,
-            // as new blocks are found, we are willing to add one new peer per
-            // block to sync with as well, to sync quicker in the case where
-            // our initial peer is unresponsive (but less bandwidth than we'd
-            // use if we turned on sync with all peers).
-            CNodeState& state{*Assert(State(pfrom.GetId()))};
-            if (state.fSyncStarted || (!peer->m_inv_triggered_getheaders_before_sync && *best_block != m_last_block_inv_triggering_headers_sync)) {
-                if (MaybeSendGetHeaders(pfrom, GetLocator(m_chainman.m_best_header), *peer)) {
-                    LogDebug(BCLog::NET, "getheaders (%d) %s to peer=%d\n",
-                            m_chainman.m_best_header->nHeight, best_block->ToString(),
-                            pfrom.GetId());
-                }
-                if (!state.fSyncStarted) {
-                    peer->m_inv_triggered_getheaders_before_sync = true;
-                    // Update the last block hash that triggered a new headers
-                    // sync, so that we don't turn on headers sync with more
-                    // than 1 new peer every new block.
-                    m_last_block_inv_triggering_headers_sync = *best_block;
-                }
             }
         }
 
@@ -5572,8 +5539,13 @@ bool PeerManagerImpl::SendMessages(CNode* pto)
         }
 
         if (!state.fSyncStarted && CanServeBlocks(*peer) && !m_chainman.m_blockman.LoadingBlocks()) {
-            // Only actively request headers from a single peer, unless we're close to today.
-            if ((nSyncStarted == 0 && sync_blocks_and_headers_from_peer) || m_chainman.m_best_header->Time() > NodeClock::now() - 24h) {
+            // Sync headers from all capable peers if we're close to today.
+            if (m_chainman.m_best_header->Time() > NodeClock::now() - 24h ||
+                // When further back, only actively request headers from one
+                // single peer.
+                (nSyncStarted == 0 &&
+                 sync_blocks_and_headers_from_peer &&
+                 (peer->m_unrecognized_block_inv_sender || FastRandomContext().randrange(std::clamp(m_node_states.size(), 1UL, 10UL)) == 0))) {
                 const CBlockIndex* pindexStart = m_chainman.m_best_header;
                 /* If possible, start at the block preceding the currently
                    best known header.  This ensures that we always get a
