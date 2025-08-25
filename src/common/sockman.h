@@ -31,7 +31,12 @@ public:
      */
     using Id = int64_t;
 
-    virtual ~SockMan() = default;
+    virtual ~SockMan()
+    {
+        assert(!m_thread_socket_handler.joinable()); // Missing call to JoinSocketsThreads()
+        assert(m_connected.empty()); // Missing call to CloseConnection()
+        assert(m_listen.empty()); // Missing call to StopListening()
+    }
 
     //
     // Non-virtual functions, to be reused by children classes.
