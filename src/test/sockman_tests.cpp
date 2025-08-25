@@ -10,6 +10,8 @@
 
 BOOST_FIXTURE_TEST_SUITE(sockman_tests, SocketTestingSetup)
 
+constexpr std::array RESPOND{std::byte{'o'}, std::byte{'k'}};
+
 BOOST_AUTO_TEST_CASE(test_sockman)
 {
     class TestSockMan : public SockMan
@@ -24,7 +26,7 @@ BOOST_AUTO_TEST_CASE(test_sockman)
         // and tested by the main thread.
         Mutex m_received_mutex;
         std::unordered_map<Id, std::vector<std::byte>> m_received GUARDED_BY(m_received_mutex);
-        std::vector<std::byte> m_respond{std::byte{'o'}, std::byte{'k'}};
+        std::vector<std::byte> m_respond{RESPOND.begin(), RESPOND.end()};
 
         size_t GetConnectionsCount() EXCLUSIVE_LOCKS_REQUIRED(!m_connections_mutex)
         {
@@ -129,19 +131,21 @@ BOOST_AUTO_TEST_CASE(test_sockman)
 
     // Wait up to a minute to write our response data back to the connection
     attempts = 6000;
-    size_t expected_response_size = sockman.m_respond.size();
+    size_t expected_response_size = RESPOND.size();
     std::vector<std::byte> actually_received(expected_response_size);
-    while (!std::ranges::equal(actually_received, sockman.m_respond)) {
+    size_t offset{0};
+    while (offset < expected_response_size) {
         // Read the data received by the mock socket
-        ssize_t bytes_read = pipes->send.GetBytes(actually_received.data(), expected_response_size, /*flags=*/0, /*simulate_partial=*/false);
-        // We may need to wait a few loop iterations in the socket thread
-        // but once we can write, we can expect all the data at once.
-        if (bytes_read >= 0) {
-            BOOST_CHECK_EQUAL(bytes_read, expected_response_size);
+        ssize_t bytes_read = pipes->send.GetBytes(actually_received.data() + offset, expected_response_size - offset, /*flags=*/0, /*simulate_partial=*/true);
+        if (bytes_read < 0) {
+            assert(errno == WSAEWOULDBLOCK);
+        } else {
+            offset += bytes_read;
         }
         std::this_thread::sleep_for(10ms);
         BOOST_REQUIRE(--attempts > 0);
     }
+    BOOST_CHECK_EQUAL_COLLECTIONS(actually_received.begin(), actually_received.end(), RESPOND.begin(), RESPOND.end());
 
     // Close connection
     BOOST_REQUIRE(sockman.CloseConnection(client.first));
