@@ -60,7 +60,8 @@ BOOST_AUTO_TEST_CASE(test_sockman)
             EXCLUSIVE_LOCKS_REQUIRED(!m_received_mutex)
         {
             LOCK(m_received_mutex);
-            m_received[id].assign(data.begin(), data.end());
+            auto& vec{m_received[id]};
+            vec.insert(vec.end(), data.begin(), data.end());
         }
         virtual void EventGotEOF(Id id) override {}
         virtual void EventGotPermanentReadError(Id id, const std::string& errmsg) override {}
@@ -132,7 +133,7 @@ BOOST_AUTO_TEST_CASE(test_sockman)
     std::vector<std::byte> actually_received(expected_response_size);
     while (!std::ranges::equal(actually_received, sockman.m_respond)) {
         // Read the data received by the mock socket
-        ssize_t bytes_read = pipes->send.GetBytes(actually_received.data(), expected_response_size);
+        ssize_t bytes_read = pipes->send.GetBytes(actually_received.data(), expected_response_size, /*flags=*/0, /*simulate_partial=*/false);
         // We may need to wait a few loop iterations in the socket thread
         // but once we can write, we can expect all the data at once.
         if (bytes_read >= 0) {

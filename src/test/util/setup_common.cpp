@@ -626,7 +626,7 @@ std::unique_ptr<DynSock::Pipes> SocketTestingSetup::ConnectClient(std::span<cons
     auto connected_socket_pipes{std::make_unique<DynSock::Pipes>()};
 
     // Insert the payload
-    connected_socket_pipes->recv.PushBytes(data.data(), data.size());
+    connected_socket_pipes->recv.PushBytes(data.data(), data.size(), /*simulate_buffer_full=*/false);
 
     // Create the Mock Connected Socket that represents a client.
     // It needs I/O pipes but no accept queue itself.
