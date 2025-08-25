@@ -145,6 +145,9 @@ private:
                                             const CService& me,
                                             const CService& them) = 0;
 
+
+    virtual void EventConnectionClosed(Id id) = 0;
+
     /**
      * Called when the socket is ready to send data and `ShouldTryToSend()` has
      * returned true. This is where the higher level code serializes its messages

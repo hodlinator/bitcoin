@@ -17,6 +17,11 @@ BOOST_AUTO_TEST_CASE(test_sockman)
     class TestSockMan : public SockMan
     {
     public:
+        ~TestSockMan()
+        {
+            assert(m_connections.empty());
+        }
+
         // Connections are added from the SockMan I/O thread
         // but the test reads them from the main thread.
         Mutex m_connections_mutex;
@@ -55,6 +60,13 @@ BOOST_AUTO_TEST_CASE(test_sockman)
             LOCK(m_connections_mutex);
             m_connections.emplace_back(id, them);
             return true;
+        }
+
+        virtual void EventConnectionClosed(Id id) override
+            EXCLUSIVE_LOCKS_REQUIRED(!m_connections_mutex)
+        {
+            LOCK(m_connections_mutex);
+            m_connections.erase(std::ranges::find_if(m_connections, [&] (const auto& pair) { return pair.first == id; }));
         }
 
         // When we receive data just store it in a member variable for testing.

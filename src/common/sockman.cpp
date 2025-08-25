@@ -173,7 +173,12 @@ SockMan::Id SockMan::GetNewId()
 bool SockMan::CloseConnection(Id id)
 {
     LOCK(m_connected_mutex);
-    return m_connected.erase(id) > 0;
+    if (m_connected.erase(id) > 0)
+    {
+        EventConnectionClosed(id);
+        return true;
+    }
+    return false;
 }
 
 ssize_t SockMan::SendBytes(Id id,
