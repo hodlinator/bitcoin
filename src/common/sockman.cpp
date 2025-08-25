@@ -310,6 +310,7 @@ void SockMan::SocketHandlerConnected(const IOReadiness& io_readiness)
             }
         }
 
+        bool gotEOF{false};
         if (recv_ready || err_ready) {
             std::byte buf[0x10000]; // typical socket buffer is 8K-64K
 
@@ -328,6 +329,7 @@ void SockMan::SocketHandlerConnected(const IOReadiness& io_readiness)
                     EventGotPermanentReadError(id, NetworkErrorString(err));
                 }
             } else if (nrecv == 0) {
+                gotEOF = true;
                 EventGotEOF(id);
             } else {
                 EventGotData(id, {buf, static_cast<size_t>(nrecv)});
@@ -335,6 +337,10 @@ void SockMan::SocketHandlerConnected(const IOReadiness& io_readiness)
         }
 
         EventIOLoopCompletedForOne(id);
+
+        if (gotEOF) {
+            CloseConnection(id);
+        }
     }
 }
 
