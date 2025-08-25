@@ -310,7 +310,7 @@ public:
      * @param[in] pipes Send/recv pipes used by the Send() and Recv() methods.
      * @param[in] accept_sockets Sockets to return by the Accept() method.
      */
-    explicit DynSock(std::shared_ptr<Pipes> pipes, std::shared_ptr<Queue> accept_sockets);
+    explicit DynSock(Pipes* pipes LIFETIMEBOUND, Queue* accept_sockets LIFETIMEBOUND);
 
     ~DynSock();
 
@@ -329,8 +329,8 @@ public:
 private:
     DynSock& operator=(Sock&&) override;
 
-    std::shared_ptr<Pipes> m_pipes;
-    std::shared_ptr<Queue> m_accept_sockets;
+    Pipes* const m_pipes;
+    Queue* const m_accept_sockets;
 };
 
 template <typename... Args>

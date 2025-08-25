@@ -279,14 +279,14 @@ public:
 
     // Connect to the socket with a mock client (a DynSock) and send pre-loaded data.
     // Returns the I/O pipes from the mock client so we can read response datasent to it.
-    std::shared_ptr<DynSock::Pipes> ConnectClient(std::span<const std::byte> data);
+    std::unique_ptr<DynSock::Pipes> ConnectClient(std::span<const std::byte> data);
 
 private:
     // Save the original value of CreateSock here and restore it when the test ends.
     const decltype(CreateSock) m_create_sock_orig;
 
     // Queue of connected sockets returned by listening socket (represents network interface)
-    std::shared_ptr<DynSock::Queue> m_accepted_sockets{std::make_shared<DynSock::Queue>()};
+    DynSock::Queue m_accepted_sockets;
 };
 
 CBlock getBlock13b8a();

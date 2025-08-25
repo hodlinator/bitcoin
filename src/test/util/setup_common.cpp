@@ -610,29 +610,30 @@ SocketTestingSetup::SocketTestingSetup()
         // listen to for incoming connections. We won't need to access its I/O
         // pipes because we don't read or write directly to it. It will return
         // Connected Sockets from the queue via its Accept() method.
-        return std::make_unique<DynSock>(std::make_shared<DynSock::Pipes>(), m_accepted_sockets);
+        return std::make_unique<DynSock>(/*pipes=*/nullptr, &m_accepted_sockets);
     };
 };
 
 SocketTestingSetup::~SocketTestingSetup()
 {
     CreateSock = m_create_sock_orig;
+    assert(m_accepted_sockets.Empty());
 }
 
-std::shared_ptr<DynSock::Pipes> SocketTestingSetup::ConnectClient(std::span<const std::byte> data)
+std::unique_ptr<DynSock::Pipes> SocketTestingSetup::ConnectClient(std::span<const std::byte> data)
 {
     // I/O pipes for a mock Connected Socket we can read and write to.
-    std::shared_ptr<DynSock::Pipes> connected_socket_pipes(std::make_shared<DynSock::Pipes>());
+    auto connected_socket_pipes{std::make_unique<DynSock::Pipes>()};
 
     // Insert the payload
     connected_socket_pipes->recv.PushBytes(data.data(), data.size());
 
     // Create the Mock Connected Socket that represents a client.
-    // It needs I/O pipes but its queue can remain empty
-    std::unique_ptr<DynSock> connected_socket{std::make_unique<DynSock>(connected_socket_pipes, std::make_shared<DynSock::Queue>())};
+    // It needs I/O pipes but no accept queue itself.
+    auto connected_socket{std::make_unique<DynSock>(connected_socket_pipes.get(), nullptr)};
 
     // Push into the queue of Accepted Sockets returned by the local CreateSock()
-    m_accepted_sockets->Push(std::move(connected_socket));
+    m_accepted_sockets.Push(std::move(connected_socket));
 
     return connected_socket_pipes;
 }
