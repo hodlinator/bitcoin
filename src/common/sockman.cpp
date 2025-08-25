@@ -175,7 +175,7 @@ bool SockMan::CloseConnection(Id id)
 }
 
 ssize_t SockMan::SendBytes(Id id,
-                           std::span<const unsigned char> data,
+                           std::span<const std::byte> data,
                            bool will_send_more,
                            std::string& errmsg) const
 {
@@ -309,7 +309,7 @@ void SockMan::SocketHandlerConnected(const IOReadiness& io_readiness)
         }
 
         if (recv_ready || err_ready) {
-            uint8_t buf[0x10000]; // typical socket buffer is 8K-64K
+            std::byte buf[0x10000]; // typical socket buffer is 8K-64K
 
             auto sockets{GetConnectionSockets(id)};
             if (!sockets) {

@@ -23,8 +23,8 @@ BOOST_AUTO_TEST_CASE(test_sockman)
         // Received data is written here by the SockMan I/O thread
         // and tested by the main thread.
         Mutex m_received_mutex;
-        std::unordered_map<Id, std::vector<uint8_t>> m_received GUARDED_BY(m_received_mutex);
-        std::vector<uint8_t> m_respond{'o', 'k'};
+        std::unordered_map<Id, std::vector<std::byte>> m_received GUARDED_BY(m_received_mutex);
+        std::vector<std::byte> m_respond{std::byte{'o'}, std::byte{'k'}};
 
         size_t GetConnectionsCount() EXCLUSIVE_LOCKS_REQUIRED(!m_connections_mutex)
         {
@@ -38,7 +38,7 @@ BOOST_AUTO_TEST_CASE(test_sockman)
             return m_connections.front();
         }
 
-        std::vector<uint8_t> GetReceivedData(Id id) EXCLUSIVE_LOCKS_REQUIRED(!m_received_mutex)
+        std::vector<std::byte> GetReceivedData(Id id) EXCLUSIVE_LOCKS_REQUIRED(!m_received_mutex)
         {
             LOCK(m_received_mutex);
             return m_received[id];
@@ -56,7 +56,7 @@ BOOST_AUTO_TEST_CASE(test_sockman)
         }
 
         // When we receive data just store it in a member variable for testing.
-        virtual void EventGotData(Id id, std::span<const uint8_t> data) override
+        virtual void EventGotData(Id id, std::span<const std::byte> data) override
             EXCLUSIVE_LOCKS_REQUIRED(!m_received_mutex)
         {
             LOCK(m_received_mutex);
@@ -105,7 +105,7 @@ BOOST_AUTO_TEST_CASE(test_sockman)
 
     // Create a mock client with a data payload to send
     // and add it to the local CreateSock queue
-    const std::vector<uint8_t> request = {'b', 'i', 't', 's'};
+    constexpr std::array request{std::byte{'b'}, std::byte{'i'}, std::byte{'t'}, std::byte{'s'}};
     auto pipes{ConnectClient(request)};
 
     // Wait up to a minute to find and connect the client in the I/O loop
@@ -129,7 +129,7 @@ BOOST_AUTO_TEST_CASE(test_sockman)
     // Wait up to a minute to write our response data back to the connection
     attempts = 6000;
     size_t expected_response_size = sockman.m_respond.size();
-    std::vector<uint8_t> actually_received(expected_response_size);
+    std::vector<std::byte> actually_received(expected_response_size);
     while (!std::ranges::equal(actually_received, sockman.m_respond)) {
         // Read the data received by the mock socket
         ssize_t bytes_read = pipes->send.GetBytes(actually_received.data(), expected_response_size);

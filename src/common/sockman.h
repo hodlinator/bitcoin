@@ -107,7 +107,7 @@ public:
      * @retval <0 A permanent error has occurred.
      */
     ssize_t SendBytes(Id id,
-                      std::span<const unsigned char> data,
+                      std::span<const std::byte> data,
                       bool will_send_more,
                       std::string& errmsg) const
         EXCLUSIVE_LOCKS_REQUIRED(!m_connected_mutex);
@@ -161,7 +161,7 @@ private:
      * @param[in] id Connection for which the data arrived.
      * @param[in] data Received data.
      */
-    virtual void EventGotData(Id id, std::span<const uint8_t> data) = 0;
+    virtual void EventGotData(Id id, std::span<const std::byte> data) = 0;
 
     /**
      * Called when the remote peer has sent an EOF on the socket. This is a graceful

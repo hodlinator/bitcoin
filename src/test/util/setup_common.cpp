@@ -619,7 +619,7 @@ SocketTestingSetup::~SocketTestingSetup()
     CreateSock = m_create_sock_orig;
 }
 
-std::shared_ptr<DynSock::Pipes> SocketTestingSetup::ConnectClient(const std::vector<uint8_t>& data)
+std::shared_ptr<DynSock::Pipes> SocketTestingSetup::ConnectClient(std::span<const std::byte> data)
 {
     // I/O pipes for a mock Connected Socket we can read and write to.
     std::shared_ptr<DynSock::Pipes> connected_socket_pipes(std::make_shared<DynSock::Pipes>());
