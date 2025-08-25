@@ -14,6 +14,19 @@
 #include <vector>
 
 /**
+ * Each connection is assigned an unique id of this type.
+ */
+struct SockManId {
+    int64_t inner;
+
+    bool operator==(const SockManId& other) const noexcept { return inner == other.inner; }
+};
+template <>
+struct std::hash<SockManId> {
+    size_t operator()(const SockManId& id) const noexcept { return static_cast<size_t>(id.inner); }
+};
+
+/**
  * A socket manager class which handles socket operations.
  * To use this class, inherit from it and implement the pure virtual methods.
  * Handled operations:
@@ -26,10 +39,7 @@
 class SockMan
 {
 public:
-    /**
-     * Each connection is assigned an unique id of this type.
-     */
-    using Id = int64_t;
+    using Id = SockManId;
 
     virtual ~SockMan()
     {
@@ -314,7 +324,7 @@ private:
     /**
      * The id to assign to the next created connection. Used to generate ids of connections.
      */
-    std::atomic<Id> m_next_id{0};
+    std::atomic<decltype(Id::inner)> m_next_id{0};
 
     /**
      * Thread that sends to and receives from sockets and accepts connections.

@@ -167,7 +167,7 @@ void SockMan::NewSockAccepted(std::unique_ptr<Sock>&& sock, const CService& me, 
 
 SockMan::Id SockMan::GetNewId()
 {
-    return m_next_id.fetch_add(1, std::memory_order_relaxed);
+    return Id { .inner = m_next_id.fetch_add(1, std::memory_order_relaxed) };
 }
 
 bool SockMan::CloseConnection(Id id)
