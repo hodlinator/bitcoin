@@ -122,15 +122,9 @@ public:
      */
     void StopListening();
 
-    /**
-     * This is signaled when network activity should cease.
-     */
-    CThreadInterrupt interruptNet;
+    void InterruptNet() { interruptNet(); }
 
-    /**
-     * List of listening sockets.
-     */
-    std::vector<std::shared_ptr<Sock>> m_listen;
+    const std::vector<std::shared_ptr<Sock>>& ListenSockets() const { return m_listen; }
 
 private:
 
@@ -303,6 +297,16 @@ private:
      */
     std::shared_ptr<ConnectionSockets> GetConnectionSockets(Id id) const
         EXCLUSIVE_LOCKS_REQUIRED(!m_connected_mutex);
+
+    /**
+     * This is signaled when network activity should cease.
+     */
+    CThreadInterrupt interruptNet;
+
+    /**
+     * List of listening sockets.
+     */
+    std::vector<std::shared_ptr<Sock>> m_listen;
 
     /**
      * The id to assign to the next created connection. Used to generate ids of connections.

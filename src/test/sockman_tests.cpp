@@ -87,13 +87,13 @@ BOOST_AUTO_TEST_CASE(test_sockman)
     BOOST_REQUIRE(addr_bind.has_value());
 
     // Init state
-    BOOST_REQUIRE_EQUAL(sockman.m_listen.size(), 0);
+    BOOST_REQUIRE_EQUAL(sockman.ListenSockets().size(), 0);
     // Bind to mock Listening Socket
     bilingual_str err_msg;
     BOOST_REQUIRE(sockman.BindAndStartListening(addr_bind.value(), err_msg));
     BOOST_REQUIRE(err_msg.empty());
     // We are bound and listening
-    BOOST_REQUIRE_EQUAL(sockman.m_listen.size(), 1);
+    BOOST_REQUIRE_EQUAL(sockman.ListenSockets().size(), 1);
 
     // Name the SockMan I/O thread
     SockMan::Options options{"test_sockman"};
@@ -145,7 +145,7 @@ BOOST_AUTO_TEST_CASE(test_sockman)
     // Close connection
     BOOST_REQUIRE(sockman.CloseConnection(client.first));
     // Stop the I/O loop and shutdown
-    sockman.interruptNet();
+    sockman.InterruptNet();
     sockman.JoinSocketsThreads();
     sockman.StopListening();
 }
