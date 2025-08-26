@@ -49,7 +49,7 @@ class InitTest(BitcoinTestFramework):
 
         def start_expecting_error(err_fragment):
             node.assert_start_raises_init_error(
-                extra_args=['-txindex=1', '-blockfilterindex=1', '-coinstatsindex=1', '-checkblocks=200', '-checklevel=4'],
+                extra_args=['-txindex=1', '-blockfilterindex=1', '-coinstatsindex=1', '-locationsindex=1', '-checkblocks=200', '-checklevel=4'],
                 expected_msg=err_fragment,
                 match=ErrorMatch.PARTIAL_REGEX,
             )
@@ -77,6 +77,7 @@ class InitTest(BitcoinTestFramework):
             b'txindex thread start',
             b'block filter index thread start',
             b'coinstatsindex thread start',
+            b'locationsindex thread start',
             b'msghand thread start',
             b'net thread start',
             b'addcon thread start',
@@ -84,7 +85,7 @@ class InitTest(BitcoinTestFramework):
         if self.is_wallet_compiled():
             lines_to_terminate_after.append(b'Verifying wallet')
 
-        args = ['-txindex=1', '-blockfilterindex=1', '-coinstatsindex=1']
+        args = ['-txindex=1', '-blockfilterindex=1', '-coinstatsindex=1', '-locationsindex=1']
         for terminate_line in lines_to_terminate_after:
             self.log.info(f"Starting node and will terminate after line {terminate_line}")
             with node.busy_wait_for_debug_log([terminate_line]):
@@ -101,12 +102,13 @@ class InitTest(BitcoinTestFramework):
         self.stop_node(0)
 
         self.log.info("Test startup errors after removing certain essential files")
-
         files_to_delete = {
             'blocks/index/*.ldb': 'Error opening block database.',
             'chainstate/*.ldb': 'Error opening coins database.',
             'blocks/blk*.dat': 'Error loading block database.',
             'indexes/txindex/MANIFEST*': 'LevelDB error: Corruption: CURRENT points to a non-existent file',
+            # If we add this, then we fail later while perturbing txindex!?:
+            #'indexes/locations/db/MANIFEST*': 'LevelDB error: Corruption: CURRENT points to a non-existent file',
             # Removing these files does not result in a startup error:
             # 'indexes/blockfilter/basic/*.dat', 'indexes/blockfilter/basic/db/*.*', 'indexes/coinstats/db/*.*',
             # 'indexes/txindex/*.log', 'indexes/txindex/CURRENT', 'indexes/txindex/LOCK'
@@ -120,6 +122,8 @@ class InitTest(BitcoinTestFramework):
             'indexes/coinstats/db/*.*': 'LevelDB error: Corruption',
             'indexes/txindex/*.log': 'LevelDB error: Corruption',
             'indexes/txindex/CURRENT': 'LevelDB error: Corruption',
+            'indexes/locations/db/*.log': 'LevelDB error: Corruption',
+            'indexes/locations/db/CURRENT': 'LevelDB error: Corruption',
             # Perturbing these files does not result in a startup error:
             # 'indexes/blockfilter/basic/*.dat', 'indexes/txindex/MANIFEST*', 'indexes/txindex/LOCK'
         }
