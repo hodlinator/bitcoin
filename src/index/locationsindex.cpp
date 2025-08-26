@@ -3,7 +3,6 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <blockencodings.h>
-#include <clientversion.h>
 #include <common/args.h>
 #include <dbwrapper.h>
 #include <hash.h>
@@ -56,13 +55,10 @@ struct DBValue {
 std::unique_ptr<LocationsIndex> g_locations_index;
 
 LocationsIndex::LocationsIndex(std::unique_ptr<interfaces::Chain> chain,
-                               size_t n_cache_size, bool f_memory, bool f_wipe)
-    : BaseIndex(std::move(chain), "locationsindex")
+                               size_t cache_size, bool memory_only, bool wipe)
+    : BaseIndex{std::move(chain), "locationsindex"}
+    , m_db{std::make_unique<BaseIndex::DB>(gArgs.GetDataDirNet() / "indexes" / "locations" / "db", cache_size, memory_only, wipe)}
 {
-    fs::path path = gArgs.GetDataDirNet() / "indexes" / "locations";
-    fs::create_directories(path);
-
-    m_db = std::make_unique<BaseIndex::DB>(path / "db", n_cache_size, f_memory, f_wipe);
 }
 
 bool LocationsIndex::CustomAppend(const interfaces::BlockInfo& block)
@@ -72,22 +68,23 @@ bool LocationsIndex::CustomAppend(const interfaces::BlockInfo& block)
     assert(block.data);
     assert(block.file_number >= 0);
 
-    const uint32_t nTx = block.data->vtx.size();
-    uint32_t nTxOffset = HEADER_SIZE + GetSizeOfCompactSize(nTx);
+    Assume(block.data->vtx.size() <= std::numeric_limits<uint32_t>::max());
+    const uint32_t tx_count{static_cast<uint32_t>(block.data->vtx.size())};
+    uint32_t tx_offset{HEADER_SIZE + GetSizeOfCompactSize(tx_count)};
 
     std::vector<uint32_t> block_offsets{};
-    block_offsets.reserve(nTx + 1);
-    block_offsets.push_back(nTxOffset); // first transaction offset within the block
+    block_offsets.reserve(tx_count + 1);
+    block_offsets.push_back(tx_offset); // first transaction offset within the block
 
     for (const auto& tx : block.data->vtx) {
-        nTxOffset += ::GetSerializeSize(TX_WITH_WITNESS(*tx));
-        block_offsets.push_back(nTxOffset);
+        tx_offset += ::GetSerializeSize(TX_WITH_WITNESS(*tx));
+        block_offsets.push_back(tx_offset);
     }
 
     CDBBatch batch{GetDB()};
     uint32_t copied = 0;
-    for (uint32_t row = 0; copied < nTx; ++row) {
-        size_t row_size = std::min(nTx - copied, TXS_PER_ROW);
+    for (uint32_t row = 0; copied < tx_count; ++row) {
+        size_t row_size = std::min(tx_count - copied, TXS_PER_ROW);
         std::span<uint32_t> row_offsets{&block_offsets[copied], row_size + 1};
 
         DBKey key{block.hash, row};
@@ -99,24 +96,24 @@ bool LocationsIndex::CustomAppend(const interfaces::BlockInfo& block)
     return GetDB().WriteBatch(batch);
 }
 
-bool LocationsIndex::ReadRawTransaction(const uint256& block_hash, size_t i, std::vector<std::byte>& out) const
+std::vector<std::byte> LocationsIndex::ReadRawTransaction(const uint256& block_hash, uint32_t i) const
 {
-    uint32_t row = i / TXS_PER_ROW;      // used to find the correct DB row
-    const auto column = i % TXS_PER_ROW; // index within a single DB row
+    const uint32_t row{i / TXS_PER_ROW};      // used to find the correct DB row
+    const uint32_t column{i % TXS_PER_ROW}; // index within a single DB row
 
     DBValue value{};
     if (!m_db->Read(DBKey{block_hash, row}, value)) {
-        return false;
+        return {};
     }
 
     if (value.offsets.size() <= 1) {
         LogError("%s: LocationsIndex entry for %s:%u must have >1 offsets\n", __func__, block_hash.ToString(), row);
-        return false;
+        return {};
     }
-    size_t tx_count = value.offsets.size() - 1;
+    const size_t tx_count{value.offsets.size() - 1};
     if (column >= tx_count) {
         LogError("%s: LocationsIndex entry for %s:%u has %d transactions\n", __func__, block_hash.ToString(), row, tx_count);
-        return false;
+        return {};
     }
 
     FlatFilePos tx_pos{value.block_pos};
@@ -126,16 +123,15 @@ bool LocationsIndex::ReadRawTransaction(const uint256& block_hash, size_t i, std
     AutoFile file{m_chainstate->m_blockman.OpenBlockFile(tx_pos, true)};
     if (file.IsNull()) {
         LogError("%s: OpenBlockFile failed\n", __func__);
-        return false;
+        return {};
     }
 
-    out.resize(tx_size); // Zeroing of memory is intentional here
+    std::vector<std::byte> out(tx_size);
     try {
         file.read(MakeWritableByteSpan(out));
+        return out;
     } catch (const std::exception& e) {
         LogError("%s: Read %d bytes from %s failed: %s\n", __func__, tx_size, tx_pos.ToString(), e.what());
-        return false;
+        return {};
     }
-
-    return true;
 }

@@ -1781,7 +1781,7 @@ bool AppInitMain(NodeContext& node, interfaces::BlockAndHeaderTipInfo* tip_info)
     }
 
     if (args.GetBoolArg("-locationsindex", DEFAULT_LOCATIONSINDEX)) {
-        g_locations_index = std::make_unique<LocationsIndex>(interfaces::MakeChain(node), /*cache_size=*/0, false, do_reindex);
+        g_locations_index = std::make_unique<LocationsIndex>(interfaces::MakeChain(node), /*cache_size=*/0, /*memory_only=*/false, do_reindex);
         node.indexes.emplace_back(g_locations_index.get());
     }
 

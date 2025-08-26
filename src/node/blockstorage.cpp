@@ -39,6 +39,7 @@
 #include <cstddef>
 #include <map>
 #include <optional>
+#include <ranges>
 #include <unordered_map>
 
 namespace kernel {
@@ -1080,19 +1081,19 @@ bool BlockManager::ReadRawBlock(std::vector<std::byte>& block, const FlatFilePos
     return true;
 }
 
-bool BlockManager::ReadTxFromBlock(CTransactionRef& tx, const FlatFilePos& block_pos, size_t tx_index) const
+CTransactionRef BlockManager::ReadTxFromBlock(const FlatFilePos& block_pos, uint32_t tx_index) const
 {
     AutoFile file{OpenBlockFile(block_pos, /*fReadOnly=*/true)};
     if (file.IsNull()) {
         LogError("OpenBlockFile failed for %s while reading raw transaction from block", block_pos.ToString());
-        return false;
+        return {};
     }
     BufferedReader filein{std::move(file)};
 
     filein >> CBlockHeader{};
     size_t tx_count = ReadCompactSize(filein);
     if (tx_index >= tx_count) {
-        return false;
+        return {};
     }
 
     CMutableTransaction tx_data{};
@@ -1100,8 +1101,7 @@ bool BlockManager::ReadTxFromBlock(CTransactionRef& tx, const FlatFilePos& block
         filein >> TX_WITH_WITNESS(tx_data);
     }
     filein >> TX_WITH_WITNESS(tx_data);
-    tx = MakeTransactionRef(std::move(tx_data));
-    return true;
+    return MakeTransactionRef(std::move(tx_data));
 }
 
 FlatFilePos BlockManager::WriteBlock(const CBlock& block, int nHeight)

@@ -22,10 +22,10 @@ struct LocationsIndexSetup : public TestChain100Setup {
         BOOST_REQUIRE(index.Init());
     }
 
-    CTransactionRef ReadTransaction(const uint256& block_hash, size_t i)
+    CTransactionRef ReadTransaction(const uint256& block_hash, uint32_t i)
     {
-        std::vector<std::byte> out;
-        if (!index.ReadRawTransaction(block_hash, i, out)) {
+        const std::vector<std::byte> out{index.ReadRawTransaction(block_hash, i)};
+        if (out.empty()) {
             return nullptr;
         }
         CTransactionRef tx;
@@ -34,13 +34,9 @@ struct LocationsIndexSetup : public TestChain100Setup {
         return tx;
     }
 
-    CTransactionRef ReadTransactionFallback(FlatFilePos block_pos, size_t i)
+    CTransactionRef ReadTransactionFallback(FlatFilePos block_pos, uint32_t i)
     {
-        CTransactionRef tx{};
-        if (!m_node.chainman->m_blockman.ReadTxFromBlock(tx, block_pos, i)) {
-            return nullptr;
-        }
-        return tx;
+        return m_node.chainman->m_blockman.ReadTxFromBlock(block_pos, i);
     }
 };
 

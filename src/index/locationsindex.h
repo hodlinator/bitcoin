@@ -29,10 +29,10 @@ protected:
 public:
     // Constructs the index, which becomes available to be queried.
     explicit LocationsIndex(std::unique_ptr<interfaces::Chain> chain,
-                            size_t n_cache_size, bool f_memory = false, bool f_wipe = false);
+                            size_t cache_size, bool memory_only = false, bool wipe = false);
 
     // Read transaction #i from a given block.
-    bool ReadRawTransaction(const uint256& block_hash, size_t i, std::vector<std::byte>& out) const;
+    std::vector<std::byte> ReadRawTransaction(const uint256& block_hash, uint32_t i) const;
 };
 
 extern std::unique_ptr<LocationsIndex> g_locations_index;
