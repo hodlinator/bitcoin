@@ -18,12 +18,12 @@ BOOST_AUTO_TEST_CASE(test_sockman)
         // Connections are added from the SockMan I/O thread
         // but the test reads them from the main thread.
         Mutex m_connections_mutex;
-        std::vector<std::pair<Id, CService>> m_connections;
+        std::vector<std::pair<Id, CService>> m_connections GUARDED_BY(m_connections_mutex);
 
         // Received data is written here by the SockMan I/O thread
         // and tested by the main thread.
         Mutex m_received_mutex;
-        std::unordered_map<Id, std::vector<uint8_t>> m_received;
+        std::unordered_map<Id, std::vector<uint8_t>> m_received GUARDED_BY(m_received_mutex);
         std::vector<uint8_t> m_respond{'o', 'k'};
 
         size_t GetConnectionsCount() EXCLUSIVE_LOCKS_REQUIRED(!m_connections_mutex)
@@ -48,7 +48,7 @@ BOOST_AUTO_TEST_CASE(test_sockman)
         virtual bool EventNewConnectionAccepted(Id id,
                                             const CService& me,
                                             const CService& them) override
-        EXCLUSIVE_LOCKS_REQUIRED(!m_connections_mutex)
+            EXCLUSIVE_LOCKS_REQUIRED(!m_connections_mutex)
         {
             LOCK(m_connections_mutex);
             m_connections.emplace_back(id, them);
@@ -57,13 +57,13 @@ BOOST_AUTO_TEST_CASE(test_sockman)
 
         // When we receive data just store it in a member variable for testing.
         virtual void EventGotData(Id id, std::span<const uint8_t> data) override
-        EXCLUSIVE_LOCKS_REQUIRED(!m_received_mutex)
+            EXCLUSIVE_LOCKS_REQUIRED(!m_received_mutex)
         {
             LOCK(m_received_mutex);
             m_received[id].assign(data.begin(), data.end());
-        };
-        virtual void EventGotEOF(Id id) override {};
-        virtual void EventGotPermanentReadError(Id id, const std::string& errmsg) override {};
+        }
+        virtual void EventGotEOF(Id id) override {}
+        virtual void EventGotPermanentReadError(Id id, const std::string& errmsg) override {}
 
         // As soon as we can send data to the connected socket, send the preloaded response.
         // Data is sent by the SockMan I/O thread and read by the main test thread,
@@ -85,12 +85,13 @@ BOOST_AUTO_TEST_CASE(test_sockman)
     // This address won't actually get used because we stubbed CreateSock()
     const std::optional<CService> addr_bind{Lookup("0.0.0.0", 0, false)};
     BOOST_REQUIRE(addr_bind.has_value());
-    bilingual_str strError;
 
     // Init state
     BOOST_REQUIRE_EQUAL(sockman.m_listen.size(), 0);
     // Bind to mock Listening Socket
-    BOOST_REQUIRE(sockman.BindAndStartListening(addr_bind.value(), strError));
+    bilingual_str err_msg;
+    BOOST_REQUIRE(sockman.BindAndStartListening(addr_bind.value(), err_msg));
+    BOOST_REQUIRE(err_msg.empty());
     // We are bound and listening
     BOOST_REQUIRE_EQUAL(sockman.m_listen.size(), 1);
 
