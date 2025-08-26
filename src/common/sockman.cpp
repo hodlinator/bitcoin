@@ -111,6 +111,8 @@ void SockMan::JoinSocketsThreads()
 
 std::unique_ptr<Sock> SockMan::AcceptConnection(const Sock& listen_sock, CService& addr)
 {
+    Assume(std::ranges::find_if(m_listen, [&](const auto& sock) { return sock.get() == &listen_sock; }) != m_listen.end());
+
     sockaddr_storage storage;
     socklen_t len{sizeof(storage)};
 
