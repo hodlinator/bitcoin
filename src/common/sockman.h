@@ -221,8 +221,8 @@ private:
     /**
      * The sockets used by a connection.
      */
-    struct ConnectionSockets {
-        explicit ConnectionSockets(std::unique_ptr<Sock>&& s)
+    struct ConnectionSocket {
+        explicit ConnectionSocket(std::unique_ptr<Sock>&& s)
             : sock{std::move(s)}
         {
         }
@@ -296,9 +296,9 @@ private:
     /**
      * Retrieve an entry from m_connected.
      * @param[in] id Connection id to search for.
-     * @return ConnectionSockets for the given connection id or empty shared_ptr if not found.
+     * @return ConnectionSocket for the given connection id or empty shared_ptr if not found.
      */
-    std::shared_ptr<ConnectionSockets> GetConnectionSockets(Id id) const
+    std::shared_ptr<ConnectionSocket> GetConnectionSocket(Id id) const
         EXCLUSIVE_LOCKS_REQUIRED(!m_connected_mutex);
 
     /**
@@ -328,7 +328,7 @@ private:
      * The `shared_ptr` makes it possible to create a snapshot of this by simply copying
      * it (under `m_connected_mutex`).
      */
-    std::unordered_map<Id, std::shared_ptr<ConnectionSockets>> m_connected GUARDED_BY(m_connected_mutex);
+    std::unordered_map<Id, std::shared_ptr<ConnectionSocket>> m_connected GUARDED_BY(m_connected_mutex);
 };
 
 #endif // BITCOIN_COMMON_SOCKMAN_H

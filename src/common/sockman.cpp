@@ -157,7 +157,7 @@ void SockMan::NewSockAccepted(std::unique_ptr<Sock>&& sock, const CService& me, 
 
     {
         LOCK(m_connected_mutex);
-        m_connected.emplace(id, std::make_shared<ConnectionSockets>(std::move(sock)));
+        m_connected.emplace(id, std::make_shared<ConnectionSocket>(std::move(sock)));
     }
 
     if (!EventNewConnectionAccepted(id, me, them)) {
@@ -192,8 +192,8 @@ ssize_t SockMan::SendBytes(Id id,
         return 0;
     }
 
-    auto sockets{GetConnectionSockets(id)};
-    if (!sockets) {
+    auto socket{GetConnectionSocket(id)};
+    if (!socket) {
         // Bail out immediately and just leave things in the caller's send queue.
         return 0;
     }
@@ -206,8 +206,9 @@ ssize_t SockMan::SendBytes(Id id,
 #endif
 
     const ssize_t sent{WITH_LOCK(
-        sockets->mutex,
-        return sockets->sock->Send(data.data(), data.size(), flags);)};
+        socket->mutex,
+        return socket->sock->Send(data.data(), data.size(), flags);
+    )};
 
     if (sent >= 0) {
         return sent;
@@ -273,14 +274,14 @@ SockMan::IOReadiness SockMan::GenerateWaitSockets()
 
     auto connected_snapshot{WITH_LOCK(m_connected_mutex, return m_connected;)};
 
-    for (const auto& [id, sockets] : connected_snapshot) {
+    for (const auto& [id, socket] : connected_snapshot) {
         const bool select_recv{ShouldTryToRecv(id)};
         const bool select_send{ShouldTryToSend(id)};
         if (!select_recv && !select_send) continue;
 
         Sock::Event event = (select_send ? Sock::SEND : 0) | (select_recv ? Sock::RECV : 0);
-        io_readiness.events_per_sock.emplace(sockets->sock, Sock::Events{event});
-        io_readiness.ids_per_sock.emplace(sockets->sock, id);
+        io_readiness.events_per_sock.emplace(socket->sock, Sock::Events{event});
+        io_readiness.ids_per_sock.emplace(socket->sock, id);
     }
 
     return io_readiness;
@@ -319,14 +320,14 @@ void SockMan::SocketHandlerConnected(const IOReadiness& io_readiness)
         if (recv_ready || err_ready) {
             std::byte buf[0x10000]; // typical socket buffer is 8K-64K
 
-            auto sockets{GetConnectionSockets(id)};
-            if (!sockets) {
+            auto socket{GetConnectionSocket(id)};
+            if (!socket) {
                 continue;
             }
 
             const ssize_t nrecv{WITH_LOCK(
-                sockets->mutex,
-                return sockets->sock->Recv(buf, sizeof(buf), MSG_DONTWAIT);)};
+                socket->mutex,
+                return socket->sock->Recv(buf, sizeof(buf), MSG_DONTWAIT);)};
 
             if (nrecv < 0) { // In all cases (including -1 and 0) EventIOLoopCompletedForOne() should be executed after this, don't change the code to skip it.
                 const int err = WSAGetLastError();
@@ -370,7 +371,7 @@ void SockMan::SocketHandlerListening(const Sock::EventsPerSock& events_per_sock)
     }
 }
 
-std::shared_ptr<SockMan::ConnectionSockets> SockMan::GetConnectionSockets(Id id) const
+std::shared_ptr<SockMan::ConnectionSocket> SockMan::GetConnectionSocket(Id id) const
 {
     LOCK(m_connected_mutex);
 
