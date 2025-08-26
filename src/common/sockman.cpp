@@ -36,7 +36,7 @@ bool SockMan::BindAndStartListening(const CService& to, bilingual_str& err_msg)
 
     // Allow binding if the port is still in TIME_WAIT state after
     // the program was closed and restarted.
-    if (sock->SetSockOpt(SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<sockopt_arg_type>(&one), sizeof(one)) == SOCKET_ERROR) {
+    if (sock->SetSockOpt(SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one)) == SOCKET_ERROR) {
         LogPrintLevel(BCLog::NET,
                       BCLog::Level::Info,
                       "Cannot set SO_REUSEADDR on %s listen socket: %s, continuing anyway\n",
@@ -48,7 +48,7 @@ bool SockMan::BindAndStartListening(const CService& to, bilingual_str& err_msg)
     // and enable it by default or not. Try to enable it, if possible.
     if (to.IsIPv6()) {
 #ifdef IPV6_V6ONLY
-        if (sock->SetSockOpt(IPPROTO_IPV6, IPV6_V6ONLY, reinterpret_cast<sockopt_arg_type>(&one), sizeof(one)) == SOCKET_ERROR) {
+        if (sock->SetSockOpt(IPPROTO_IPV6, IPV6_V6ONLY, &one, sizeof(one)) == SOCKET_ERROR) {
             LogPrintLevel(BCLog::NET,
                           BCLog::Level::Info,
                           "Cannot set IPV6_V6ONLY on %s listen socket: %s, continuing anyway\n",
@@ -60,7 +60,7 @@ bool SockMan::BindAndStartListening(const CService& to, bilingual_str& err_msg)
         int prot_level{PROTECTION_LEVEL_UNRESTRICTED};
         if (sock->SetSockOpt(IPPROTO_IPV6,
                              IPV6_PROTECTION_LEVEL,
-                             reinterpret_cast<const char*>(&prot_level),
+                             &prot_level,
                              sizeof(prot_level)) == SOCKET_ERROR) {
             LogPrintLevel(BCLog::NET,
                           BCLog::Level::Info,
@@ -200,7 +200,7 @@ ssize_t SockMan::SendBytes(Id id,
 
     const ssize_t sent{WITH_LOCK(
         sockets->mutex,
-        return sockets->sock->Send(reinterpret_cast<const char*>(data.data()), data.size(), flags);)};
+        return sockets->sock->Send(data.data(), data.size(), flags);)};
 
     if (sent >= 0) {
         return sent;

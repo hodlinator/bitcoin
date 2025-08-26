@@ -131,7 +131,7 @@ BOOST_AUTO_TEST_CASE(test_sockman)
     std::vector<uint8_t> actually_received(expected_response_size);
     while (!std::ranges::equal(actually_received, sockman.m_respond)) {
         // Read the data received by the mock socket
-        ssize_t bytes_read = pipes->send.GetBytes((void *)actually_received.data(), expected_response_size);
+        ssize_t bytes_read = pipes->send.GetBytes(actually_received.data(), expected_response_size);
         // We may need to wait a few loop iterations in the socket thread
         // but once we can write, we can expect all the data at once.
         if (bytes_read >= 0) {
