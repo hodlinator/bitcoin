@@ -91,6 +91,10 @@ class TestNode():
     To make things easier for the test writer, any unrecognised messages will
     be dispatched to the RPC connection."""
 
+    run = 0
+    debug_runs = None
+    debug_cmd = ""
+
     def __init__(self, i, datadir_path, *, chain, rpchost, timewait, timeout_factor, binaries, coverage_dir, cwd, extra_conf=None, extra_args=None, use_cli=False, start_perf=False, use_valgrind=False, version=None, v2transport=False, uses_wallet=False, ipcbind=False):
         """
         Kwargs:
@@ -283,10 +287,26 @@ class TestNode():
         if env is not None:
             subp_env.update(env)
 
-        self.process = subprocess.Popen(self.args + extra_args, env=subp_env, stdout=stdout, stderr=stderr, cwd=cwd, **kwargs)
+        debug_args = []
+        if TestNode.debug_cmd and ((not TestNode.debug_runs) or TestNode.run in TestNode.debug_runs):
+            debug_args = [f"{os.path.dirname(os.path.abspath(__file__))}/launch_and_wait.py"] + shlex.split(TestNode.debug_cmd)
+            self.rpc_timeout = max(self.rpc_timeout, 2 * 60 * 60)  # 2h timeout
+            for i in range(len(debug_args)):
+                if "$ARGS_REPR$" in debug_args[i]:
+                    # At least one debugger doesn't support single quotes
+                    args_repr = repr((self.args + extra_args)[1:]).replace("'", '"')
+                    debug_args[i] = debug_args[i].replace("$ARGS_REPR$", args_repr)
+                if "$ARGS_ARRAY$" == debug_args[i]:
+                    assert i == len(debug_args) - 1, "Since we're changing the size of debug_args in this loop, we require this to happen on the last element"
+                    debug_args[i:] = (self.args + extra_args)[1:]
+                if "$EXECUTABLE$" in debug_args[i]:
+                    debug_args[i] = debug_args[i].replace("$EXECUTABLE$", self.args[0])
+
+        self.process = subprocess.Popen(debug_args if debug_args else self.args + extra_args, env=subp_env, stdout=stdout, stderr=stderr, cwd=cwd, **kwargs)
 
         self.running = True
-        self.log.debug("bitcoind started, waiting for RPC to come up")
+        self.log.debug(f"bitcoind started (run #{TestNode.run}, node #{self.index}, PID: {self.process.pid}), waiting for RPC to come up {debug_args}")
+        TestNode.run += 1
 
         if self.start_perf:
             self._start_perf()
