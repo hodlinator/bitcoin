@@ -57,6 +57,7 @@ void AssertLockHeldInternal(const char* pszName, const char* pszFile, int nLine,
 template <typename MutexType>
 void AssertLockNotHeldInternal(const char* pszName, const char* pszFile, int nLine, MutexType* cs) LOCKS_EXCLUDED(cs);
 void DeleteLock(void* cs);
+//! Only checks locks for current thread.
 bool LockStackEmpty();
 
 /**
@@ -140,6 +141,8 @@ inline void AssertLockNotHeldInline(const char* name, const char* file, int line
 inline void AssertLockNotHeldInline(const char* name, const char* file, int line, RecursiveMutex* cs) LOCKS_EXCLUDED(cs) { AssertLockNotHeldInternal(name, file, line, cs); }
 inline void AssertLockNotHeldInline(const char* name, const char* file, int line, GlobalMutex* cs) LOCKS_EXCLUDED(cs) { AssertLockNotHeldInternal(name, file, line, cs); }
 #define AssertLockNotHeld(cs) AssertLockNotHeldInline(#cs, __FILE__, __LINE__, &cs)
+
+void DestroyLockData();
 
 /** Wrapper around std::unique_lock style lock for MutexType. */
 template <typename MutexType>

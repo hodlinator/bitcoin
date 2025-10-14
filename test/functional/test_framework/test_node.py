@@ -153,7 +153,7 @@ class TestNode():
                                           default_suppressions_file)
             self.args = ["valgrind", "--suppressions={}".format(suppressions_file),
                          "--gen-suppressions=all", "--exit-on-first-error=yes",
-                         "--error-exitcode=1", "--quiet"] + self.args
+                         "--error-exitcode=1", "--quiet", "--leak-check=full", "--show-leak-kinds=all", "--track-origins=yes"] + self.args
 
         if self.version_is_at_least(190000):
             self.args.append("-logthreadnames")

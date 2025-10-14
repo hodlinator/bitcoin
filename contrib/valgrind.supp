@@ -21,10 +21,11 @@
    fun:tcsetattr
 }
 {
-   Suppress leaks on shutdown
+   Suppress leveldb leak
    Memcheck:Leak
+   fun:_Znwm
    ...
-   fun:_Z8ShutdownR11NodeContext
+   fun:_ZN7leveldb12_GLOBAL__N_18PosixEnvC1Ev
 }
 {
    Suppress leveldb leak
@@ -42,6 +43,13 @@
    fun:GetCoin
 }
 {
+   Suppress LogInstance leaks
+   Memcheck:Leak
+   fun:_Znwm
+   ...
+   fun:_ZN4init17SetLoggingOptionsERK11ArgsManager
+}
+{
    Suppress LogInstance still reachable memory warning
    Memcheck:Leak
    match-leak-kinds: reachable
@@ -55,6 +63,85 @@
    fun:malloc
    ...
    fun:_ZN5BCLog6Logger12StartLoggingEv
+}
+{
+   Suppress ld-linux dl_init leak
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:_GLOBAL__sub_I_eh_alloc.cc
+   fun:call_init
+   fun:_dl_init
+   obj:*/ld-linux-x86-64.so.2
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+{
+   Unsure-if-good-chainstate
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:_Znwm
+   fun:_ZNSt6threadC1IRFvPN7leveldb12_GLOBAL__N_18PosixEnvEEJS4_EvEEOT_DpOT0_
+   fun:_ZN7leveldb12_GLOBAL__N_18PosixEnv8ScheduleEPFvPvES2_
+   fun:_ZN7leveldb6DBImpl23MaybeScheduleCompactionEv
+   fun:_ZN7leveldb2DB4OpenERKNS_7OptionsERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEPPS0_
+   fun:_ZN10CDBWrapperC1ERK8DBParams
+   fun:_ZN6kernel11BlockTreeDBCI110CDBWrapperERK8DBParams
+   fun:_ZSt11make_uniqueIN6kernel11BlockTreeDBEJRK8DBParamsEENSt8__detail9_MakeUniqIT_E15__single_objectEDpOT0_
+   fun:_ZN4node12BlockManagerC1ERKN4util15SignalInterruptEN6kernel16BlockManagerOptsE
+   fun:_ZN17ChainstateManagerC1ERKN4util15SignalInterruptEN6kernel21ChainstateManagerOptsENS4_16BlockManagerOptsE
+   fun:_ZSt11make_uniqueI17ChainstateManagerJRN4util15SignalInterruptERN6kernel21ChainstateManagerOptsERNS4_16BlockManagerOptsEEENSt8__detail9_MakeUniqIT_E15__single_objectEDpOT0_
+   fun:_ZL21InitAndLoadChainstateRN4node11NodeContextEbbRKN6kernel10CacheSizesERK11ArgsManager
+}
+{
+   Unsure-if-good-chainstate
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:_Znwm
+   fun:_ZN7leveldb3Env7DefaultEv
+   fun:_ZN7leveldb7OptionsC1Ev
+   fun:_ZN10CDBWrapperC1ERK8DBParams
+   fun:_ZN4node12BlockManagerC1ERKN4util15SignalInterruptEN6kernel16BlockManagerOptsE
+   fun:_ZN17ChainstateManagerC1ERKN4util15SignalInterruptEN6kernel21ChainstateManagerOptsENS4_16BlockManagerOptsE
+   fun:_ZL21InitAndLoadChainstateRN4node11NodeContextEbbRKN6kernel10CacheSizesERK11ArgsManager
+   fun:_Z11AppInitMainRN4node11NodeContextEPN10interfaces21BlockAndHeaderTipInfoE
+   fun:main
+}
+{
+   Unsure-if-good-chainstate
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:_Znwm
+   fun:_ZN7leveldb3Env7DefaultEv
+   fun:_ZN7leveldb7OptionsC1Ev
+   fun:_ZN10CDBWrapperC1ERK8DBParams
+   fun:_ZN4node12BlockManagerC1ERKN4util15SignalInterruptEN6kernel16BlockManagerOptsE
+   fun:_ZN17ChainstateManagerC1ERKN4util15SignalInterruptEN6kernel21ChainstateManagerOptsENS4_16BlockManagerOptsE
+   fun:_ZL21InitAndLoadChainstateRN4node11NodeContextEbbRKN6kernel10CacheSizesERK11ArgsManager
+   fun:_Z11AppInitMainRN4node11NodeContextEPN10interfaces21BlockAndHeaderTipInfoE
+   fun:main
+}
+{
+   Unsure-if-good-BlockTreeDB
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:calloc
+   fun:allocate_dtv
+   fun:_dl_allocate_tls
+   fun:pthread_create@@GLIBC_2.34
+   fun:_ZNSt6thread15_M_start_threadESt10unique_ptrINS_6_StateESt14default_deleteIS1_EEPFvvE
+   fun:_ZNSt6threadC1IRFvPN7leveldb12_GLOBAL__N_18PosixEnvEEJS4_EvEEOT_DpOT0_
+   fun:_ZN7leveldb12_GLOBAL__N_18PosixEnv8ScheduleEPFvPvES2_
+   fun:_ZN7leveldb6DBImpl23MaybeScheduleCompactionEv
+   fun:_ZN7leveldb2DB4OpenERKNS_7OptionsERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEPPS0_
+   fun:_ZN10CDBWrapperC1ERK8DBParams
+   fun:_ZN6kernel11BlockTreeDBCI110CDBWrapperERK8DBParams
+   fun:_ZSt11make_uniqueIN6kernel11BlockTreeDBEJRK8DBParamsEENSt8__detail9_MakeUniqIT_E15__single_objectEDpOT0_
 }
 {
    Suppress https://bugs.kde.org/show_bug.cgi?id=472219 - fixed in Valgrind 3.22.

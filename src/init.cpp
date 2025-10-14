@@ -112,6 +112,8 @@
 
 #include <boost/signals2/signal.hpp>
 
+#include <event2/event.h>
+
 #ifdef ENABLE_ZMQ
 #include <zmq/zmqabstractnotifier.h>
 #include <zmq/zmqnotificationinterface.h>
@@ -282,6 +284,7 @@ void Interrupt(NodeContext& node)
 
 void Shutdown(NodeContext& node)
 {
+    {
     static Mutex g_shutdown_mutex;
     TRY_LOCK(g_shutdown_mutex, lock_shutdown);
     if (!lock_shutdown) return;
@@ -406,6 +409,10 @@ void Shutdown(NodeContext& node)
     node.kernel.reset();
 
     RemovePidFile(*node.args);
+
+    libevent_global_shutdown();
+    }
+    DestroyLockData();
 
     LogInfo("Shutdown done");
 }
