@@ -95,6 +95,7 @@ BASE_SCRIPTS = [
     'feature_taproot.py',
     'feature_block.py',
     'mempool_ephemeral_dust.py',
+    'p2p_headers_sync_invalidated_block.py',
     'wallet_conflicts.py',
     'p2p_opportunistic_1p1c.py',
     'p2p_node_network_limited.py --v1transport',
