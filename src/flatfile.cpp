@@ -1,20 +1,24 @@
 // Copyright (c) 2009-2010 Satoshi Nakamoto
-// Copyright (c) 2009-2022 The Bitcoin Core developers
+// Copyright (c) 2009-present The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
-
-#include <stdexcept>
 
 #include <flatfile.h>
 #include <logging.h>
 #include <tinyformat.h>
+#include <util/check.h>
 #include <util/fs_helpers.h>
+
+#include <stdexcept>
 
 FlatFileSeq::FlatFileSeq(fs::path dir, const char* prefix, size_t chunk_size) :
     m_dir(std::move(dir)),
     m_prefix(prefix),
     m_chunk_size(chunk_size)
 {
+    // The full parent path should be specified in dir, that way we only need to
+    // create it once in Open().
+    Assume(!fs::path{m_prefix}.has_parent_path());
     if (chunk_size == 0) {
         throw std::invalid_argument("chunk_size must be positive");
     }
@@ -36,7 +40,10 @@ FILE* FlatFileSeq::Open(const FlatFilePos& pos, bool read_only) const
         return nullptr;
     }
     fs::path path = FileName(pos);
-    fs::create_directories(path.parent_path());
+    if (!read_only && !m_dir_exists) {
+        fs::create_directories(m_dir);
+        const_cast<FlatFileSeq*>(this)->m_dir_exists = true;
+    }
     FILE* file = fsbridge::fopen(path, read_only ? "rb": "rb+");
     if (!file && !read_only)
         file = fsbridge::fopen(path, "wb+");
