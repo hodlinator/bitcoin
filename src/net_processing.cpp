@@ -2957,10 +2957,25 @@ void PeerManagerImpl::ProcessHeadersMessage(CNode& pfrom, Peer& peer,
     if (!processed) {
         if (state.IsInvalid()) {
             if (!pfrom.IsInboundConn() && state.GetResult() == BlockValidationResult::BLOCK_CACHED_INVALID) {
-                LogWarning("Header %s received from peer=%i was previously marked as invalid. "
-                           "If this happens with all peers, consider database corruption (that -reindex may fix) "
-                           "or a potential consensus incompatibility.",
-                           state.GetDebugMessage(), pfrom.GetId());
+                bool assume_valid_ancestor{false};
+                if (!m_chainman.AssumedValidBlock().IsNull()) {
+                    LOCK(cs_main);
+                    node::BlockMap::const_iterator it{m_chainman.m_blockman.m_block_index.find(m_chainman.AssumedValidBlock())};
+                    assume_valid_ancestor = it != m_chainman.m_blockman.m_block_index.end() &&
+                                            it->second.GetAncestor(pindexLast->nHeight) == pindexLast;
+                }
+                if (assume_valid_ancestor) {
+                    LogWarning("Header %s received from peer=%i was previously marked as invalid but "
+                               "is an ancestor of the assume valid block! Unless we are running with "
+                               "a malicious assumevalid setting or are experiencing a fork in "
+                               "consensus, this strongly indicates database corruption (that -reindex may fix).",
+                               state.GetDebugMessage(), pfrom.GetId());
+                } else {
+                    LogWarning("Header %s received from peer=%i was previously marked as invalid. "
+                               "If this happens with all peers, consider database corruption (that -reindex may fix) "
+                               "or a potential consensus incompatibility.",
+                               state.GetDebugMessage(), pfrom.GetId());
+                }
             }
             MaybePunishNodeForBlock(pfrom.GetId(), state, via_compact_block, "invalid header received");
             return;
