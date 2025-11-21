@@ -44,7 +44,7 @@ FUZZ_TARGET(merkle)
     }
     const size_t num_txs = block->vtx.size();
     std::vector<uint256> tx_hashes;
-    tx_hashes.reserve(num_txs);
+    tx_hashes.reserve(ComputeMerkleSize(block->vtx));
 
     for (size_t i = 0; i < num_txs; ++i) {
         tx_hashes.push_back(block->vtx[i]->GetHash().ToUint256());

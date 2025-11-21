@@ -12,6 +12,12 @@
 
 uint256 ComputeMerkleRoot(std::vector<uint256> hashes, bool* mutated = nullptr);
 
+template <typename Container>
+std::size_t ComputeMerkleSize(const Container& txs)
+{
+    return (txs.size() + 1) & ~(decltype(txs.size()){1}); // preallocate for ComputeMerkleRoot's odd-duplication
+}
+
 /*
  * Compute the Merkle root of the transactions in a block.
  * *mutated is set to true if a duplicated subtree was found.

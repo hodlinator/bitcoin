@@ -237,9 +237,9 @@ BOOST_AUTO_TEST_CASE(merkle_test_BlockWitness)
     uint256 blockWitness = BlockWitnessMerkleRoot(block);
 
     std::vector<uint256> hashes;
-    hashes.resize(block.vtx.size());
-    hashes[0].SetNull();
-    hashes[1] = block.vtx[1]->GetHash().ToUint256();
+    hashes.reserve(ComputeMerkleSize(block.vtx));
+    hashes.emplace_back();
+    hashes.push_back(block.vtx[1]->GetHash().ToUint256());
 
     uint256 merkleRootofHashes = ComputeMerkleRoot(hashes);
 
