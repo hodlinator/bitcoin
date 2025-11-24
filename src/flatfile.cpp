@@ -7,13 +7,17 @@
 #include <logging.h>
 #include <tinyformat.h>
 #include <util/check.h>
+#include <util/fs.h>
 #include <util/fs_helpers.h>
 
+#include <charconv>
+#include <cmath>
 #include <stdexcept>
 
 FlatFileSeq::FlatFileSeq(fs::path dir, const char* prefix, size_t chunk_size) :
     m_dir(std::move(dir)),
     m_prefix(prefix),
+    m_filename_template{(m_dir / fs::u8path(std::string{m_prefix} + "00000.dat")).utf8string()},
     m_chunk_size(chunk_size)
 {
     // The full parent path should be specified in dir, that way we only need to
@@ -31,7 +35,22 @@ std::string FlatFilePos::ToString() const
 
 fs::path FlatFileSeq::FileName(const FlatFilePos& pos) const
 {
-    return m_dir / fs::u8path(strprintf("%s%05u.dat", m_prefix, pos.nFile));
+    if (pos.nFile < 100000) {
+        std::string scratch{m_filename_template};
+        if (pos.nFile > 0) {
+            const auto result{std::to_chars(scratch.data() + scratch.size() - 5 - static_cast<int>(std::log10(pos.nFile)),
+                                            scratch.data() + scratch.size() - 4,
+                                            pos.nFile)};
+            assert(result.ec == std::errc{});
+        } else {
+            assert(pos.nFile == 0); // Don't expect negative values
+        }
+
+        return fs::u8path(scratch);
+    } else {
+        // Slower variable length support
+        return m_dir / fs::u8path(strprintf("%s%05u.dat", m_prefix, pos.nFile));
+    }
 }
 
 FILE* FlatFileSeq::Open(const FlatFilePos& pos, bool read_only) const

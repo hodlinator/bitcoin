@@ -47,6 +47,7 @@ class FlatFileSeq
 private:
     const fs::path m_dir;
     const char* const m_prefix;
+    const std::string m_filename_template;
     const size_t m_chunk_size;
     bool m_dir_exists{false};
 
