@@ -7,6 +7,7 @@
 #include <netbase.h>
 #include <netgroup.h>
 #include <protocol.h>
+#include <random.h>
 #include <serialize.h>
 #include <streams.h>
 #include <test/util/setup_common.h>
@@ -661,6 +662,232 @@ BOOST_AUTO_TEST_CASE(asmap_test_vectors)
     BOOST_CHECK_EQUAL(netgroup.GetMappedAS(*LookupHost("dff5:8021:61d:b17d:406d:7888:fdac:4a20", false)), 969411);
     BOOST_CHECK_EQUAL(netgroup.GetMappedAS(*LookupHost("e888:6791:2960:d723:bcfd:47e1:2d8c:599f", false)), 824019);
     BOOST_CHECK_EQUAL(netgroup.GetMappedAS(*LookupHost("ffff:d499:8c4b:4941:bc81:d5b9:b51e:85a8", false)), 824019);
+}
+
+BOOST_AUTO_TEST_CASE(asmap_basics)
+{
+    struct {
+        std::vector<bool> asmap_bits;
+        uint32_t expected_asn_high;               // All bits set in upper half
+        std::optional<uint32_t> expected_asn_low; // All bits set in lower half
+        std::optional<uint32_t> expected_even;    // Even bits in first 2 bytes set (1010.../0xA...)
+        std::optional<uint32_t> expected_odd;     // Odd bits in first 2 bytes set  (0101.../0x5...)
+    } tests[] = {
+        {
+            .asmap_bits = {0,                      // RETURN
+                              1, 1, 1, 1, 1, 1, 1,
+                           1, 1,                   // Max ASN prefix
+                                 1, 1, 1, 1, 1, 1,
+                           1, 1, 1, 1, 1, 1, 1, 1,
+                           1, 1, 1, 1, 1, 1, 1, 1,
+                           1, 1 },                 // 8*3=24 bits
+            .expected_asn_high = (1 << 15) + (1 << 16) + (1 << 17) + (1 << 18) + (1 << 19) + (1 << 20) + (1 << 21) +
+                                 (1 << 22) + (1 << 23) + (1 << 24), // 33'521'664 - Max ASN number supported
+            .expected_asn_low = {},
+            .expected_even = {},
+            .expected_odd = {},
+        },
+        {
+            .asmap_bits = {0,                      // RETURN
+                              0,                   // Min ASN prefix
+                                 0, 0, 0, 0, 0, 0,
+                           0, 0, 0, 0, 0, 0, 0, 0,
+                           0 },                    // 0 represented in 15 bits (=1 with minvalue=1)
+            .expected_asn_high = 1, // Min ASN number supported
+            .expected_asn_low = {},
+            .expected_even = {},
+            .expected_odd = {},
+        },
+        {
+            .asmap_bits = {0,                      // RETURN
+                              0,                   // Min ASN prefix
+                                 1, 1, 1, 1, 1, 1,
+                           1, 1, 1, 1, 1, 1, 1, 1,
+                           1 },                    // Max 15 bit value (+1 with minvalue=1)
+            .expected_asn_high = 1 << 15, // Max ASN number using lowest prefix
+            .expected_asn_low = {},
+            .expected_even = {},
+            .expected_odd = {},
+        },
+        {
+            .asmap_bits = {0,                      // RETURN
+                              1, 0,                // Second ASN prefix
+                                    0, 0, 0, 0, 0,
+                           0, 0, 0, 0, 0, 0, 0, 0,
+                           0, 0, 1 },              // 1 represented in 16 bits (=32770 given max value from the first prefix and minvalue=1)
+            .expected_asn_high = (1 << 15) + 2,
+            .expected_asn_low = {},
+            .expected_even = {},
+            .expected_odd = {},
+        },
+        {
+            .asmap_bits = {0,                      // RETURN
+                              1, 1, 1, 1, 1, 1, 1,
+                           1, 0,                   // Second to last prefix
+                                 1, 1, 1, 1, 1, 1,
+                           1, 1, 1, 1, 1, 1, 1, 1,
+                           1, 1, 1, 1, 1, 1, 1, 1,
+                           0 },                    // Next-highest 23 bit value (+all max values from earlier prefixes + minvalue=1)
+            .expected_asn_high = (1 << 15) + (1 << 16) + (1 << 17) + (1 << 18) + (1 << 19) + (1 << 20) + (1 << 21) + (1 << 22) + (1 << 23) - 1,
+            .expected_asn_low = {},
+            .expected_even = {},
+            .expected_odd = {},
+        },
+        {
+            .asmap_bits = {1, 0,                   // JUMP
+                                 0,                // Min JUMP prefix
+                                    0, 0, 0, 0, 0, // Jump distance bits
+                           0,                      // RETURN,
+                              0,                   // Min ASN prefix
+                                 0, 0, 0, 0, 0, 0,
+                           0, 0, 0, 0, 0, 0, 0, 0,
+                           1 ,                     // 1 represented in 15 bits (=2 with minvalue=1)
+                              0,                   // RETURN,
+                                 0,                // Min ASN prefix
+                                    0, 0, 0, 0, 0,
+                           0, 0, 0, 0, 0, 0, 0, 0,
+                           1, 0 },                 // 2 represented in 15 bits (=3 with minvalue=1)
+            .expected_asn_high = 3, // High bit being set causes jump
+            .expected_asn_low = 2,  // High bit being unset - no jump
+            .expected_even = {},
+            .expected_odd = {},
+        },
+        {
+            .asmap_bits = {1, 1, 1,                // DEFAULT
+                                    0,             // Min ASN prefix
+                                       0, 0, 0, 0,
+                           0, 0, 0, 0, 0, 0, 0, 0,
+                           0, 1, 1,                // 3 represented in 15 bits (=4 with minvalue=1)
+                           1, 1, 0,                // MATCH,
+                                    0,             // Min MATCH prefix
+                                       1,          // 1-bit match value (=3/0b11 with minvalue=2, only low bit will be compared)
+                                          0,       // RETURN
+                                             0,    // Min ASN prefix
+                                                0,
+                           0, 0, 0, 0, 0, 0, 0, 0,
+                           0, 0, 0, 1, 0, 0 },     // 4 represented in 15 bits (=5 with minvalue=1)
+            .expected_asn_high = 5, // Match on high bit passes
+            .expected_asn_low = 4,  // Mismatch on high bit causes DEFAULT ASN to be returned
+            .expected_even = 5,     // Match on high bit passes
+            .expected_odd = 4,      // Mismatch on high bit...
+        },
+        {
+            .asmap_bits = {1, 1, 1,                // DEFAULT
+                                    0,             // Min ASN prefix
+                                       0, 0, 0, 0,
+                           0, 0, 0, 0, 0, 0, 0, 0,
+                           0, 1, 1,                // 3 represented in 15 bits (=4 with minvalue=1)
+                           1, 1, 0,                // MATCH,
+                                    1, 0,          // Second MATCH prefix
+                                          0, 0,    // 2-bit match value (=4/0b100 with minvalue=2, low 2 bits will be compared)
+                                                0, // RETURN
+                           0,                      // Min ASN prefix
+                           0, 0, 0, 0, 0, 0, 0, 0,
+                           0, 0, 0, 0, 1, 0, 0 },  // 4 represented in 15 bits (=5 with minvalue=1)
+            .expected_asn_high = 4, // Mismatch on 0 bits causes DEFAULT ASN to be returned
+            .expected_asn_low = 5,  // Match on high 0 bits!
+            .expected_even = 4,     // Mismatch on striped ip bits...
+            .expected_odd = 4,      // Mismatch on striped ip bits...
+        },
+        {
+            .asmap_bits = {1, 1, 1,                // DEFAULT
+                                    0,             // Min ASN prefix
+                                       0, 0, 0, 0,
+                           0, 0, 0, 0, 0, 0, 0, 0,
+                           0, 1, 1,                // 3 represented in 15 bits (=4 with minvalue=1)
+                           1, 1, 0,                // MATCH,
+                                    1, 0,          // Second MATCH prefix
+                                          0, 1,    // 2-bit match value (=5/0b101 with minvalue=2, low 2 bits will be compared)
+                                                0, // RETURN
+                           0,                      // Min ASN prefix
+                           0, 0, 0, 0, 0, 0, 0, 0,
+                           0, 0, 0, 0, 1, 0, 0 },  // 4 represented in 15 bits (=5 with minvalue=1)
+            .expected_asn_high = 4, // Mismatch on striped match bits causes DEFAULT ASN to be returned
+            .expected_asn_low = 4,  // Mismatch on striped match bits...
+            .expected_even = 4,     // Misaligned bits
+            .expected_odd = 5,      // Match
+        },
+        {
+            .asmap_bits = {1, 1, 1,                // DEFAULT
+                                    0,             // Min ASN prefix
+                                       0, 0, 0, 0,
+                           0, 0, 0, 0, 0, 0, 0, 0,
+                           0, 1, 1,                // 3 represented in 15 bits (=4 with minvalue=1)
+                           1, 1, 0,                // MATCH,
+                                    1, 0,          // Second MATCH prefix
+                                          1, 0,    // 2-bit match value (=6/0b110 with minvalue=2, low 2 bits will be compared)
+                                                0, // RETURN
+                           0,                      // Min ASN prefix
+                           0, 0, 0, 0, 0, 0, 0, 0,
+                           0, 0, 0, 0, 1, 0, 0 },  // 4 represented in 15 bits (=5 with minvalue=1)
+            .expected_asn_high = 4, // Mismatch on striped match bits causes DEFAULT ASN to be returned
+            .expected_asn_low = 4,  // Mismatch on striped match bits...
+            .expected_even = 5,     // Match
+            .expected_odd = 4,      // Misaligned bits
+        },
+        {
+            .asmap_bits = {1, 1, 1,                // DEFAULT
+                                    0,             // Min ASN prefix
+                                       0, 0, 0, 0,
+                           0, 0, 0, 0, 0, 0, 0, 0,
+                           0, 1, 1,                // 3 represented in 15 bits (=4 with minvalue=1)
+                           1, 1, 0,                // MATCH,
+                                    1, 1, 0,       // Third MATCH prefix
+                                             0, 1,
+                           0,                      // 3-bit match value (=10/0b1010 with minvalue=2, low 3 bits will be compared)
+                              0,                   // RETURN
+                                 0,                // Min ASN prefix
+                                    0, 0, 0, 0, 0,
+                           0, 0, 0, 0, 0, 0, 0, 1,
+                           0, 0 },                 // 4 represented in 15 bits (=5 with minvalue=1)
+            .expected_asn_high = 4, // Mismatch on striped match bits causes DEFAULT ASN to be returned
+            .expected_asn_low = 4,  // Mismatch on striped match bits...
+            .expected_even = 4,     // Mismatch on striped match bits...
+            .expected_odd = 5,      // Match!
+        },
+        {
+            .asmap_bits = {1, 1, 1,                // DEFAULT
+                                    0,             // Min ASN prefix
+                                       0, 0, 0, 0,
+                           0, 0, 0, 0, 0, 0, 0, 0,
+                           0, 1, 1,                // 3 represented in 15 bits (=4 with minvalue=1)
+                           1, 1, 0,                // MATCH,
+                                    1, 1, 1, 0,    // Fourth MATCH prefix
+                                                0,
+                           1, 0, 1,                // 4-bit match value (=21/0b10101 with minvalue=2, low 4 bits will be compared)
+                                    0,             // RETURN
+                                       0,          // Min ASN prefix
+                                          0, 0, 0,
+                           0, 0, 0, 0, 0, 0, 0, 0,
+                           0, 1, 0, 0 },           // 4 represented in 15 bits (=5 with minvalue=1)
+            .expected_asn_high = 4, // Mismatch on striped match bits causes DEFAULT ASN to be returned
+            .expected_asn_low = 4,  // Mismatch on striped match bits...
+            .expected_even = 4,     // Mismatch on striped match bits...
+            .expected_odd = 5,      // Match!
+        },
+    };
+    assert(tests[0].expected_asn_high == 33'521'664);
+
+    FastRandomContext rng;
+    for (auto& [vec, asn_high, asn_low, even, odd] : tests) {
+        // Optionally add random padding bits at the end to get full bytes
+        for (int pad = rng.randbool() ? 8 : vec.size() % 8; pad < 8; ++pad) {
+            vec.push_back(rng.randbool());
+        }
+
+        NetGroupManager netgroup{std::move(vec)};
+        BOOST_CHECK(netgroup.UsingASMap());
+        BOOST_CHECK_EQUAL(netgroup.GetMappedAS(*LookupHost("ffff:ffff:ffff:ffff:0000:0000:0000:0000", false)), asn_high);
+        if (asn_low.has_value()) {
+            BOOST_CHECK_EQUAL(netgroup.GetMappedAS(*LookupHost("0000:0000:0000:0000:ffff:ffff:ffff:ffff", false)), asn_low);
+        }
+        if (even.has_value()) {
+            BOOST_CHECK_EQUAL(netgroup.GetMappedAS(*LookupHost("aaaa:ffff:ffff:ffff:ffff:ffff:ffff:ffff", false)), even);
+        }
+        if (odd.has_value()) {
+            BOOST_CHECK_EQUAL(netgroup.GetMappedAS(*LookupHost("5555:ffff:ffff:ffff:ffff:ffff:ffff:ffff", false)), odd);
+        }
+    }
 }
 
 BOOST_AUTO_TEST_SUITE_END()
