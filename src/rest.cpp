@@ -35,12 +35,14 @@
 
 #include <any>
 #include <vector>
+#include <string_view>
 
 #include <univalue.h>
 
 using node::GetTransaction;
 using node::NodeContext;
 using util::SplitString;
+using namespace std::string_view_literals;
 
 static const size_t MAX_GETUTXOS_OUTPOINTS = 15; //allow a max of 15 outpoints to be queried at once
 static constexpr unsigned int MAX_REST_HEADERS_RESULTS = 2000;
@@ -488,7 +490,8 @@ static bool rest_block_part(const std::any& context, HTTPRequest* req, const std
     size_t part_offset{0};
     std::optional<size_t> part_size{};
     try {
-        const auto part_offset_str = req->GetQueryParameter("offset");
+        const auto params{req->GetQueryParameters({{"offset"sv, "size"sv}})};
+        const auto& part_offset_str{params[0]};
         if (part_offset_str.has_value()) {
             auto opt = ToIntegral<size_t>(*part_offset_str);
             if (opt.has_value()) {
@@ -497,7 +500,7 @@ static bool rest_block_part(const std::any& context, HTTPRequest* req, const std
                 return RESTERR(req, HTTP_BAD_REQUEST, strprintf("Block part offset is invalid: %s", *part_offset_str));
             }
         }
-        const auto part_size_str = req->GetQueryParameter("size");
+        const auto& part_size_str{params[1]};
         if (part_size_str.has_value()) {
             part_size = ToIntegral<size_t>(*part_size_str);
             if (!part_size.has_value()) {
@@ -810,21 +813,17 @@ static bool rest_mempool(const std::any& context, HTTPRequest* req, const std::s
     case RESTResponseFormat::JSON: {
         std::string str_json;
         if (param == "contents") {
-            std::string raw_verbose;
+            std::vector<std::optional<std::string>> params;
             try {
-                raw_verbose = req->GetQueryParameter("verbose").value_or("true");
+                params = req->GetQueryParameters({{"verbose"sv, "mempool_sequence"sv}});
             } catch (const std::runtime_error& e) {
                 return RESTERR(req, HTTP_BAD_REQUEST, e.what());
             }
+            const std::string raw_verbose{params[0].value_or("true")};
             if (raw_verbose != "true" && raw_verbose != "false") {
                 return RESTERR(req, HTTP_BAD_REQUEST, "The \"verbose\" query parameter must be either \"true\" or \"false\".");
             }
-            std::string raw_mempool_sequence;
-            try {
-                raw_mempool_sequence = req->GetQueryParameter("mempool_sequence").value_or("false");
-            } catch (const std::runtime_error& e) {
-                return RESTERR(req, HTTP_BAD_REQUEST, e.what());
-            }
+            const std::string raw_mempool_sequence{params[1].value_or("false")};
             if (raw_mempool_sequence != "true" && raw_mempool_sequence != "false") {
                 return RESTERR(req, HTTP_BAD_REQUEST, "The \"mempool_sequence\" query parameter must be either \"true\" or \"false\".");
             }

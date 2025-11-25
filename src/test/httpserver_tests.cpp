@@ -9,6 +9,11 @@
 
 BOOST_FIXTURE_TEST_SUITE(httpserver_tests, BasicTestingSetup)
 
+std::optional<std::string> GetQueryParameterFromUri(const char* uri, std::string_view key)
+{
+    return GetQueryParametersFromUri(uri, {{key}}).front();
+}
+
 BOOST_AUTO_TEST_CASE(test_query_parameters)
 {
     std::string uri {};

@@ -9,6 +9,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <vector>
 
 namespace util {
 class SignalInterrupt;
@@ -107,7 +108,9 @@ public:
      *
      * @param[in] key represents the query parameter of which the value is returned
      */
-    std::optional<std::string> GetQueryParameter(const std::string& key) const;
+    std::optional<std::string> GetQueryParameter(std::string_view key) const;
+
+    std::vector<std::optional<std::string>> GetQueryParameters(std::span<const std::string_view> keys) const;
 
     /**
      * Get the request header specified by hdr, or an empty string.
@@ -145,19 +148,19 @@ public:
     void WriteReply(int nStatus, std::span<const std::byte> reply);
 };
 
-/** Get the query parameter value from request uri for a specified key, or std::nullopt if the key
- * is not found.
+/** Get the query parameter values from request URI for specified keys, or std::nullopt for keys
+ * that are not found.
  *
- * If the query string contains duplicate keys, the first value is returned. Many web frameworks
+ * If the query string contains duplicate keys, the first value(s) are returned. Many web frameworks
  * would instead parse this as an array of values, but this is not (yet) implemented as it is
  * currently not needed in any of the endpoints.
  *
- * Helper function for HTTPRequest::GetQueryParameter.
+ * Helper function for HTTPRequest::GetQueryParameter(s).
  *
  * @param[in] uri is the entire request uri
- * @param[in] key represents the query parameter of which the value is returned
+ * @param[in] keys represents the query parameters of which the values are returned
  */
-std::optional<std::string> GetQueryParameterFromUri(const char* uri, const std::string& key);
+std::vector<std::optional<std::string>> GetQueryParametersFromUri(const char* uri, std::span<const std::string_view> keys);
 
 /** Event handler closure.
  */
