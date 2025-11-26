@@ -149,51 +149,56 @@ BOOST_FIXTURE_TEST_CASE(blockmanager_block_data_part, TestChain100Setup)
     BOOST_CHECK_GE(block.size(), 200);
 
     std::vector<std::byte> block_part{};
-    BOOST_CHECK(blockman.ReadRawBlockPart(block_part, tip.GetBlockPos(), 0, std::nullopt));
+    BOOST_CHECK(!blockman.ReadRawBlockPart(block_part, tip.GetBlockPos(), 0, std::nullopt));
     BOOST_CHECK_EQUAL_COLLECTIONS(block_part.begin(), block_part.end(), block.begin(), block.end());
 
     block_part.clear();
-    BOOST_CHECK(blockman.ReadRawBlockPart(block_part, tip.GetBlockPos(), 1, std::nullopt));
+    BOOST_CHECK(!blockman.ReadRawBlockPart(block_part, tip.GetBlockPos(), 1, std::nullopt));
     BOOST_CHECK_EQUAL_COLLECTIONS(block_part.begin(), block_part.end(), block.begin() + 1, block.end());
 
     block_part.clear();
-    BOOST_CHECK(blockman.ReadRawBlockPart(block_part, tip.GetBlockPos(), 10, std::nullopt));
+    BOOST_CHECK(!blockman.ReadRawBlockPart(block_part, tip.GetBlockPos(), 10, std::nullopt));
     BOOST_CHECK_EQUAL_COLLECTIONS(block_part.begin(), block_part.end(), block.begin() + 10, block.end());
 
     block_part.clear();
-    BOOST_CHECK(blockman.ReadRawBlockPart(block_part, tip.GetBlockPos(), 0, block.size()));
+    BOOST_CHECK(!blockman.ReadRawBlockPart(block_part, tip.GetBlockPos(), 0, block.size()));
     BOOST_CHECK_EQUAL_COLLECTIONS(block_part.begin(), block_part.end(), block.begin(), block.end());
 
     block_part.clear();
-    BOOST_CHECK(blockman.ReadRawBlockPart(block_part, tip.GetBlockPos(), 0, block.size() - 1));
+    BOOST_CHECK(!blockman.ReadRawBlockPart(block_part, tip.GetBlockPos(), 0, block.size() - 1));
     BOOST_CHECK_EQUAL_COLLECTIONS(block_part.begin(), block_part.end(), block.begin(), block.end() - 1);
 
     block_part.clear();
-    BOOST_CHECK(blockman.ReadRawBlockPart(block_part, tip.GetBlockPos(), 0, block.size() - 10));
+    BOOST_CHECK(!blockman.ReadRawBlockPart(block_part, tip.GetBlockPos(), 0, block.size() - 10));
     BOOST_CHECK_EQUAL_COLLECTIONS(block_part.begin(), block_part.end(), block.begin(), block.end() - 10);
 
     block_part.clear();
-    BOOST_CHECK(blockman.ReadRawBlockPart(block_part, tip.GetBlockPos(), 0, 20));
+    BOOST_CHECK(!blockman.ReadRawBlockPart(block_part, tip.GetBlockPos(), 0, 20));
     BOOST_CHECK_EQUAL_COLLECTIONS(block_part.begin(), block_part.end(), block.begin(), block.begin() + 20);
 
     block_part.clear();
-    BOOST_CHECK(blockman.ReadRawBlockPart(block_part, tip.GetBlockPos(), 1, block.size() - 1));
+    BOOST_CHECK(!blockman.ReadRawBlockPart(block_part, tip.GetBlockPos(), 1, block.size() - 1));
     BOOST_CHECK_EQUAL_COLLECTIONS(block_part.begin(), block_part.end(), block.begin() + 1, block.end());
 
     block_part.clear();
-    BOOST_CHECK(blockman.ReadRawBlockPart(block_part, tip.GetBlockPos(), 10, 20));
+    BOOST_CHECK(!blockman.ReadRawBlockPart(block_part, tip.GetBlockPos(), 10, 20));
     BOOST_CHECK_EQUAL_COLLECTIONS(block_part.begin(), block_part.end(), block.begin() + 10, block.begin() + 30);
 
     block_part.clear();
-    BOOST_CHECK(blockman.ReadRawBlockPart(block_part, tip.GetBlockPos(), block.size() - 1, 1));
+    BOOST_CHECK(!blockman.ReadRawBlockPart(block_part, tip.GetBlockPos(), block.size() - 1, 1));
     BOOST_CHECK_EQUAL_COLLECTIONS(block_part.begin(), block_part.end(), block.end() - 1, block.end());
 
-    BOOST_CHECK(!blockman.ReadRawBlockPart(block_part, tip.GetBlockPos(), 0, 0));
-    BOOST_CHECK(!blockman.ReadRawBlockPart(block_part, tip.GetBlockPos(), block.size(), 0));
-    BOOST_CHECK(!blockman.ReadRawBlockPart(block_part, tip.GetBlockPos(), block.size() + 1, 0));
-    BOOST_CHECK(!blockman.ReadRawBlockPart(block_part, tip.GetBlockPos(), block.size(), 1));
-    BOOST_CHECK(!blockman.ReadRawBlockPart(block_part, tip.GetBlockPos(), block.size() - 1, 2));
-    BOOST_CHECK(!blockman.ReadRawBlockPart(block_part, tip.GetBlockPos(), 1, block.size()));
+    BOOST_CHECK(blockman.ReadRawBlockPart(block_part, tip.GetBlockPos(), 0, 0));
+    BOOST_CHECK(blockman.ReadRawBlockPart(block_part, tip.GetBlockPos(), 0, block.size() + 1));
+    BOOST_CHECK(blockman.ReadRawBlockPart(block_part, tip.GetBlockPos(), 1, block.size()));
+    BOOST_CHECK(blockman.ReadRawBlockPart(block_part, tip.GetBlockPos(), 2, block.size() - 1));
+    BOOST_CHECK(blockman.ReadRawBlockPart(block_part, tip.GetBlockPos(), block.size() - 2, 3));
+    BOOST_CHECK(blockman.ReadRawBlockPart(block_part, tip.GetBlockPos(), block.size() - 1, 2));
+    BOOST_CHECK(blockman.ReadRawBlockPart(block_part, tip.GetBlockPos(), block.size(), 0));
+    BOOST_CHECK(blockman.ReadRawBlockPart(block_part, tip.GetBlockPos(), block.size(), 1));
+    BOOST_CHECK(blockman.ReadRawBlockPart(block_part, tip.GetBlockPos(), block.size() + 1, 0));
+    BOOST_CHECK(blockman.ReadRawBlockPart(block_part, tip.GetBlockPos(), block.size() + 1, 1));
+    BOOST_CHECK(blockman.ReadRawBlockPart(block_part, tip.GetBlockPos(), block.size() + 2, 2));
 }
 
 BOOST_FIXTURE_TEST_CASE(blockmanager_readblock_hash_mismatch, TestingSetup)

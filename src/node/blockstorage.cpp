@@ -1046,22 +1046,23 @@ bool BlockManager::ReadBlock(CBlock& block, const CBlockIndex& index) const
 
 bool BlockManager::ReadRawBlock(std::vector<std::byte>& block, const FlatFilePos& pos) const
 {
-    return ReadRawBlockPart(block, pos, /*part_offset=*/0, /*part_size=*/std::nullopt);
+    auto err = ReadRawBlockPart(block, pos, /*part_offset=*/0, /*part_size=*/std::nullopt);
+    return !err.has_value();
 }
 
-bool BlockManager::ReadRawBlockPart(std::vector<std::byte>& data, const FlatFilePos& pos, size_t part_offset, std::optional<size_t> part_size) const
+std::optional<ReadRawError> BlockManager::ReadRawBlockPart(std::vector<std::byte>& data, const FlatFilePos& pos, size_t part_offset, std::optional<size_t> part_size) const
 {
     if (pos.nPos < STORAGE_HEADER_BYTES) {
         // If nPos is less than STORAGE_HEADER_BYTES, we can't read the header that precedes the block data
         // This would cause an unsigned integer underflow when trying to position the file cursor
         // This can happen after pruning or default constructed positions
         LogError("Failed for %s while reading raw block storage header", pos.ToString());
-        return false;
+        return ReadRawError::NotFound;
     }
     AutoFile filein{OpenBlockFile({pos.nFile, pos.nPos - STORAGE_HEADER_BYTES}, /*fReadOnly=*/true)};
     if (filein.IsNull()) {
         LogError("OpenBlockFile failed for %s while reading raw block", pos.ToString());
-        return false;
+        return ReadRawError::NotFound;
     }
 
     try {
@@ -1073,25 +1074,23 @@ bool BlockManager::ReadRawBlockPart(std::vector<std::byte>& data, const FlatFile
         if (blk_start != GetParams().MessageStart()) {
             LogError("Block magic mismatch for %s: %s versus expected %s while reading raw block",
                 pos.ToString(), HexStr(blk_start), HexStr(GetParams().MessageStart()));
-            return false;
+            return ReadRawError::NotFound;
         }
 
         if (blk_size > MAX_SIZE) {
             LogError("Block data is larger than maximum deserialization size for %s: %s versus %s while reading raw block",
                 pos.ToString(), blk_size, MAX_SIZE);
-            return false;
+            return ReadRawError::NotFound;
         }
 
         if (part_offset > blk_size) {
-            LogError("Read from block file failed: invalid offset: %u", part_offset);
-            return false;
+            return ReadRawError::BadPartOffset;
         }
 
         size_t size = blk_size - part_offset;
         if (part_size.has_value()) {
             if (*part_size > size || *part_size == 0) {
-                LogError("Read from block file failed: invalid size: %u", *part_size);
-                return false;
+                return ReadRawError::BadPartSize;
             }
             size = *part_size;
         }
@@ -1102,10 +1101,10 @@ bool BlockManager::ReadRawBlockPart(std::vector<std::byte>& data, const FlatFile
         filein.read(data);
     } catch (const std::exception& e) {
         LogError("Read from block file failed: %s for %s while reading raw block", e.what(), pos.ToString());
-        return false;
+        return ReadRawError::NotFound;
     }
 
-    return true;
+    return std::nullopt;
 }
 
 FlatFilePos BlockManager::WriteBlock(const CBlock& block, int nHeight)

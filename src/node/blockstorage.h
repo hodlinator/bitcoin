@@ -127,6 +127,11 @@ struct BlockfileCursor {
 
 std::ostream& operator<<(std::ostream& os, const BlockfileCursor& cursor);
 
+enum class ReadRawError {
+    NotFound,
+    BadPartOffset,
+    BadPartSize,
+};
 
 /**
  * Maintains a tree of blocks (stored in `m_block_index`) which is consulted
@@ -414,7 +419,7 @@ public:
     bool ReadBlock(CBlock& block, const FlatFilePos& pos, const std::optional<uint256>& expected_hash) const;
     bool ReadBlock(CBlock& block, const CBlockIndex& index) const;
     bool ReadRawBlock(std::vector<std::byte>& block, const FlatFilePos& pos) const;
-    bool ReadRawBlockPart(std::vector<std::byte>& data, const FlatFilePos& pos, size_t part_offset, std::optional<size_t> part_size) const;
+    std::optional<ReadRawError> ReadRawBlockPart(std::vector<std::byte>& data, const FlatFilePos& pos, size_t part_offset, std::optional<size_t> part_size) const;
 
     bool ReadBlockUndo(CBlockUndo& blockundo, const CBlockIndex& index) const;
 

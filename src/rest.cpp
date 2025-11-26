@@ -435,8 +435,17 @@ static bool rest_block(const std::any& context,
     }
 
     std::vector<std::byte> block_data{};
-    if (!chainman.m_blockman.ReadRawBlockPart(block_data, pos, part_offset, part_size)) {
-        return RESTERR(req, HTTP_NOT_FOUND, hashStr + " not found");
+    if (auto err = chainman.m_blockman.ReadRawBlockPart(block_data, pos, part_offset, part_size)) {
+        switch (*err) {
+        case node::ReadRawError::NotFound:
+            return RESTERR(req, HTTP_NOT_FOUND, hashStr + " not found");
+
+        case node::ReadRawError::BadPartOffset:
+            return RESTERR(req, HTTP_NOT_FOUND, hashStr + ": bad block part offset");
+
+        case node::ReadRawError::BadPartSize:
+            return RESTERR(req, HTTP_NOT_FOUND, hashStr + ": bad block part size");
+        }
     }
 
     switch (rf) {
