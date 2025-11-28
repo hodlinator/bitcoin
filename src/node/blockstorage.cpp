@@ -1057,12 +1057,12 @@ std::optional<ReadRawError> BlockManager::ReadRawBlockPart(std::vector<std::byte
         // This would cause an unsigned integer underflow when trying to position the file cursor
         // This can happen after pruning or default constructed positions
         LogError("Failed for %s while reading raw block storage header", pos.ToString());
-        return ReadRawError::NotFound;
+        return ReadRawError::IO;
     }
     AutoFile filein{OpenBlockFile({pos.nFile, pos.nPos - STORAGE_HEADER_BYTES}, /*fReadOnly=*/true)};
     if (filein.IsNull()) {
         LogError("OpenBlockFile failed for %s while reading raw block", pos.ToString());
-        return ReadRawError::NotFound;
+        return ReadRawError::IO;
     }
 
     try {
@@ -1074,22 +1074,24 @@ std::optional<ReadRawError> BlockManager::ReadRawBlockPart(std::vector<std::byte
         if (blk_start != GetParams().MessageStart()) {
             LogError("Block magic mismatch for %s: %s versus expected %s while reading raw block",
                 pos.ToString(), HexStr(blk_start), HexStr(GetParams().MessageStart()));
-            return ReadRawError::NotFound;
+            return ReadRawError::IO;
         }
 
         if (blk_size > MAX_SIZE) {
             LogError("Block data is larger than maximum deserialization size for %s: %s versus %s while reading raw block",
                 pos.ToString(), blk_size, MAX_SIZE);
-            return ReadRawError::NotFound;
+            return ReadRawError::IO;
         }
 
         if (part_offset > blk_size) {
+            // Avoid logging - part_offset can come from an untrusted source (REST)
             return ReadRawError::BadPartOffset;
         }
 
         size_t size = blk_size - part_offset;
         if (part_size.has_value()) {
             if (*part_size > size || *part_size == 0) {
+                // Avoid logging - part_offset & part_size are can come from an untrusted source (REST)
                 return ReadRawError::BadPartSize;
             }
             size = *part_size;
@@ -1101,7 +1103,7 @@ std::optional<ReadRawError> BlockManager::ReadRawBlockPart(std::vector<std::byte
         filein.read(data);
     } catch (const std::exception& e) {
         LogError("Read from block file failed: %s for %s while reading raw block", e.what(), pos.ToString());
-        return ReadRawError::NotFound;
+        return ReadRawError::IO;
     }
 
     return std::nullopt;

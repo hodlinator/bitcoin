@@ -128,7 +128,7 @@ struct BlockfileCursor {
 std::ostream& operator<<(std::ostream& os, const BlockfileCursor& cursor);
 
 enum class ReadRawError {
-    NotFound,
+    IO,
     BadPartOffset,
     BadPartSize,
 };

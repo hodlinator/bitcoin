@@ -437,14 +437,14 @@ static bool rest_block(const std::any& context,
     std::vector<std::byte> block_data{};
     if (auto err = chainman.m_blockman.ReadRawBlockPart(block_data, pos, part_offset, part_size)) {
         switch (*err) {
-        case node::ReadRawError::NotFound:
-            return RESTERR(req, HTTP_NOT_FOUND, hashStr + " not found");
+        case node::ReadRawError::IO:
+            return RESTERR(req, HTTP_NOT_FOUND, "I/O error reading " + hashStr);
 
         case node::ReadRawError::BadPartOffset:
-            return RESTERR(req, HTTP_NOT_FOUND, hashStr + ": bad block part offset");
+            return RESTERR(req, HTTP_NOT_FOUND, strprintf("Bad block part offset %d for %s", part_offset, hashStr));
 
         case node::ReadRawError::BadPartSize:
-            return RESTERR(req, HTTP_NOT_FOUND, hashStr + ": bad block part size");
+            return RESTERR(req, HTTP_NOT_FOUND, strprintf("Bad block part size/offset %d/%d for %s", part_size.value_or(0), part_offset, hashStr));
         }
     }
 
