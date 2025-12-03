@@ -34,6 +34,7 @@
 #include <validation.h>
 
 #include <any>
+#include <variant>
 #include <vector>
 
 #include <univalue.h>
@@ -434,10 +435,9 @@ static bool rest_block(const std::any& context,
         pos = pblockindex->GetBlockPos();
     }
 
-    std::vector<std::byte> block_data{};
-    node::ReadRawError error{};
-    if (!chainman.m_blockman.ReadRawBlock(block_data, pos, part_offset, part_size, error)) {
-        switch (error) {
+    const auto block_result{chainman.m_blockman.ReadRawBlock(pos, part_offset, part_size)};
+    if (auto error{std::get_if<node::ReadRawError>(&block_result)}) {
+        switch (*error) {
         case node::ReadRawError::IO:
             return RESTERR(req, HTTP_NOT_FOUND, "I/O error reading " + hashStr);
 
@@ -446,6 +446,7 @@ static bool rest_block(const std::any& context,
         }
         assert(false);
     }
+    auto& block_data{std::get<std::vector<std::byte>>(block_result)};
 
     switch (rf) {
     case RESTResponseFormat::BINARY: {

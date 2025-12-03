@@ -418,7 +418,7 @@ public:
     bool ReadBlock(CBlock& block, const FlatFilePos& pos, const std::optional<uint256>& expected_hash) const;
     bool ReadBlock(CBlock& block, const CBlockIndex& index) const;
     bool ReadRawBlock(std::vector<std::byte>& block, const FlatFilePos& pos) const;
-    bool ReadRawBlock(std::vector<std::byte>& data, const FlatFilePos& pos, size_t part_offset, std::optional<size_t> part_size, ReadRawError& error) const;
+    std::variant<std::vector<std::byte>, ReadRawError> ReadRawBlock(const FlatFilePos& pos, size_t part_offset, std::optional<size_t> part_size) const;
 
     bool ReadBlockUndo(CBlockUndo& blockundo, const CBlockIndex& index) const;
 

@@ -152,8 +152,12 @@ BOOST_FIXTURE_TEST_CASE(blockmanager_block_data_part, TestChain100Setup)
     std::vector<std::byte> block_part{};
     const auto read_tip_part{[&](auto part_offset, auto part_size) {
         block_part.clear();
-        node::ReadRawError error{};
-        return blockman.ReadRawBlock(block_part, tip_block_pos, part_offset, part_size, error);
+        auto block_result{blockman.ReadRawBlock(tip_block_pos, part_offset, part_size)};
+        if (auto* vec{std::get_if<std::vector<std::byte>>(&block_result)}) {
+            block_part = std::move(*vec);
+            return true;
+        }
+        return false;
     }};
 
     BOOST_CHECK(read_tip_part(0, std::nullopt));
