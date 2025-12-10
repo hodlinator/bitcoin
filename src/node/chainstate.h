@@ -5,12 +5,13 @@
 #ifndef BITCOIN_NODE_CHAINSTATE_H
 #define BITCOIN_NODE_CHAINSTATE_H
 
+#include <kernel/notifications_interface.h>
+#include <util/expected.h>
 #include <util/translation.h>
 #include <validation.h>
 
 #include <cstdint>
 #include <functional>
-#include <tuple>
 
 class CTxMemPool;
 
@@ -41,31 +42,15 @@ struct ChainstateLoadOptions {
 //! case, and treat other cases as errors. More complex applications may want to
 //! try reindexing in the generic failure case, and pass an interrupt callback
 //! and exit cleanly in the interrupted case.
-enum class ChainstateLoadStatus {
-    SUCCESS,
+enum class ChainstateLoadError {
     FAILURE, //!< Generic failure which reindexing may fix
     FAILURE_FATAL, //!< Fatal error which should not prompt to reindex
     FAILURE_INCOMPATIBLE_DB,
     FAILURE_INSUFFICIENT_DBCACHE,
-    INTERRUPTED,
 };
 
-//! Chainstate load status code and optional error string.
-using ChainstateLoadResult = std::tuple<ChainstateLoadStatus, bilingual_str>;
+using ChainstateLoadResult = util::Expected<kernel::InterruptResult, std::pair<ChainstateLoadError, bilingual_str>>;
 
-/** This sequence can have 4 types of outcomes:
- *
- *  1. Success
- *  2. Shutdown requested
- *    - nothing failed but a shutdown was triggered in the middle of the
- *      sequence
- *  3. Soft failure
- *    - a failure that might be recovered from with a reindex
- *  4. Hard failure
- *    - a failure that definitively cannot be recovered from with a reindex
- *
- *  LoadChainstate returns a (status code, error string) tuple.
- */
 ChainstateLoadResult LoadChainstate(ChainstateManager& chainman, const kernel::CacheSizes& cache_sizes,
                                     const ChainstateLoadOptions& options);
 ChainstateLoadResult VerifyLoadedChainstate(ChainstateManager& chainman, const ChainstateLoadOptions& options);

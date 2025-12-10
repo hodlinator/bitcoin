@@ -80,6 +80,11 @@ public:
         return std::get<1>(m_data);
     }
 
+    constexpr void swap(Expected& other) noexcept
+    {
+        m_data.swap(other.m_data);
+    }
+
     constexpr ValueType& operator*() LIFETIMEBOUND { return value(); }
     constexpr const ValueType& operator*() const LIFETIMEBOUND { return value(); }
 

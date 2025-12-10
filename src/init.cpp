@@ -121,12 +121,12 @@
 using common::AmountErrMsg;
 using common::InvalidPortErrMsg;
 using common::ResolveErrMsg;
-
+using kernel::InterruptResult;
 using node::ApplyArgsManOptions;
 using node::BlockManager;
 using node::CalculateCacheSizes;
+using node::ChainstateLoadError;
 using node::ChainstateLoadResult;
-using node::ChainstateLoadStatus;
 using node::DEFAULT_PERSIST_MEMPOOL;
 using node::DEFAULT_PRINT_MODIFIED_FEE;
 using node::DEFAULT_STOPATHEIGHT;
@@ -1295,7 +1295,7 @@ static ChainstateLoadResult InitAndLoadChainstate(
     Assert(!node.mempool); // Was reset above
     node.mempool = std::make_unique<CTxMemPool>(mempool_opts, mempool_error);
     if (!mempool_error.empty()) {
-        return {ChainstateLoadStatus::FAILURE_FATAL, mempool_error};
+        return util::Unexpected{std::pair{ChainstateLoadError::FAILURE_FATAL, mempool_error}};
     }
     LogInfo("* Using %.1f MiB for in-memory UTXO set (plus up to %.1f MiB of unused mempool space)",
             cache_sizes.coins * (1.0 / 1024 / 1024),
@@ -1328,12 +1328,12 @@ static ChainstateLoadResult InitAndLoadChainstate(
         node.chainman = std::make_unique<ChainstateManager>(*Assert(node.shutdown_signal), chainman_opts, blockman_opts);
     } catch (dbwrapper_error& e) {
         LogError("%s", e.what());
-        return {ChainstateLoadStatus::FAILURE, _("Error opening block database")};
+        return util::Unexpected{std::pair{ChainstateLoadError::FAILURE, _("Error opening block database")}};
     } catch (std::exception& e) {
-        return {ChainstateLoadStatus::FAILURE_FATAL, Untranslated(strprintf("Failed to initialize ChainstateManager: %s", e.what()))};
+        return util::Unexpected{std::pair{ChainstateLoadError::FAILURE_FATAL, Untranslated(strprintf("Failed to initialize ChainstateManager: %s", e.what()))}};
     }
     ChainstateManager& chainman = *node.chainman;
-    if (chainman.m_interrupt) return {ChainstateLoadStatus::INTERRUPTED, {}};
+    if (chainman.m_interrupt) return {kernel::Interrupted{}};
 
     // This is defined and set here instead of inline in validation.h to avoid a hard
     // dependency between validation and index/base, since the latter is not in
@@ -1373,22 +1373,22 @@ static ChainstateLoadResult InitAndLoadChainstate(
             return f();
         } catch (const std::exception& e) {
             LogError("%s\n", e.what());
-            return std::make_tuple(node::ChainstateLoadStatus::FAILURE, _("Error loading databases"));
+            return util::Unexpected{std::pair{node::ChainstateLoadError::FAILURE, _("Error loading databases")}};
         }
     };
-    auto [status, error] = catch_exceptions([&] { return LoadChainstate(chainman, cache_sizes, options); });
-    if (status == node::ChainstateLoadStatus::SUCCESS) {
+    auto result{catch_exceptions([&] { return LoadChainstate(chainman, cache_sizes, options); })};
+    if (result && !IsInterrupted(*result)) {
         uiInterface.InitMessage(_("Verifying blocks…"));
         if (chainman.m_blockman.m_have_pruned && options.check_blocks > MIN_BLOCKS_TO_KEEP) {
             LogWarning("pruned datadir may not have more than %d blocks; only checking available blocks\n",
                        MIN_BLOCKS_TO_KEEP);
         }
-        std::tie(status, error) = catch_exceptions([&] { return VerifyLoadedChainstate(chainman, options); });
-        if (status == node::ChainstateLoadStatus::SUCCESS) {
+        (catch_exceptions([&] { return VerifyLoadedChainstate(chainman, options); })).swap(result);
+        if (result && !IsInterrupted(*result)) {
             LogInfo("Block index and chainstate loaded");
         }
     }
-    return {status, error};
+    return result;
 };
 
 bool AppInitMain(NodeContext& node, interfaces::BlockAndHeaderTipInfo* tip_info)
@@ -1791,13 +1791,14 @@ bool AppInitMain(NodeContext& node, interfaces::BlockAndHeaderTipInfo* tip_info)
     const bool do_reindex_chainstate{args.GetBoolArg("-reindex-chainstate", false)};
 
     // Chainstate initialization and loading may be retried once with reindexing by GUI users
-    auto [status, error] = InitAndLoadChainstate(
+    auto result = InitAndLoadChainstate(
         node,
         do_reindex,
         do_reindex_chainstate,
         kernel_cache_sizes,
         args);
-    if (status == ChainstateLoadStatus::FAILURE && !do_reindex && !ShutdownRequested(node)) {
+    if (!result && result.error().first == ChainstateLoadError::FAILURE && !do_reindex && !ShutdownRequested(node)) {
+        const auto& error = result.error().second;
         // suggest a reindex
         bool do_retry{HasTestOption(args, "reindex_after_failure_noninteractive_yes") ||
             uiInterface.ThreadSafeQuestion(
@@ -1811,15 +1812,15 @@ bool AppInitMain(NodeContext& node, interfaces::BlockAndHeaderTipInfo* tip_info)
         if (!Assert(node.shutdown_signal)->reset()) {
             LogError("Internal error: failed to reset shutdown signal.\n");
         }
-        std::tie(status, error) = InitAndLoadChainstate(
+        InitAndLoadChainstate(
             node,
             do_reindex,
             do_reindex_chainstate,
             kernel_cache_sizes,
-            args);
+            args).swap(result);
     }
-    if (status != ChainstateLoadStatus::SUCCESS && status != ChainstateLoadStatus::INTERRUPTED) {
-        return InitError(error);
+    if (!result) {
+        return InitError(result.error().second);
     }
 
     // As LoadBlockIndex can take several minutes, it's possible the user
