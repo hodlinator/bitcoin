@@ -9,7 +9,9 @@ from enum import Enum
 from io import BytesIO
 import http.client
 import json
+import os
 import platform
+import re
 import typing
 import urllib.parse
 
@@ -496,15 +498,15 @@ class RESTTest (BitcoinTestFramework):
         self.test_rest_request(f"/block/{blockhash}", status=200, req_type=ReqType.BIN, ret_type=RetType.OBJ)
         self.test_rest_request(f"/blockpart/{blockhash}", query_params={"offset": 0, "size": 1}, status=200, req_type=ReqType.BIN, ret_type=RetType.OBJ)
         # Missing block data should cause REST API to fail
-        if platform.system() != "Windows":
-            blocks_path = self.nodes[0].blocks_path
-            backup_path = blocks_path.with_suffix(".bkp")
-            blocks_path.rename(backup_path)
-            try:
-                self.test_rest_request(f"/block/{blockhash}", status=500, req_type=ReqType.BIN, ret_type=RetType.OBJ)
-                self.test_rest_request(f"/blockpart/{blockhash}", query_params={"offset": 0, "size": 1}, status=500, req_type=ReqType.BIN, ret_type=RetType.OBJ)
-            finally:
-                backup_path.rename(blocks_path)
+        for f in os.listdir(self.nodes[0].blocks_path):
+            if re.match(r"blk.*\.dat", f):
+                os.rename(self.nodes[0].blocks_path / f, self.nodes[0].blocks_path / (f + ".bkp"))
+        self.test_rest_request(f"/block/{blockhash}", status=500, req_type=ReqType.BIN, ret_type=RetType.OBJ)
+        self.test_rest_request(f"/blockpart/{blockhash}", query_params={"offset": 0, "size": 1}, status=500, req_type=ReqType.BIN, ret_type=RetType.OBJ)
+        for f in os.listdir(self.nodes[0].blocks_path):
+            if re.match(r"blk.*\.dat\.bkp", f):
+                self.log.info(f"{f[:-4]}")
+                os.rename(self.nodes[0].blocks_path / f, self.nodes[0].blocks_path / f[:-4])
 
         self.log.info("Test the /deploymentinfo URI")
 
