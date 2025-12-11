@@ -7,10 +7,10 @@
 from decimal import Decimal
 from enum import Enum
 from io import BytesIO
+from pathlib import Path
 import http.client
 import json
 import os
-import platform
 import re
 import typing
 import urllib.parse
@@ -498,15 +498,14 @@ class RESTTest (BitcoinTestFramework):
         self.test_rest_request(f"/block/{blockhash}", status=200, req_type=ReqType.BIN, ret_type=RetType.OBJ)
         self.test_rest_request(f"/blockpart/{blockhash}", query_params={"offset": 0, "size": 1}, status=200, req_type=ReqType.BIN, ret_type=RetType.OBJ)
         # Missing block data should cause REST API to fail
-        for f in os.listdir(self.nodes[0].blocks_path):
-            if re.match(r"blk.*\.dat", f):
-                os.rename(self.nodes[0].blocks_path / f, self.nodes[0].blocks_path / (f + ".bkp"))
+        for f in os.scandir(self.nodes[0].blocks_path):
+            if re.match(r"blk.*\.dat", f.name):
+                Path(f.path).rename(f"{f.path}.bkp")
         self.test_rest_request(f"/block/{blockhash}", status=500, req_type=ReqType.BIN, ret_type=RetType.OBJ)
         self.test_rest_request(f"/blockpart/{blockhash}", query_params={"offset": 0, "size": 1}, status=500, req_type=ReqType.BIN, ret_type=RetType.OBJ)
-        for f in os.listdir(self.nodes[0].blocks_path):
-            if re.match(r"blk.*\.dat\.bkp", f):
-                self.log.info(f"{f[:-4]}")
-                os.rename(self.nodes[0].blocks_path / f, self.nodes[0].blocks_path / f[:-4])
+        for f in os.scandir(self.nodes[0].blocks_path):
+            if re.match(r"blk.*\.dat\.bkp", f.name):
+                Path(f.path).rename(f"{f.path[:-4]}")
 
         self.log.info("Test the /deploymentinfo URI")
 
