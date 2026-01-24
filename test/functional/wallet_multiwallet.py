@@ -101,7 +101,10 @@ class MultiWalletTest(BitcoinTestFramework):
         os.mkdir(wallet_dir('w7'))
         os.symlink('w7', wallet_dir('w7_symlink'))
 
-        os.symlink('..', wallet_dir('recursive_dir_symlink'))
+        if platform.system() == 'Windows':
+            self.log.warning('Skipping test involving symlinks as cross-built Windows builds do not support it.')
+        else:
+            os.symlink('..', wallet_dir('recursive_dir_symlink'))
 
         # rename wallet.dat to make sure plain wallet file paths (as opposed to
         # directory paths) can be loaded
@@ -166,7 +169,9 @@ class MultiWalletTest(BitcoinTestFramework):
         # because it depends on the build toolchain:
         # - A cross-compiled bitcoind.exe parses self_walletdat_symlink without errors.
         # - A natively compiled bitcoind.exe logs the "Error while scanning..." message.
-        if platform.system() != 'Windows':
+        if platform.system() == 'Windows':
+            self.log.warning('Skipping test involving symlinks as cross-built Windows builds do not support it.')
+        else:
             os.mkdir(wallet_dir('self_walletdat_symlink'))
             os.symlink('wallet.dat', wallet_dir('self_walletdat_symlink/wallet.dat'))
             with self.nodes[0].assert_debug_log(expected_msgs=['Error while scanning wallet dir']):
@@ -192,8 +197,11 @@ class MultiWalletTest(BitcoinTestFramework):
         self.stop_node(0, 'Warning: Ignoring duplicate -wallet w1.')
 
         # should not initialize if wallet file is a symlink
-        os.symlink('w8', wallet_dir('w8_symlink'))
-        self.nodes[0].assert_start_raises_init_error(['-wallet=w8_symlink'], r'Error: Invalid -wallet path \'w8_symlink\'\. .*', match=ErrorMatch.FULL_REGEX)
+        if platform.system() == 'Windows':
+            self.log.warning('Skipping test involving symlinks as cross-built Windows builds do not support it.')
+        else:
+            os.symlink('w8', wallet_dir('w8_symlink'))
+            self.nodes[0].assert_start_raises_init_error(['-wallet=w8_symlink'], r'Error: Invalid -wallet path \'w8_symlink\'\. .*', match=ErrorMatch.FULL_REGEX)
 
         # should not initialize if the specified walletdir does not exist
         self.nodes[0].assert_start_raises_init_error(['-walletdir=bad'], 'Error: Specified -walletdir "bad" does not exist')
@@ -323,8 +331,11 @@ class MultiWalletTest(BitcoinTestFramework):
 
         # Fail to load duplicate wallets
         assert_raises_rpc_error(-35, "Wallet \"w1\" is already loaded.", self.nodes[0].loadwallet, wallet_names[0])
-        # Fail to load if wallet file is a symlink
-        assert_raises_rpc_error(-4, "Wallet file verification failed. Invalid -wallet path 'w8_symlink'", self.nodes[0].loadwallet, 'w8_symlink')
+        if platform.system() == 'Windows':
+            self.log.warning('Skipping test involving symlinks as cross-built Windows builds do not support it.')
+        else:
+            # Fail to load if wallet file is a symlink
+            assert_raises_rpc_error(-4, "Wallet file verification failed. Invalid -wallet path 'w8_symlink'", self.nodes[0].loadwallet, 'w8_symlink')
 
         # Fail to load if a directory is specified that doesn't contain a wallet
         os.mkdir(wallet_dir('empty_wallet_dir'))
