@@ -147,19 +147,20 @@ class MultiWalletTest(BitcoinTestFramework):
             walletlist = self.nodes[0].listwalletdir()['wallets']
         assert_equal(sorted(map(lambda w: w['name'], walletlist)), sorted(in_wallet_dir))
         # 1. "Permission denied" error.
-        if platform.system() != 'Windows':
-            if os.geteuid() == 0:
-                self.log.warning('Skipping "permission denied"-test requiring non-root user.')
-            else:
-                os.mkdir(wallet_dir('no_access'))
-                os.chmod(wallet_dir('no_access'), 0)
-                try:
-                    with self.nodes[0].assert_debug_log(expected_msgs=["Error while scanning wallet dir"]):
-                        walletlist = self.nodes[0].listwalletdir()['wallets']
-                finally:
-                    # Need to ensure access is restored for cleanup
-                    os.chmod(wallet_dir('no_access'), stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
-                assert_equal(sorted(map(lambda w: w['name'], walletlist)), sorted(in_wallet_dir))
+        if platform.system() == 'Windows':
+            self.log.warning('Skipping test involving chmod as Windows does not support it.')
+        elif os.geteuid() == 0:
+            self.log.warning('Skipping test involving chmod as it requires a non-root user.')
+        else:
+            os.mkdir(wallet_dir('no_access'))
+            os.chmod(wallet_dir('no_access'), 0)
+            try:
+                with self.nodes[0].assert_debug_log(expected_msgs=["Error while scanning wallet dir"]):
+                    walletlist = self.nodes[0].listwalletdir()['wallets']
+            finally:
+                # Need to ensure access is restored for cleanup
+                os.chmod(wallet_dir('no_access'), stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
+            assert_equal(sorted(map(lambda w: w['name'], walletlist)), sorted(in_wallet_dir))
         # 2. "Too many levels of symbolic links" error.
         # This test cannot be conducted robustly on Windows
         # because it depends on the build toolchain:
