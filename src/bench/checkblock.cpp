@@ -7,6 +7,7 @@
 #include <chainparams.h>
 #include <common/args.h>
 #include <consensus/validation.h>
+#include <key.h>
 #include <primitives/block.h>
 #include <primitives/transaction.h>
 #include <streams.h>
@@ -16,7 +17,6 @@
 #include <cassert>
 #include <cstddef>
 #include <memory>
-#include <vector>
 
 // These are the two major time-sinks which happen after we have fully received
 // a block off the wire, but before we can relay the block on to peers using
@@ -24,6 +24,7 @@
 
 static void DeserializeBlockTest(benchmark::Bench& bench)
 {
+    ECC_Context ec_context;
     auto stream{benchmark::GetBlockData()};
     std::byte a{0};
     stream.write({&a, 1}); // Prevent compaction
@@ -37,6 +38,7 @@ static void DeserializeBlockTest(benchmark::Bench& bench)
 
 static void DeserializeAndCheckBlockTest(benchmark::Bench& bench)
 {
+    ECC_Context ec_context;
     const auto& chain_params{CChainParams::RegTest(CChainParams::RegTestOptions{})};
     auto stream{benchmark::GetBlockData(*chain_params)};
     std::byte a{0};
