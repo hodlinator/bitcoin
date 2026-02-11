@@ -79,10 +79,10 @@ CBlock BuildBlock(const CChainParams& params, const benchmark::ScriptRecipe& rec
     FastRandomContext rng{seed};
 
     assert(rec.geometric_base_prob >= 0 && rec.geometric_base_prob <= 1);
-    const auto tx_count{rec.tx_count ? rec.tx_count : 1000 + rng.randrange(2000)};
+    const auto tx_occupancy_limit{rec.tx_occupancy_limit != 0.0 ? rec.tx_occupancy_limit : MakeUnitDouble(rng.rand64())};
 
     CBlock block{};
-    block.vtx.reserve(1 + tx_count);
+    block.vtx.reserve(1 + (4000 * tx_occupancy_limit));
 
     // coinbase
     {
@@ -95,7 +95,7 @@ CBlock BuildBlock(const CChainParams& params, const benchmark::ScriptRecipe& rec
 
     auto scriptFactory{createScriptFactory(rng, rec)};
     auto rand_script{[&] {
-        double probability{rng.rand64() * (1.0 / std::numeric_limits<uint64_t>::max())};
+        double probability{MakeUnitDouble(rng.rand64())};
         for (const auto& [p, factory] : scriptFactory) {
             if (probability < p) return factory();
             probability -= p;
@@ -104,7 +104,12 @@ CBlock BuildBlock(const CChainParams& params, const benchmark::ScriptRecipe& rec
         return CScript(raw.begin(), raw.end());
     }};
 
-    for (size_t i{0}; i < tx_count; ++i) {
+    // Add 2 bytes to account for compact size representation of vtx vector increasing from 1 to 3 bytes.
+    uint64_t block_size_no_witness{::GetSerializeSize(TX_NO_WITNESS(block)) + 2};
+    uint64_t block_size_with_witness{::GetSerializeSize(TX_WITH_WITNESS(block)) + 2};
+    const uint64_t block_size_limit(tx_occupancy_limit * MAX_BLOCK_WEIGHT);
+    while (block_size_no_witness * WITNESS_SCALE_FACTOR < block_size_limit
+           && block_size_no_witness * WITNESS_SCALE_FACTOR + (block_size_with_witness - block_size_no_witness) < block_size_limit) {
         CMutableTransaction tx;
         tx.version = 1 + rng.randrange<int>(3);
         tx.nLockTime = (rng.randrange<uint8_t>(100) < 90) ? 0 : rng.rand32();
@@ -133,8 +138,12 @@ CBlock BuildBlock(const CChainParams& params, const benchmark::ScriptRecipe& rec
             tx_out.scriptPubKey = rand_script();
         }
 
+        block_size_no_witness += ::GetSerializeSize(TX_NO_WITNESS(tx));
+        block_size_with_witness += ::GetSerializeSize(TX_WITH_WITNESS(tx));
         block.vtx.push_back(MakeTransactionRef(std::move(tx)));
     }
+    // Remove the transaction that had us exceed the limit.
+    block.vtx.pop_back();
 
     block.nVersion = 1 + rng.randrange<int>(VERSIONBITS_LAST_OLD_BLOCK_VERSION);
     block.nTime = params.GenesisBlock().nTime;

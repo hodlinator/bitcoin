@@ -158,6 +158,9 @@ concept StdChronoDuration = requires {
         std::type_identity<T>());
 };
 
+/** Given a uniformly random uint64_t, return a uniformly-distributed double in range [0, 1). */
+double MakeUnitDouble(uint64_t uniform) noexcept;
+
 /** Given a uniformly random uint64_t, return an exponentially distributed double with mean 1. */
 double MakeExponentiallyDistributed(uint64_t uniform) noexcept;
 

@@ -28,7 +28,7 @@ struct ScriptRecipe
     double nonstandard_prob{0};
 
     //! tuning
-    size_t tx_count{0};
+    double tx_occupancy_limit{0}; // 0 means random, 1.0 is a full block.
     double geometric_base_prob{0.5};
 };
 
@@ -46,7 +46,7 @@ inline constexpr ScriptRecipe kLegacy{
     .witness_unknown_prob = 0.00,
     .nonstandard_prob = 0.005,
 
-    .tx_count = 1500,
+    .tx_occupancy_limit = 0.8,
 };
 
 /* witness-heavy mix (roughly Taproot-era main chain) */
@@ -63,7 +63,7 @@ inline constexpr ScriptRecipe kWitness{
     .witness_unknown_prob = 0.02,
     .nonstandard_prob = 0.02,
 
-    .tx_count = 2000,
+    .tx_occupancy_limit = 1.0,
 };
 
 DataStream GetBlockData(
