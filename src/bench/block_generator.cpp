@@ -298,8 +298,8 @@ CBlock BuildBlock(const CChainParams& params, const benchmark::ScriptRecipe& rec
     block.vtx.pop_back();
 
     block.nVersion = 1 + rng.randrange<int>(VERSIONBITS_LAST_OLD_BLOCK_VERSION);
-    block.nTime = params.GenesisBlock().nTime;
-    block.hashPrevBlock.SetNull();
+    block.nTime = params.GenesisBlock().nTime + 10 * 60;
+    block.hashPrevBlock = params.GenesisBlock().GetHash();
     block.nBits = UintToArith256(params.GetConsensus().powLimit).GetCompact(); // lowest difficulty
     block.nNonce = rng.rand32();
     block.hashMerkleRoot = BlockMerkleRoot(block);
