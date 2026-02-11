@@ -68,7 +68,9 @@ auto createScriptFactory(FastRandomContext& rng, const benchmark::ScriptRecipe& 
 
     double sum{};
     for (const auto& p : table | std::views::keys) sum += p;
+    // Verify that probabilities add up to ~1.0.
     assert(sum <= 1);
+    assert(sum + 0.01 > 1.0);
 
     return table;
 }
@@ -100,8 +102,7 @@ CBlock BuildBlock(const CChainParams& params, const benchmark::ScriptRecipe& rec
             if (probability < p) return factory();
             probability -= p;
         }
-        const auto raw{rng.randbytes<uint8_t>(1 + rng.randrange(100))};
-        return CScript(raw.begin(), raw.end());
+        return scriptFactory.back().second();
     }};
 
     // Add 2 bytes to account for compact size representation of vtx vector increasing from 1 to 3 bytes.
