@@ -3,7 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <bench/bench.h>
-#include <pubkey.h>
+#include <consensus/consensus.h>
 #include <random.h>
 #include <span.h>
 #include <util/strencodings.h>
@@ -14,7 +14,7 @@
 static void HexStrBench(benchmark::Bench& bench)
 {
     FastRandomContext rng{/*fDeterministic=*/true};
-    auto data{rng.randbytes<uint8_t>(CPubKey::COMPRESSED_SIZE)};
+    auto data{rng.randbytes(MAX_BLOCK_WEIGHT)};
     bench.run([&] {
         auto hex = HexStr(data);
         ankerl::nanobench::doNotOptimizeAway(hex);
