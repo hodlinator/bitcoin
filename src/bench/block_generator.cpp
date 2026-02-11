@@ -26,6 +26,7 @@
 
 using namespace util::hex_literals;
 
+namespace benchmark {
 namespace {
 size_t GeomCount(FastRandomContext& rng, double thresh_prob)
 {
@@ -50,7 +51,7 @@ struct FactoryEntry {
     const std::function<CScript()> witness_script; // TODO write + use field
 };
 
-auto createScriptFactory(FastRandomContext& rng, const CExtKey& xprv, const benchmark::ScriptRecipe& rec)
+auto CreateScriptFactory(FastRandomContext& rng, const CExtKey& xprv, const ScriptRecipe& rec)
 {
     FactoryEntry table[] = {
         {
@@ -203,7 +204,7 @@ auto createScriptFactory(FastRandomContext& rng, const CExtKey& xprv, const benc
     return std::to_array(table);
 }
 
-CBlock BuildBlock(const CChainParams& params, const benchmark::ScriptRecipe& rec, const uint256& seed)
+CBlock BuildBlock(const CChainParams& params, const ScriptRecipe& rec, const uint256& seed)
 {
     FastRandomContext rng{seed};
 
@@ -226,18 +227,18 @@ CBlock BuildBlock(const CChainParams& params, const benchmark::ScriptRecipe& rec
         block.vtx.push_back(MakeTransactionRef(std::move(cb)));
     }
 
-    auto scriptFactory{createScriptFactory(rng, xprv, rec)};
+    auto script_factory{CreateScriptFactory(rng, xprv, rec)};
     auto rand_lock_script{[&] {
         double probability{MakeUnitDouble(rng.rand64())};
-        for (const auto& entry : scriptFactory) {
+        for (const auto& entry : script_factory) {
             if (probability < entry.prob) return entry.lock_script();
             probability -= entry.prob;
         }
-        return scriptFactory.back().lock_script();
+        return script_factory.back().lock_script();
     }};
     const double unlock_script_prob{[&] {
         double sum{0.0};
-        for (const auto& entry : scriptFactory) {
+        for (const auto& entry : script_factory) {
             if (entry.unlock_script) sum += entry.prob;
         }
         return sum;
@@ -245,7 +246,7 @@ CBlock BuildBlock(const CChainParams& params, const benchmark::ScriptRecipe& rec
     auto rand_unlock_script{[&] {
         const FactoryEntry* last_unlock_entry{nullptr};
         double probability{MakeUnitDouble(rng.rand64()) * unlock_script_prob};
-        for (const auto& entry : scriptFactory) {
+        for (const auto& entry : script_factory) {
             if (!entry.unlock_script) continue;
             last_unlock_entry = &entry;
             if (probability < entry.prob) return entry.unlock_script();
@@ -310,8 +311,8 @@ CBlock BuildBlock(const CChainParams& params, const benchmark::ScriptRecipe& rec
     // Make sure we've generated a valid block
     {
         BlockValidationState validationState;
-        const bool checked{CheckBlock(block, validationState, params.GetConsensus())};
-        assert(checked);
+        const bool valid{CheckBlock(block, validationState, params.GetConsensus())};
+        assert(valid);
     }
 
     return block;
@@ -325,13 +326,12 @@ DataStream SerializeBlock(const CBlock& blk)
 }
 } // namespace
 
-namespace benchmark {
-DataStream GetBlockData(const CChainParams& chain_params, const ScriptRecipe& recipe, const uint256& seed)
+DataStream GenerateBlockData(const CChainParams& chain_params, const ScriptRecipe& recipe, const uint256& seed)
 {
     return SerializeBlock(BuildBlock(chain_params, recipe, seed));
 }
 
-CBlock GetBlock(const CChainParams& chain_params, const ScriptRecipe& recipe, const uint256& seed)
+CBlock GenerateBlock(const CChainParams& chain_params, const ScriptRecipe& recipe, const uint256& seed)
 {
     return BuildBlock(chain_params, recipe, seed);
 }

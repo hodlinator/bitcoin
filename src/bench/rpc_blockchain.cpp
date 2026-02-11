@@ -32,7 +32,7 @@ struct TestBlockAndIndex {
     TestBlockAndIndex()
     {
         const auto& params{testing_setup->m_node.chainman->GetParams()};
-        auto stream{benchmark::GetBlockData(params)};
+        auto stream{benchmark::GenerateBlockData(params)};
         std::byte a{0};
         stream.write({&a, 1}); // Prevent compaction
 

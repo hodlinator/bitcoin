@@ -25,7 +25,7 @@
 static void DeserializeBlockTest(benchmark::Bench& bench)
 {
     ECC_Context ec_context;
-    auto stream{benchmark::GetBlockData()};
+    auto stream{benchmark::GenerateBlockData()};
     std::byte a{0};
     stream.write({&a, 1}); // Prevent compaction
 
@@ -40,7 +40,7 @@ static void DeserializeAndCheckBlockTest(benchmark::Bench& bench)
 {
     ECC_Context ec_context;
     const auto& chain_params{CChainParams::RegTest(CChainParams::RegTestOptions{})};
-    auto stream{benchmark::GetBlockData(*chain_params)};
+    auto stream{benchmark::GenerateBlockData(*chain_params)};
     std::byte a{0};
     stream.write({&a, 1}); // Prevent compaction
 

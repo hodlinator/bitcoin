@@ -42,7 +42,7 @@ static void LoadExternalBlockFile(benchmark::Bench& bench)
     const fs::path blkfile{testing_setup.get()->m_path_root / "blk.dat"};
     DataStream ss{};
     const auto& params{testing_setup->m_node.chainman->GetParams()};
-    const auto block_data{benchmark::GetBlockData(params)};
+    const auto block_data{benchmark::GenerateBlockData(params)};
     ss << params.MessageStart();
     ss << static_cast<uint32_t>(block_data.size());
     // Use span-serialization to avoid writing the size first.

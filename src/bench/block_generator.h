@@ -66,12 +66,12 @@ inline constexpr ScriptRecipe kWitness{
     .tx_occupancy_limit = 1.0,
 };
 
-DataStream GetBlockData(
+DataStream GenerateBlockData(
     const CChainParams& chain_params = *CChainParams::RegTest(CChainParams::RegTestOptions{}),
     const ScriptRecipe& = kWitness,
     const uint256& seed = {}
 );
-CBlock GetBlock(
+CBlock GenerateBlock(
     const CChainParams& chain_params = *CChainParams::RegTest(CChainParams::RegTestOptions{}),
     const ScriptRecipe& = kWitness,
     const uint256& seed = {});
