@@ -205,7 +205,6 @@ auto createScriptFactory(FastRandomContext& rng, const CExtKey& xprv, const benc
 
 CBlock BuildBlock(const CChainParams& params, const benchmark::ScriptRecipe& rec, const uint256& seed)
 {
-    assert(params.IsTestChain());
     FastRandomContext rng{seed};
 
     CExtKey xprv;
@@ -300,7 +299,8 @@ CBlock BuildBlock(const CChainParams& params, const benchmark::ScriptRecipe& rec
     block.nVersion = 1 + rng.randrange<int>(VERSIONBITS_LAST_OLD_BLOCK_VERSION);
     block.nTime = params.GenesisBlock().nTime + 10 * 60;
     block.hashPrevBlock = params.GenesisBlock().GetHash();
-    block.nBits = UintToArith256(params.GetConsensus().powLimit).GetCompact(); // lowest difficulty
+    assert(params.GetConsensus().powLimit == uint256{"7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"}); // lowest difficulty
+    block.nBits = UintToArith256(params.GetConsensus().powLimit).GetCompact();
     block.nNonce = rng.rand32();
     block.hashMerkleRoot = BlockMerkleRoot(block);
     while (!CheckProofOfWork(block.GetHash(), block.nBits, params.GetConsensus())) {
