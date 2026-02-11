@@ -4,10 +4,14 @@
 
 #include <addresstype.h>
 #include <bench/block_generator.h>
+#include <consensus/amount.h>
 #include <consensus/merkle.h>
 #include <pow.h>
 #include <primitives/block.h>
+#include <primitives/transaction.h>
+#include <pubkey.h>
 #include <random.h>
+#include <script/interpreter.h>
 #include <script/script.h>
 #include <script/solver.h>
 #include <streams.h>
@@ -15,10 +19,9 @@
 #include <validation.h>
 #include <versionbits.h>
 
-#include <algorithm>
+#include <array>
 #include <functional>
 #include <limits>
-#include <ranges>
 #include <vector>
 
 using namespace util::hex_literals;
