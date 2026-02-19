@@ -4471,7 +4471,10 @@ void PeerManagerImpl::ProcessMessage(Peer& peer, CNode& pfrom, const std::string
     {
         // Ignore cmpctblock received while importing
         if (m_chainman.m_blockman.LoadingBlocks()) {
-            LogDebug(BCLog::NET, "Unexpected cmpctblock message received from peer %d\n", pfrom.GetId());
+            LogDebug(BCLog::CMPCTBLOCK, "%s sent us a compact block even though we are still loading blocks!", pfrom.LogPeer());
+            return;
+        } else if (m_opts.ignore_incoming_txs) {
+            LogDebug(BCLog::CMPCTBLOCK, "%s sent us a compact block even though we are blocksonly!", pfrom.LogPeer());
             return;
         }
 
@@ -4540,8 +4543,10 @@ void PeerManagerImpl::ProcessMessage(Peer& peer, CNode& pfrom, const std::string
             nodestate->m_last_block_announcement = GetTime();
         }
 
-        if (pindex->nStatus & BLOCK_HAVE_DATA) // Nothing to do here
+        // Nothing to do here
+        if (pindex->nStatus & BLOCK_HAVE_DATA) {
             return;
+        }
 
         auto range_flight = mapBlocksInFlight.equal_range(pindex->GetBlockHash());
         size_t already_in_flight = std::distance(range_flight.first, range_flight.second);
