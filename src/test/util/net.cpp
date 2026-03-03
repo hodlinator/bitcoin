@@ -346,7 +346,7 @@ void DynSock::Pipe::WaitForDataOrEof(UniqueLock<Mutex>& lock)
     });
 }
 
-DynSock::DynSock(std::shared_ptr<Pipes> pipes, std::shared_ptr<Queue> accept_sockets)
+DynSock::DynSock(std::shared_ptr<Pipes> pipes, Queue* accept_sockets)
     : m_pipes{pipes}, m_accept_sockets{accept_sockets}
 {
 }
@@ -403,7 +403,7 @@ bool DynSock::WaitMany(std::chrono::milliseconds timeout, EventsPerSock& events_
             if ((events.requested & Sock::RECV) != 0) {
                 auto dyn_sock = reinterpret_cast<const DynSock*>(sock.get());
                 uint8_t b;
-                if (dyn_sock->m_pipes->recv.GetBytes(&b, 1, MSG_PEEK) == 1 || !dyn_sock->m_accept_sockets->Empty()) {
+                if (dyn_sock->m_pipes->recv.GetBytes(&b, 1, MSG_PEEK) == 1 || (dyn_sock->m_accept_sockets && !dyn_sock->m_accept_sockets->Empty())) {
                     events.occurred |= Sock::RECV;
                     at_least_one_event_occurred = true;
                 }
