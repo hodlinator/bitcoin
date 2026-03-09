@@ -5,7 +5,11 @@
 #ifndef BITCOIN_TEST_UTIL_STR_H
 #define BITCOIN_TEST_UTIL_STR_H
 
-#include <string>
+#include <attributes.h>
+
+#include <span>
+#include <string_view>
+#include <vector>
 
 /**
  * Increment a string. Useful to enumerate all fixed length strings with
@@ -39,5 +43,8 @@ void ForEachNoDup(CharType (&string)[StringLength], CharType min_char, CharType 
         if (!skip_string) fn();
     }
 }
+
+/** Returns a span view of the string. */
+std::span<const std::byte> StringToBytes(std::string_view str LIFETIMEBOUND);
 
 #endif // BITCOIN_TEST_UTIL_STR_H

@@ -4,3 +4,7 @@
 
 #include <test/util/str.h>
 
+std::span<const std::byte> StringToBytes(std::string_view str)
+{
+    return std::as_bytes(std::span{str});
+}
