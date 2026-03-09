@@ -927,4 +927,32 @@ void HTTPServer::StopListening()
 {
     m_listen.clear();
 }
+
+std::optional<std::pair<std::unique_ptr<Sock>, CService>> HTTPServer::AcceptConnection(const Sock& listen_sock)
+{
+    // Make sure we only operate on our own listening sockets
+    Assume(std::ranges::any_of(m_listen, [&](const auto& sock) { return sock.get() == &listen_sock; }));
+
+    sockaddr_storage storage;
+    socklen_t len{sizeof(storage)};
+    auto sa = reinterpret_cast<sockaddr*>(&storage);
+
+    auto sock{listen_sock.Accept(sa, &len)};
+
+    if (!sock) {
+        const int err{WSAGetLastError()};
+        if (err != WSAEWOULDBLOCK) {
+            LogDebug(BCLog::HTTP, "Cannot accept new connection: %s",
+                     NetworkErrorString(err));
+        }
+        return {};
+    }
+
+    CService addr;
+    if (!addr.SetSockAddr(sa, len)) {
+        LogDebug(BCLog::HTTP, "Unknown socket family");
+    }
+
+    return std::pair{std::move(sock), addr};
+}
 } // namespace http_bitcoin

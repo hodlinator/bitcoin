@@ -305,11 +305,28 @@ public:
      */
     size_t GetListeningSocketCount() const { return m_listen.size(); }
 
+    /**
+     * This is a temporary method used to accept connections from a listening
+     * socket in the unit tests before the I/O loop is implemented.
+     * It will be removed in a future commit.
+     */
+    std::optional<std::pair<std::unique_ptr<Sock>, CService>> AcceptConnectionFromListeningSocket()
+    {
+        return AcceptConnection(*m_listen.front());
+    }
+
 private:
     /**
      * List of listening sockets.
      */
     std::vector<std::shared_ptr<Sock>> m_listen;
+
+    /**
+     * Accept a connection.
+     * @param[in] listen_sock Socket on which to accept the connection.
+     * @return Newly created socket for the accepted connection and address for the peer.
+     */
+    std::optional<std::pair<std::unique_ptr<Sock>, CService>> AcceptConnection(const Sock& listen_sock);
 };
 } // namespace http_bitcoin
 
