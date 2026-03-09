@@ -44,6 +44,14 @@ void ForEachNoDup(CharType (&string)[StringLength], CharType min_char, CharType 
     }
 }
 
+/**
+ * Returns a byte vector filled with data from a string.
+ *
+ * @param[in] str    the string to convert into bytes
+ * @returns          byte vector
+ */
+std::vector<std::byte> StringToBuffer(std::string_view str);
+
 /** Returns a span view of the string. */
 std::span<const std::byte> StringToBytes(std::string_view str LIFETIMEBOUND);
 
