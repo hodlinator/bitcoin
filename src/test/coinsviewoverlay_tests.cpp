@@ -85,8 +85,8 @@ BOOST_AUTO_TEST_CASE(fetch_inputs_from_db)
     PopulateView(block, db);
     CCoinsViewCache main_cache{&db};
     CoinsViewOverlay view{&main_cache};
+    const auto reset_guard{view.StartFetching(block)};
     const auto& outpoint{block.vtx[1]->vin[0].prevout};
-
     BOOST_CHECK(view.HaveCoin(outpoint));
     BOOST_CHECK(view.GetCoin(outpoint).has_value());
     BOOST_CHECK(!main_cache.HaveCoinInCache(outpoint));
@@ -112,6 +112,7 @@ BOOST_AUTO_TEST_CASE(fetch_inputs_from_cache)
     CCoinsViewCache main_cache{&db};
     PopulateView(block, main_cache);
     CoinsViewOverlay view{&main_cache};
+    const auto reset_guard{view.StartFetching(block)};
     CheckCache(block, view);
 
     const auto& outpoint{block.vtx[1]->vin[0].prevout};
@@ -132,6 +133,7 @@ BOOST_AUTO_TEST_CASE(fetch_no_double_spend)
     // Add all inputs as spent already in cache
     PopulateView(block, main_cache, /*spent=*/true);
     CoinsViewOverlay view{&main_cache};
+    const auto reset_guard{view.StartFetching(block)};
     for (const auto& tx : block.vtx) {
         for (const auto& in : tx->vin) {
             const auto& c{view.AccessCoin(in.prevout)};
@@ -150,6 +152,7 @@ BOOST_AUTO_TEST_CASE(fetch_no_inputs)
     CCoinsViewDB db{{.path = "", .cache_bytes = 1_MiB, .memory_only = true}, {}};
     CCoinsViewCache main_cache{&db};
     CoinsViewOverlay view{&main_cache};
+    const auto reset_guard{view.StartFetching(block)};
     for (const auto& tx : block.vtx) {
         for (const auto& in : tx->vin) {
             const auto& c{view.AccessCoin(in.prevout)};
