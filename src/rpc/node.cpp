@@ -6,7 +6,6 @@
 #include <bitcoin-build-config.h> // IWYU pragma: keep
 
 #include <chainparams.h>
-#include <httpserver.h>
 #include <index/blockfilterindex.h>
 #include <index/coinstatsindex.h>
 #include <index/txindex.h>
@@ -16,6 +15,7 @@
 #include <interfaces/init.h>
 #include <interfaces/ipc.h>
 #include <kernel/cs_main.h>
+#include <libeventlog.h>
 #include <logging.h>
 #include <node/context.h>
 #include <rpc/server.h>
@@ -261,7 +261,7 @@ static RPCHelpMan logging()
 
     // Update libevent logging if BCLog::LIBEVENT has changed.
     if (changed_log_categories & BCLog::LIBEVENT) {
-        http_libevent::UpdateHTTPServerLogging(LogInstance().WillLogCategory(BCLog::LIBEVENT));
+        UpdateLibEventLogging(LogInstance().WillLogCategory(BCLog::LIBEVENT));
     }
 
     UniValue result(UniValue::VOBJ);

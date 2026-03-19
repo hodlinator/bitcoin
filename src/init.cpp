@@ -38,6 +38,7 @@
 #include <kernel/caches.h>
 #include <kernel/context.h>
 #include <key.h>
+#include <libeventlog.h>
 #include <logging.h>
 #include <mapport.h>
 #include <net.h>
@@ -1441,6 +1442,7 @@ bool AppInitMain(NodeContext& node, interfaces::BlockAndHeaderTipInfo* tip_info)
         // Detailed error printed inside StartLogging().
         return false;
     }
+    InitLibEventLogging();
 
     LogInfo("Using at most %i automatic connections (%i file descriptors available)", nMaxConnections, available_fds);
 
