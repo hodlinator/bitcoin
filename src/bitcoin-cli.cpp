@@ -25,6 +25,7 @@
 #include <util/chaintype.h>
 #include <util/exception.h>
 #include <util/strencodings.h>
+#include <util/string.h>
 #include <util/time.h>
 #include <util/translation.h>
 
@@ -73,6 +74,63 @@ static const std::string DEFAULT_NBLOCKS = "1";
 
 /** Default -color setting. */
 static const std::string DEFAULT_COLOR_SETTING{"auto"};
+
+// TODO: These helpers may be replaced with the corresponding methods in HTTPHeaders
+// from https://github.com/bitcoin/bitcoin/pull/32061 if that is moved to a shared
+// location.
+namespace bitcoin_http {
+
+//! Maximum size of each headers line in an HTTP request.
+//! See https://github.com/bitcoin/bitcoin/pull/6859
+//! And libevent http.c evhttp_parse_headers_()
+constexpr size_t MAX_HEADERS_SIZE{8192};
+
+using Headers = std::vector<std::pair<std::string, std::string>>;
+
+static Headers Read(util::LineReader& reader)
+{
+    // Headers https://httpwg.org/specs/rfc9110.html#rfc.section.6.3
+    // A sequence of Field Lines https://httpwg.org/specs/rfc9110.html#rfc.section.5.2
+    Headers headers;
+    while (auto maybe_line = reader.ReadLine()) {
+        if (reader.Consumed() > MAX_HEADERS_SIZE) throw std::runtime_error("HTTP headers exceed size limit");
+
+        const std::string& line = *maybe_line;
+
+        // An empty line indicates end of the headers section https://www.rfc-editor.org/rfc/rfc2616#section-4
+        if (line.empty()) return headers;
+
+        // Header line must have at least one ":"
+        // keys are not allowed to have delimiters like ":" but values are
+        // https://httpwg.org/specs/rfc9110.html#rfc.section.5.6.2
+        const size_t pos{line.find(':')};
+        if (pos == std::string::npos) throw std::runtime_error("HTTP header missing colon (:)");
+
+        // Whitespace is optional
+        std::string key = util::TrimString(std::string_view(line).substr(0, pos));
+        std::string value = util::TrimString(std::string_view(line).substr(pos + 1));
+
+        // Header keys are Field Names: https://httpwg.org/specs/rfc9110.html#fields.names
+        // which consist of "tokens": https://httpwg.org/specs/rfc9110.html#rfc.section.5.6.2
+        // that can not be empty.
+        if (key.empty()) throw std::runtime_error("Empty HTTP header name");
+
+        headers.emplace_back(std::move(key), std::move(value));
+    }
+    return headers;
+}
+
+static std::optional<std::string> FindFirst(const Headers& headers, std::string_view key)
+{
+    for (const auto& item : headers) {
+        if (CaseInsensitiveEqual(key, item.first)) {
+            return item.second;
+        }
+    }
+    return std::nullopt;
+}
+
+} // namespace bitcoin_http
 
 static void SetupCliArgs(ArgsManager& argsman)
 {
