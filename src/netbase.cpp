@@ -392,7 +392,6 @@ static std::string Socks5ErrorString(uint8_t err)
 bool Socks5(const std::string& strDest, uint16_t port, const ProxyCredentials* auth, const Sock& sock)
 {
     try {
-        IntrRecvError recvr;
         LogDebug(BCLog::NET, "SOCKS5 connecting %s\n", strDest);
         if (strDest.size() > 255) {
             LogError("Hostname too long\n");
@@ -411,7 +410,8 @@ bool Socks5(const std::string& strDest, uint16_t port, const ProxyCredentials* a
         }
         sock.SendComplete(vSocks5Init, g_socks5_recv_timeout, g_socks5_interrupt);
         uint8_t pchRet1[2];
-        if (InterruptibleRecv(pchRet1, 2, g_socks5_recv_timeout, sock) != IntrRecvError::OK) {
+        if (auto error{InterruptibleRecv(pchRet1, sizeof(pchRet1), g_socks5_recv_timeout, sock)};
+            error != IntrRecvError::OK) {
             LogInfo("Socks5() connect to %s:%d failed: InterruptibleRecv() timeout or other failure\n", strDest, port);
             return false;
         }
@@ -434,7 +434,8 @@ bool Socks5(const std::string& strDest, uint16_t port, const ProxyCredentials* a
             sock.SendComplete(vAuth, g_socks5_recv_timeout, g_socks5_interrupt);
             LogDebug(BCLog::PROXY, "SOCKS5 sending proxy authentication %s:%s\n", auth->username, auth->password);
             uint8_t pchRetA[2];
-            if (InterruptibleRecv(pchRetA, 2, g_socks5_recv_timeout, sock) != IntrRecvError::OK) {
+            if (auto error{InterruptibleRecv(pchRetA, sizeof(pchRetA), g_socks5_recv_timeout, sock)};
+                error != IntrRecvError::OK) {
                 LogError("Error reading proxy authentication response\n");
                 return false;
             }
@@ -459,16 +460,17 @@ bool Socks5(const std::string& strDest, uint16_t port, const ProxyCredentials* a
         vSocks5.push_back((port >> 0) & 0xFF);
         sock.SendComplete(vSocks5, g_socks5_recv_timeout, g_socks5_interrupt);
         uint8_t pchRet2[4];
-        if ((recvr = InterruptibleRecv(pchRet2, 4, g_socks5_recv_timeout, sock)) != IntrRecvError::OK) {
-            if (recvr == IntrRecvError::Timeout) {
-                /* If a timeout happens here, this effectively means we timed out while connecting
-                 * to the remote node. This is very common for Tor, so do not print an
-                 * error message. */
-                return false;
-            } else {
-                LogError("Error while reading proxy response\n");
-                return false;
-            }
+        IntrRecvError recvr{InterruptibleRecv(pchRet2, sizeof(pchRet2), g_socks5_recv_timeout, sock)};
+        switch (recvr) {
+        case IntrRecvError::OK: break;
+        case IntrRecvError::Timeout:
+            /* If a timeout happens here, this effectively means we timed out while connecting
+             * to the remote node. This is very common for Tor, so do not print an
+             * error message. */
+            return false;
+        default:
+            LogError("Error while reading proxy response\n");
+            return false;
         }
         if (pchRet2[0] != SOCKSVersion::SOCKS5) {
             LogError("Proxy failed to accept request\n");
@@ -490,12 +492,10 @@ bool Socks5(const std::string& strDest, uint16_t port, const ProxyCredentials* a
         case SOCKS5Atyp::IPV6: recvr = InterruptibleRecv(pchRet3, 16, g_socks5_recv_timeout, sock); break;
         case SOCKS5Atyp::DOMAINNAME: {
             recvr = InterruptibleRecv(pchRet3, 1, g_socks5_recv_timeout, sock);
-            if (recvr != IntrRecvError::OK) {
-                LogError("Error reading from proxy\n");
-                return false;
+            if (recvr == IntrRecvError::OK) {
+                int nRecv = pchRet3[0];
+                recvr = InterruptibleRecv(pchRet3, nRecv, g_socks5_recv_timeout, sock);
             }
-            int nRecv = pchRet3[0];
-            recvr = InterruptibleRecv(pchRet3, nRecv, g_socks5_recv_timeout, sock);
             break;
         }
         default: {
@@ -507,7 +507,8 @@ bool Socks5(const std::string& strDest, uint16_t port, const ProxyCredentials* a
             LogError("Error reading from proxy\n");
             return false;
         }
-        if (InterruptibleRecv(pchRet3, 2, g_socks5_recv_timeout, sock) != IntrRecvError::OK) {
+        if (auto error{InterruptibleRecv(pchRet3, 2, g_socks5_recv_timeout, sock)};
+            error != IntrRecvError::OK) {
             LogError("Error reading from proxy\n");
             return false;
         }
