@@ -299,6 +299,19 @@ enum class IntrRecvError {
     Interrupted
 };
 
+static constexpr const char* IntrRecvErrorString(IntrRecvError error)
+{
+    using enum IntrRecvError;
+    switch (error) {
+    case OK:           return "OK";
+    case Timeout:      return "Timeout";
+    case Disconnected: return "Disconnected";
+    case NetworkError: return "NetworkError";
+    case Interrupted:  return "Interrupted";
+    }
+    assert(false);
+}
+
 /**
  * Try to read a specified number of bytes from a socket. Please read the "see
  * also" section for more detail.
@@ -412,11 +425,13 @@ bool Socks5(const std::string& strDest, uint16_t port, const ProxyCredentials* a
         uint8_t pchRet1[2];
         if (auto error{InterruptibleRecv(pchRet1, sizeof(pchRet1), g_socks5_recv_timeout, sock)};
             error != IntrRecvError::OK) {
-            LogInfo("Socks5() connect to %s:%d failed: InterruptibleRecv() timeout or other failure\n", strDest, port);
+            LogInfo("Socks5() connect to %s:%d failed: InterruptibleRecv() returned %s",
+                    strDest, port, IntrRecvErrorString(error));
             return false;
         }
         if (pchRet1[0] != SOCKSVersion::SOCKS5) {
-            LogError("Proxy failed to initialize\n");
+            LogError("Proxy failed to initialize. Unexpected response from specified SOCKS5 proxy: "
+                     "%d (expected: %d).", pchRet1[0], int(SOCKSVersion::SOCKS5));
             return false;
         }
         if (pchRet1[1] == SOCKS5Method::USER_PASS && auth) {
@@ -436,7 +451,7 @@ bool Socks5(const std::string& strDest, uint16_t port, const ProxyCredentials* a
             uint8_t pchRetA[2];
             if (auto error{InterruptibleRecv(pchRetA, sizeof(pchRetA), g_socks5_recv_timeout, sock)};
                 error != IntrRecvError::OK) {
-                LogError("Error reading proxy authentication response\n");
+                LogError("Error reading proxy authentication response: %s", IntrRecvErrorString(error));
                 return false;
             }
             if (pchRetA[0] != 0x01 || pchRetA[1] != 0x00) {
@@ -469,7 +484,7 @@ bool Socks5(const std::string& strDest, uint16_t port, const ProxyCredentials* a
              * error message. */
             return false;
         default:
-            LogError("Error while reading proxy response\n");
+            LogError("Error while reading proxy response: %s", IntrRecvErrorString(recvr));
             return false;
         }
         if (pchRet2[0] != SOCKSVersion::SOCKS5) {
@@ -504,12 +519,12 @@ bool Socks5(const std::string& strDest, uint16_t port, const ProxyCredentials* a
         }
         }
         if (recvr != IntrRecvError::OK) {
-            LogError("Error reading from proxy\n");
+            LogError("Error reading from proxy: %s", IntrRecvErrorString(recvr));
             return false;
         }
         if (auto error{InterruptibleRecv(pchRet3, 2, g_socks5_recv_timeout, sock)};
             error != IntrRecvError::OK) {
-            LogError("Error reading from proxy\n");
+            LogError("Error reading from proxy: %s", IntrRecvErrorString(error));
             return false;
         }
         LogDebug(BCLog::NET, "SOCKS5 connected %s\n", strDest);
