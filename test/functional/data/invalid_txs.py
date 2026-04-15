@@ -203,7 +203,7 @@ class SpendTooMuch(BadTxTemplate):
 
 
 class CreateNegative(BadTxTemplate):
-    reject_reason = 'bad-txns-vout-negative'
+    reject_reason = 'bad-txns-vout-toolarge'
 
     def get_tx(self):
         return create_tx_with_script(self.spend_tx, 0, amount=-1)

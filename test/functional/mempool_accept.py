@@ -243,7 +243,7 @@ class MempoolAcceptanceTest(BitcoinTestFramework):
         tx = tx_from_hex(raw_tx_reference)
         tx.vout[0].nValue *= -1
         self.check_mempool_result(
-            result_expected=[{'txid': tx.txid_hex, 'allowed': False, 'reject-reason': 'bad-txns-vout-negative'}],
+            result_expected=[{'txid': tx.txid_hex, 'allowed': False, 'reject-reason': 'bad-txns-vout-toolarge'}],
             rawtxs=[tx.serialize().hex()],
         )
 

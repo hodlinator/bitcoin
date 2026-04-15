@@ -189,7 +189,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, TxValidationState& state, 
     }
 
     // `tx.GetValueOut()` won't throw in validation paths because output-range checks run first
-    // (`bad-txns-vout-negative`, `bad-txns-vout-toolarge`, `bad-txns-txouttotal-toolarge`):
+    // (`bad-txns-vout-toolarge`, `bad-txns-txouttotal-toolarge`):
     // * `MemPoolAccept::PreChecks`: `CheckTransaction()` is called before this method;
     // * `Chainstate::ConnectBlock`: `CheckTransaction()` is called via `CheckBlock()` before this method.
     const Amount value_out = tx.GetValueOut();
