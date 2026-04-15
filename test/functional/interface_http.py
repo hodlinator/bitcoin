@@ -68,7 +68,7 @@ class BitcoinHTTPConnection:
         req += f'Authorization: Basic {str_to_b64str(self.authpair)}\r\n'
         req += f'Content-Length: {len(data)}\r\n\r\n'
         req += data
-        self.conn.sock.sendall(req.encode("utf-8"))
+        self.conn.sock.sendall(req.encode("ascii"))
 
     def recv_raw(self):
         '''
@@ -94,7 +94,7 @@ class BitcoinHTTPConnection:
 
 class HTTPBasicsTest (BitcoinTestFramework):
     def set_test_params(self):
-        self.num_nodes = 3
+        self.num_nodes = 1
         self.supports_cli = False
 
     def setup_network(self):
@@ -167,7 +167,7 @@ class HTTPBasicsTest (BitcoinTestFramework):
         assert_equal(response1.status, http.client.NOT_FOUND)
 
         # Excessive URI size plus default headers breaks the limit.
-        conn = BitcoinHTTPConnection(self.nodes[1])
+        conn = BitcoinHTTPConnection(self.nodes[0])
         response2 = conn.get(f'/{"x" * MAX_HEADERS_SIZE}')
         assert_equal(response2.status, http.client.BAD_REQUEST)
 
@@ -183,14 +183,14 @@ class HTTPBasicsTest (BitcoinTestFramework):
         headers_above_limit += 1000 // header_line_length
 
         # Many small header lines is ok
-        conn = BitcoinHTTPConnection(self.nodes[2])
+        conn = BitcoinHTTPConnection(self.nodes[0])
         for i in range(headers_below_limit):
             conn.add_header(f"header_{i:04}", "foo")
         response3 = conn.get('/x')
         assert_equal(response3.status, http.client.NOT_FOUND)
 
         # Too many small header lines exceeds total headers size allowed
-        conn = BitcoinHTTPConnection(self.nodes[2])
+        conn = BitcoinHTTPConnection(self.nodes[0])
         for i in range(headers_above_limit):
             conn.add_header(f"header_{i:04}", "foo")
         response3 = conn.get('/x')
@@ -204,23 +204,26 @@ class HTTPBasicsTest (BitcoinTestFramework):
 
         # Large request body size is ok
         conn = BitcoinHTTPConnection(self.nodes[0])
-        response4 = conn.post('/', f'{{"jsonrpc": "2.0", "id": "0", "method": "submitblock", "params": ["{"0" * bytes_below_limit}"]}}')
+        response4 = conn.post('/', f'{{"jsonrpc": "2.0", "id": "0", "method": "submitblock", "params": ["{"F" * bytes_below_limit}"]}}')
         assert_equal(response4.status, http.client.OK)
 
-        conn = BitcoinHTTPConnection(self.nodes[1])
+        conn = BitcoinHTTPConnection(self.nodes[0])
         try:
             # Excessive body size is invalid
-            response5 = conn.post('/', f'{{"jsonrpc": "2.0", "id": "0", "method": "submitblock", "params": ["{"0" * bytes_above_limit}"]}}')
+            conn.post_raw('/', f'{{"jsonrpc": "2.0", "id": "0", "method": "submitblock", "params": ["{"F" * bytes_above_limit}"]}}')
+            self.log.debug("Client finished sending request before connection was terminated")
+        except ConnectionError:
+            self.log.debug("Client did not finish sending request before connection was terminated")
 
-            # The server will send a 400 response and disconnect but
-            # due to a race condition, the python client may or may not
-            # receive the response before detecting the broken socket.
-            response5.read()
+        # The server will send a 413 response and disconnect but due to a race
+        # condition, the python client may or may not read the response before
+        # detecting the broken socket (which it may still be trying to write to).
+        try:
+            response5 = conn.conn.getresponse()
             assert_equal(response5.status, http.client.BAD_REQUEST)
             assert conn.sock_closed()
-            self.log.debug("Server sent response before terminating connection")
-        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
-            self.log.debug("Server terminated connection immediately")
+        except http.client.ResponseNotReady:
+            self.log.debug("Client did not read response before disconnecting")
 
 
     def check_pipelining(self):
@@ -229,8 +232,8 @@ class HTTPBasicsTest (BitcoinTestFramework):
         See https://www.rfc-editor.org/rfc/rfc7230#section-6.3.2
         """
         self.log.info("Check pipelining")
-        tip_height = self.nodes[2].getblockcount()
-        conn = BitcoinHTTPConnection(self.nodes[2])
+        tip_height = self.nodes[0].getblockcount()
+        conn = BitcoinHTTPConnection(self.nodes[0])
         conn.set_timeout(5)
 
         # Send two requests in a row.
@@ -248,7 +251,7 @@ class HTTPBasicsTest (BitcoinTestFramework):
             pass
 
         # Use a separate http connection to generate a block
-        self.generate(self.nodes[2], 1, sync_fun=self.no_op)
+        self.generate(self.nodes[0], 1, sync_fun=self.no_op)
 
         # Wait for two responses to be received
         res = b""
@@ -264,7 +267,7 @@ class HTTPBasicsTest (BitcoinTestFramework):
 
     def check_chunked_transfer(self):
         self.log.info("Check HTTP request encoded with chunked transfer")
-        conn = BitcoinHTTPConnection(self.nodes[2])
+        conn = BitcoinHTTPConnection(self.nodes[0])
         headers_chunked = conn.headers.copy()
         headers_chunked.update({"Transfer-encoding": "chunked"})
         body_chunked = [
@@ -303,18 +306,19 @@ class HTTPBasicsTest (BitcoinTestFramework):
                 body=iter(body_chunked),
                 headers=headers_chunked,
                 encode_chunked=True)
+            self.log.debug("Client finished sending request before connection was terminated")
+        except ConnectionError:
+            self.log.debug("Client did not finish sending request before connection was terminated")
 
-            # The server will send a 400 response and disconnect but
-            # due to a race condition, the python client may or may not
-            # receive the response before detecting the broken socket.
+        # The server will send a 413 response and disconnect but due to a race
+        # condition, the python client may or may not read the response before
+        # detecting the broken socket (which it may still be trying to write to).
+        try:
             response2 = conn.conn.getresponse()
-            response2.read()
-            assert_equal(response2.status, http.client.BAD_REQUEST)
+            assert_equal(response2.status, http.client.REQUEST_ENTITY_TOO_LARGE)
             assert conn.sock_closed()
-            self.log.debug("Server sent response before terminating connection")
-        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
-            # ...or just immediately disconnect
-            self.log.debug("Server terminated connection immediately")
+        except http.client.ResponseNotReady:
+            self.log.debug("Client did not read response before disconnecting")
 
 
     def check_idle_timeout(self):
@@ -325,27 +329,27 @@ class HTTPBasicsTest (BitcoinTestFramework):
         # the server. Negating this setting will force the AuthServiceProxy
         # for this node to create a fresh new HTTP connection for every command
         # called for the remainder of this test.
-        self.nodes[2].reuse_http_connections = False
+        self.nodes[0].reuse_http_connections = False
 
         # This is the amount of time the server will wait for a client to
         # send a complete request. Test it by sending an incomplete but
-        # so-far otherwise well-formed HTTP request, and never finishing it
-        self.restart_node(2, extra_args=[f"-rpcservertimeout={RPCSERVERTIMEOUT}"])
+        # so-far otherwise well-formed HTTP request, and never finishing it.
+        self.restart_node(0, extra_args=[f"-rpcservertimeout={RPCSERVERTIMEOUT}"])
 
         # Copied from http_incomplete_test_() in regress_http.c in libevent.
         # A complete request would have an additional "\r\n" at the end.
         bad_http_request = "GET /test1 HTTP/1.1\r\nHost: somehost\r\n"
-        conn = BitcoinHTTPConnection(self.nodes[2])
-        conn.conn.sock.sendall(bad_http_request.encode("utf-8"))
+        conn = BitcoinHTTPConnection(self.nodes[0])
+        conn.conn.sock.sendall(bad_http_request.encode("ascii"))
 
         conn.expect_timeout(RPCSERVERTIMEOUT)
 
         # Sanity check -- complete requests don't timeout waiting for completion
         good_http_request = "GET /test2 HTTP/1.1\r\nHost: somehost\r\n\r\n"
         conn.reset_conn()
-        conn.conn.sock.sendall(good_http_request.encode("utf-8"))
-        response2 = conn.recv_raw()
-        assert response2.startswith(b"HTTP/1.1 404 Not Found")
+        conn.conn.sock.sendall(good_http_request.encode("ascii"))
+        response = conn.recv_raw()
+        assert response.startswith(b"HTTP/1.1 404 Not Found")
 
         # Still open
         assert not conn.sock_closed()
@@ -353,13 +357,17 @@ class HTTPBasicsTest (BitcoinTestFramework):
 
     def check_server_busy_idle_timeout(self):
         self.log.info("Check that -rpcservertimeout won't close on a delayed response")
-        tip_height = self.nodes[2].getblockcount()
-        conn = BitcoinHTTPConnection(self.nodes[2])
+
+        self.nodes[0].reuse_http_connections = False
+        self.restart_node(0, extra_args=[f"-rpcservertimeout={RPCSERVERTIMEOUT}"])
+
+        tip_height = self.nodes[0].getblockcount()
+        conn = BitcoinHTTPConnection(self.nodes[0])
         conn.post_raw('/', f'{{"method": "waitforblockheight", "params": [{tip_height + 1}]}}')
 
         # Wait until after the timeout, then generate a block with a second HTTP connection
         time.sleep(RPCSERVERTIMEOUT + 1)
-        generated_block = self.generate(self.nodes[2], 1, sync_fun=self.no_op)[0]
+        generated_block = self.generate(self.nodes[0], 1, sync_fun=self.no_op)[0]
 
         # The first connection gets the response it is patiently waiting for
         response1 = conn.recv_raw().decode()
