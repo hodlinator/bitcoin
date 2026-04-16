@@ -104,6 +104,14 @@ class HTTPBasicsTest (BitcoinTestFramework):
         self.setup_nodes()
 
     def run_test(self):
+        # The test framework typically reuses a single persistent HTTP connection
+        # for all RPCs to a TestNode. Because we are setting -rpcservertimeout
+        # so low on this one node, its connection will quickly timeout and get dropped by
+        # the server. Negating this setting will force the AuthServiceProxy
+        # for this node to create a fresh new HTTP connection for every command
+        # called for the remainder of this test.
+        self.nodes[0].reuse_http_connections = False
+
         self.check_default_connection()
         self.check_keepalive_connection()
         self.check_close_connection()
@@ -326,13 +334,6 @@ class HTTPBasicsTest (BitcoinTestFramework):
 
     def check_idle_timeout(self):
         self.log.info("Check -rpcservertimeout")
-        # The test framework typically reuses a single persistent HTTP connection
-        # for all RPCs to a TestNode. Because we are setting -rpcservertimeout
-        # so low on this one node, its connection will quickly timeout and get dropped by
-        # the server. Negating this setting will force the AuthServiceProxy
-        # for this node to create a fresh new HTTP connection for every command
-        # called for the remainder of this test.
-        self.nodes[0].reuse_http_connections = False
 
         # This is the amount of time the server will wait for a client to
         # send a complete request. Test it by sending an incomplete but
@@ -361,7 +362,6 @@ class HTTPBasicsTest (BitcoinTestFramework):
     def check_server_busy_idle_timeout(self):
         self.log.info("Check that -rpcservertimeout won't close on a delayed response")
 
-        self.nodes[0].reuse_http_connections = False
         self.restart_node(0, extra_args=[f"-rpcservertimeout={RPCSERVERTIMEOUT}"])
 
         tip_height = self.nodes[0].getblockcount()
