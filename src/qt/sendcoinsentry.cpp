@@ -190,7 +190,7 @@ void SendCoinsEntry::setAddress(const QString &address)
     ui->payAmount->setFocus();
 }
 
-void SendCoinsEntry::setAmount(const CAmount &amount)
+void SendCoinsEntry::setAmount(const Amount& amount)
 {
     ui->payAmount->setValue(amount);
 }

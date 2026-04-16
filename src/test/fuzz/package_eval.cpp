@@ -223,7 +223,7 @@ FUZZ_TARGET(ephemeral_package_eval, .init = initialize_tx_pool)
 
     // All RBF-spendable outpoints outside of the unsubmitted package
     std::set<COutPoint> mempool_outpoints;
-    std::unordered_map<COutPoint, CAmount, SaltedOutpointHasher> outpoints_value;
+    std::unordered_map<COutPoint, Amount, SaltedOutpointHasher> outpoints_value;
     for (const auto& outpoint : g_outpoints_coinbase_init_mature) {
         Assert(mempool_outpoints.insert(outpoint).second);
         outpoints_value[outpoint] = 50 * COIN;
@@ -269,7 +269,7 @@ FUZZ_TARGET(ephemeral_package_eval, .init = initialize_tx_pool)
 
                 Assert((int)outpoints.size() >= num_in && num_in > 0);
 
-                CAmount amount_in{0};
+                Amount amount_in{0};
                 for (int i = 0; i < num_in; ++i) {
                     // Pop random outpoint. We erase them to avoid double-spending
                     // while in this loop, but later add them back (unless last_tx).
@@ -294,7 +294,7 @@ FUZZ_TARGET(ephemeral_package_eval, .init = initialize_tx_pool)
                     tx_mut.vin.push_back(in);
                 }
 
-                const auto amount_fee = fuzzed_data_provider.ConsumeIntegralInRange<CAmount>(0, amount_in);
+                const auto amount_fee = fuzzed_data_provider.ConsumeIntegralInRange<Amount>(0, amount_in);
                 const auto amount_out = (amount_in - amount_fee) / num_out;
                 for (int i = 0; i < num_out; ++i) {
                     tx_mut.vout.emplace_back(amount_out, P2WSH_EMPTY);
@@ -329,7 +329,7 @@ FUZZ_TARGET(ephemeral_package_eval, .init = initialize_tx_pool)
             const auto& txid = fuzzed_data_provider.ConsumeBool() ?
                                    txs.back()->GetHash() :
                                    PickValue(fuzzed_data_provider, mempool_outpoints).hash;
-            const auto delta = fuzzed_data_provider.ConsumeIntegralInRange<CAmount>(-50 * COIN, +50 * COIN);
+            const auto delta = fuzzed_data_provider.ConsumeIntegralInRange<Amount>(-50 * COIN, +50 * COIN);
             // We only prioritise out of mempool transactions since PrioritiseTransaction doesn't
             // filter for ephemeral dust
             if (tx_pool.exists(txid)) {
@@ -378,7 +378,7 @@ FUZZ_TARGET(tx_package_eval, .init = initialize_tx_pool)
 
     // All RBF-spendable outpoints outside of the unsubmitted package
     std::set<COutPoint> mempool_outpoints;
-    std::unordered_map<COutPoint, CAmount, SaltedOutpointHasher> outpoints_value;
+    std::unordered_map<COutPoint, Amount, SaltedOutpointHasher> outpoints_value;
     for (const auto& outpoint : g_outpoints_coinbase_init_mature) {
         Assert(mempool_outpoints.insert(outpoint).second);
         outpoints_value[outpoint] = 50 * COIN;
@@ -418,7 +418,7 @@ FUZZ_TARGET(tx_package_eval, .init = initialize_tx_pool)
 
                 Assert(!outpoints.empty());
 
-                CAmount amount_in{0};
+                Amount amount_in{0};
                 for (size_t i = 0; i < num_in; ++i) {
                     // Pop random outpoint. We erase them to avoid double-spending
                     // while in this loop, but later add them back (unless last_tx).
@@ -462,7 +462,7 @@ FUZZ_TARGET(tx_package_eval, .init = initialize_tx_pool)
                     amount_in -= 1000;
                 }
 
-                const auto amount_fee = fuzzed_data_provider.ConsumeIntegralInRange<CAmount>(0, amount_in);
+                const auto amount_fee = fuzzed_data_provider.ConsumeIntegralInRange<Amount>(0, amount_in);
                 const auto amount_out = (amount_in - amount_fee) / num_out;
                 for (int i = 0; i < num_out; ++i) {
                     tx_mut.vout.emplace_back(amount_out, P2WSH_EMPTY);
@@ -497,7 +497,7 @@ FUZZ_TARGET(tx_package_eval, .init = initialize_tx_pool)
             const auto& txid = fuzzed_data_provider.ConsumeBool() ?
                                    txs.back()->GetHash() :
                                    PickValue(fuzzed_data_provider, mempool_outpoints).hash;
-            const auto delta = fuzzed_data_provider.ConsumeIntegralInRange<CAmount>(-50 * COIN, +50 * COIN);
+            const auto delta = fuzzed_data_provider.ConsumeIntegralInRange<Amount>(-50 * COIN, +50 * COIN);
             tx_pool.PrioritiseTransaction(txid, delta);
         }
 
@@ -514,7 +514,7 @@ FUZZ_TARGET(tx_package_eval, .init = initialize_tx_pool)
         // Exercise client_maxfeerate logic
         std::optional<CFeeRate> client_maxfeerate{};
         if (fuzzed_data_provider.ConsumeBool()) {
-            client_maxfeerate = CFeeRate(fuzzed_data_provider.ConsumeIntegralInRange<CAmount>(-1, 50 * COIN), 100);
+            client_maxfeerate = CFeeRate(fuzzed_data_provider.ConsumeIntegralInRange<Amount>(-1, 50 * COIN), 100);
         }
 
         const auto result_package = WITH_LOCK(::cs_main,

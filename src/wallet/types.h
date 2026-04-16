@@ -34,11 +34,11 @@ enum class AddressPurpose {
 struct CreatedTransactionResult
 {
     CTransactionRef tx;
-    CAmount fee;
+    Amount fee;
     FeeCalculation fee_calc;
     std::optional<unsigned int> change_pos;
 
-    CreatedTransactionResult(CTransactionRef _tx, CAmount _fee, std::optional<unsigned int> _change_pos, const FeeCalculation& _fee_calc)
+    CreatedTransactionResult(CTransactionRef _tx, Amount _fee, std::optional<unsigned int> _change_pos, const FeeCalculation& _fee_calc)
             : tx(_tx), fee(_fee), fee_calc(_fee_calc), change_pos(_change_pos) {}
 };
 

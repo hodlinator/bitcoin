@@ -139,7 +139,7 @@ public:
 class CTxOut
 {
 public:
-    CAmount nValue;
+    Amount nValue;
     CScript scriptPubKey;
 
     CTxOut()
@@ -147,7 +147,7 @@ public:
         SetNull();
     }
 
-    CTxOut(const CAmount& nValueIn, CScript scriptPubKeyIn);
+    CTxOut(const Amount& nValueIn, CScript scriptPubKeyIn);
 
     SERIALIZE_METHODS(CTxOut, obj) { READWRITE(obj.nValue, obj.scriptPubKey); }
 
@@ -268,9 +268,9 @@ void SerializeTransaction(const TxType& tx, Stream& s, const TransactionSerParam
 }
 
 template<typename TxType>
-inline CAmount CalculateOutputValue(const TxType& tx)
+inline Amount CalculateOutputValue(const TxType& tx)
 {
-    return std::accumulate(tx.vout.cbegin(), tx.vout.cend(), CAmount{0}, [](CAmount sum, const auto& txout) { return sum + txout.nValue; });
+    return std::accumulate(tx.vout.cbegin(), tx.vout.cend(), Amount{0}, [](Amount sum, const auto& txout) { return sum + txout.nValue; });
 }
 
 
@@ -329,7 +329,7 @@ public:
     const Wtxid& GetWitnessHash() const LIFETIMEBOUND { return m_witness_hash; };
 
     // Return sum of txouts.
-    CAmount GetValueOut() const;
+    Amount GetValueOut() const;
 
     /**
      * Calculate the total transaction size in bytes, including witness data.

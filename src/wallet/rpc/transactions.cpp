@@ -68,7 +68,7 @@ static void WalletTxToJSON(const CWallet& wallet, const CWalletTx& wtx, UniValue
 
 struct tallyitem
 {
-    CAmount nAmount{0};
+    Amount nAmount{0};
     int nConf{std::numeric_limits<int>::max()};
     std::vector<Txid> txids;
     tallyitem() = default;
@@ -138,7 +138,7 @@ static UniValue ListReceived(const CWallet& wallet, const UniValue& params, cons
         if (it == mapTally.end() && !fIncludeEmpty)
             return;
 
-        CAmount nAmount = 0;
+        Amount nAmount{0};
         int nConf = std::numeric_limits<int>::max();
         if (it != mapTally.end()) {
             nAmount = (*it).second.nAmount;
@@ -176,7 +176,7 @@ static UniValue ListReceived(const CWallet& wallet, const UniValue& params, cons
 
     if (by_label) {
         for (const auto& entry : label_tally) {
-            CAmount nAmount = entry.second.nAmount;
+            Amount nAmount = entry.second.nAmount;
             int nConf = entry.second.nConf;
             UniValue obj(UniValue::VOBJ);
             obj.pushKV("amount",        ValueFromAmount(nAmount));
@@ -310,7 +310,7 @@ static void ListTransactions(const CWallet& wallet, const CWalletTx& wtx, int nM
                              bool include_change = false)
     EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet)
 {
-    CAmount nFee;
+    Amount nFee;
     std::list<COutputEntry> listReceived;
     std::list<COutputEntry> listSent;
 
@@ -740,10 +740,10 @@ RPCMethod gettransaction()
     }
     const CWalletTx& wtx = it->second;
 
-    CAmount nCredit = CachedTxGetCredit(*pwallet, wtx, /*avoid_reuse=*/false);
-    CAmount nDebit = CachedTxGetDebit(*pwallet, wtx, /*avoid_reuse=*/false);
-    CAmount nNet = nCredit - nDebit;
-    CAmount nFee = (CachedTxIsFromMe(*pwallet, wtx) ? wtx.tx->GetValueOut() - nDebit : 0);
+    Amount nCredit = CachedTxGetCredit(*pwallet, wtx, /*avoid_reuse=*/false);
+    Amount nDebit = CachedTxGetDebit(*pwallet, wtx, /*avoid_reuse=*/false);
+    Amount nNet = nCredit - nDebit;
+    Amount nFee = (CachedTxIsFromMe(*pwallet, wtx) ? wtx.tx->GetValueOut() - nDebit : 0);
 
     entry.pushKV("amount", ValueFromAmount(nNet - nFee));
     if (CachedTxIsFromMe(*pwallet, wtx))

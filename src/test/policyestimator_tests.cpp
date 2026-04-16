@@ -23,9 +23,9 @@ BOOST_AUTO_TEST_CASE(BlockPolicyEstimates)
     CTxMemPool& mpool = *Assert(m_node.mempool);
     m_node.validation_signals->RegisterValidationInterface(&feeEst);
     TestMemPoolEntryHelper entry;
-    CAmount basefee(2000);
-    CAmount deltaFee(100);
-    std::vector<CAmount> feeV;
+    Amount basefee(2000);
+    Amount deltaFee(100);
+    std::vector<Amount> feeV;
     feeV.reserve(10);
 
     // Populate vectors of increasing fees
@@ -115,7 +115,7 @@ BOOST_AUTO_TEST_CASE(BlockPolicyEstimates)
     // Wait for fee estimator to catch up
     m_node.validation_signals->SyncWithValidationInterfaceQueue();
 
-    std::vector<CAmount> origFeeEst;
+    std::vector<Amount> origFeeEst;
     // Highest feerate is 10*baseRate and gets in all blocks,
     // second highest feerate is 9*baseRate and gets in 9/10 blocks = 90%,
     // third highest feerate is 8*base rate, and gets in 8/10 blocks = 80%,

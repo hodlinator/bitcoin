@@ -477,7 +477,7 @@ CBlock TestChain100Setup::CreateAndProcessBlock(
     return block;
 }
 
-std::pair<CMutableTransaction, CAmount> TestChain100Setup::CreateValidTransaction(const std::vector<CTransactionRef>& input_transactions,
+std::pair<CMutableTransaction, Amount> TestChain100Setup::CreateValidTransaction(const std::vector<CTransactionRef>& input_transactions,
                                                                                   const std::vector<COutPoint>& inputs,
                                                                                   int input_height,
                                                                                   const std::vector<CKey>& input_signing_keys,
@@ -506,7 +506,7 @@ std::pair<CMutableTransaction, CAmount> TestChain100Setup::CreateValidTransactio
     }
     // Build Outpoint to Coin map for SignTransaction
     std::map<COutPoint, Coin> input_coins;
-    CAmount inputs_amount{0};
+    Amount inputs_amount{0};
     for (const auto& outpoint_to_spend : inputs) {
         // Use GetCoin to properly populate utxo_to_spend
         auto utxo_to_spend{coins_cache.GetCoin(outpoint_to_spend).value()};
@@ -517,16 +517,16 @@ std::pair<CMutableTransaction, CAmount> TestChain100Setup::CreateValidTransactio
     int nHashType = SIGHASH_ALL;
     std::map<int, bilingual_str> input_errors;
     assert(SignTransaction(mempool_txn, &keystore, input_coins, {.sighash_type = nHashType}, input_errors));
-    CAmount current_fee = inputs_amount - std::accumulate(outputs.begin(), outputs.end(), CAmount(0),
-        [](const CAmount& acc, const CTxOut& out) {
+    Amount current_fee = inputs_amount - std::accumulate(outputs.begin(), outputs.end(), Amount(0),
+        [](const Amount& acc, const CTxOut& out) {
         return acc + out.nValue;
     });
     // Deduct fees from fee_output to meet feerate if set
     if (feerate.has_value()) {
         assert(fee_output.has_value());
         assert(fee_output.value() < mempool_txn.vout.size());
-        CAmount target_fee = feerate.value().GetFee(GetVirtualTransactionSize(CTransaction{mempool_txn}));
-        CAmount deduction = target_fee - current_fee;
+        Amount target_fee = feerate.value().GetFee(GetVirtualTransactionSize(CTransaction{mempool_txn}));
+        Amount deduction = target_fee - current_fee;
         if (deduction > 0) {
             // Only deduct fee if there's anything to deduct. If the caller has put more fees than
             // the target feerate, don't change the fee.
@@ -562,7 +562,7 @@ CMutableTransaction TestChain100Setup::CreateValidMempoolTransaction(CTransactio
                                                                      int input_height,
                                                                      CKey input_signing_key,
                                                                      CScript output_destination,
-                                                                     CAmount output_amount,
+                                                                     Amount output_amount,
                                                                      bool submit)
 {
     COutPoint input{input_transaction->GetHash(), input_vout};
@@ -578,7 +578,7 @@ CMutableTransaction TestChain100Setup::CreateValidMempoolTransaction(CTransactio
 std::vector<CTransactionRef> TestChain100Setup::PopulateMempool(FastRandomContext& det_rand, size_t num_transactions, bool submit)
 {
     std::vector<CTransactionRef> mempool_transactions;
-    std::deque<std::pair<COutPoint, CAmount>> unspent_prevouts, undo_info;
+    std::deque<std::pair<COutPoint, Amount>> unspent_prevouts, undo_info;
     std::transform(m_coinbase_txns.begin(), m_coinbase_txns.end(), std::back_inserter(unspent_prevouts),
         [](const auto& tx){ return std::make_pair(COutPoint(tx->GetHash(), 0), tx->vout[0].nValue); });
     while (num_transactions > 0 && !unspent_prevouts.empty()) {
@@ -586,7 +586,7 @@ std::vector<CTransactionRef> TestChain100Setup::PopulateMempool(FastRandomContex
         // and 1-25 respectively.
         CMutableTransaction mtx = CMutableTransaction();
         const size_t num_inputs = det_rand.randrange(5) + 1;
-        CAmount total_in{0};
+        Amount total_in{0};
         for (size_t n{0}; n < num_inputs; ++n) {
             if (unspent_prevouts.empty()) break;
             const auto& [prevout, amount] = unspent_prevouts.front();
@@ -596,8 +596,8 @@ std::vector<CTransactionRef> TestChain100Setup::PopulateMempool(FastRandomContex
             unspent_prevouts.pop_front();
         }
         const size_t num_outputs = det_rand.randrange(25) + 1;
-        const CAmount fee = 100 * det_rand.randrange(30);
-        const CAmount amount_per_output = (total_in - fee) / num_outputs;
+        const Amount fee = 100 * det_rand.randrange(30);
+        const Amount amount_per_output = (total_in - fee) / num_outputs;
         for (size_t n{0}; n < num_outputs; ++n) {
             CScript spk = CScript() << CScriptNum(num_transactions + n);
             mtx.vout.emplace_back(amount_per_output, spk);

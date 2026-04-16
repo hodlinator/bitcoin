@@ -117,7 +117,7 @@ struct TxMempoolInfo
     std::chrono::seconds m_time;
 
     /** Fee of the transaction. */
-    CAmount fee;
+    Amount fee;
 
     /** Virtual size of the transaction. */
     int32_t vsize;
@@ -189,7 +189,7 @@ protected:
     std::atomic<unsigned int> nTransactionsUpdated{0}; //!< Used by getblocktemplate to trigger CreateNewBlock() invocation
 
     uint64_t totalTxSize GUARDED_BY(cs){0};      //!< sum of all mempool tx's virtual sizes. Differs from serialized tx size since witness data is discounted. Defined in BIP 141.
-    CAmount m_total_fee GUARDED_BY(cs){0};       //!< sum of all mempool tx's fees (NOT modified fee)
+    Amount m_total_fee GUARDED_BY(cs){0};       //!< sum of all mempool tx's fees (NOT modified fee)
     uint64_t cachedInnerUsage GUARDED_BY(cs){0}; //!< sum of dynamic memory usage of all the map elements (NOT the maps themselves)
 
     mutable int64_t lastRollingFeeUpdate GUARDED_BY(cs){GetTime()};
@@ -267,8 +267,8 @@ public:
 
     using Limits = kernel::MemPoolLimits;
 
-    std::tuple<size_t, size_t, CAmount> CalculateAncestorData(const CTxMemPoolEntry& entry) const EXCLUSIVE_LOCKS_REQUIRED(cs);
-    std::tuple<size_t, size_t, CAmount> CalculateDescendantData(const CTxMemPoolEntry& entry) const EXCLUSIVE_LOCKS_REQUIRED(cs);
+    std::tuple<size_t, size_t, Amount> CalculateAncestorData(const CTxMemPoolEntry& entry) const EXCLUSIVE_LOCKS_REQUIRED(cs);
+    std::tuple<size_t, size_t, Amount> CalculateDescendantData(const CTxMemPoolEntry& entry) const EXCLUSIVE_LOCKS_REQUIRED(cs);
     int64_t GetDescendantCount(txiter it) const { LOCK(cs); return m_txgraph->GetDescendants(*it, TxGraph::Level::MAIN).size(); }
     int64_t GetDescendantCount(const CTxMemPoolEntry &e) const { LOCK(cs); return m_txgraph->GetDescendants(e, TxGraph::Level::MAIN).size(); }
     int64_t GetAncestorCount(const CTxMemPoolEntry &e) const { LOCK(cs); return m_txgraph->GetAncestors(e, TxGraph::Level::MAIN).size(); }
@@ -294,7 +294,7 @@ private:
 
 public:
     indirectmap<COutPoint, txiter> mapNextTx GUARDED_BY(cs);
-    std::map<Txid, CAmount> mapDeltas GUARDED_BY(cs);
+    std::map<Txid, Amount> mapDeltas GUARDED_BY(cs);
 
     using Options = kernel::MemPoolOptions;
 
@@ -342,17 +342,17 @@ public:
     bool HasNoInputsOf(const CTransaction& tx) const EXCLUSIVE_LOCKS_REQUIRED(cs);
 
     /** Affect CreateNewBlock prioritisation of transactions */
-    void PrioritiseTransaction(const Txid& hash, const CAmount& nFeeDelta);
-    void ApplyDelta(const Txid& hash, CAmount &nFeeDelta) const EXCLUSIVE_LOCKS_REQUIRED(cs);
+    void PrioritiseTransaction(const Txid& hash, const Amount& nFeeDelta);
+    void ApplyDelta(const Txid& hash, Amount& nFeeDelta) const EXCLUSIVE_LOCKS_REQUIRED(cs);
     void ClearPrioritisation(const Txid& hash) EXCLUSIVE_LOCKS_REQUIRED(cs);
 
     struct delta_info {
         /** Whether this transaction is in the mempool. */
         const bool in_mempool;
         /** The fee delta added using PrioritiseTransaction(). */
-        const CAmount delta;
+        const Amount delta;
         /** The modified fee (base fee + delta) of this entry. Only present if in_mempool=true. */
-        std::optional<CAmount> modified_fee;
+        std::optional<Amount> modified_fee;
         /** The prioritised transaction's txid. */
         const Txid txid;
     };
@@ -466,7 +466,7 @@ public:
      * When ancestors is non-zero (ie, the transaction itself is in the mempool),
      * ancestorsize and ancestorfees will also be set to the appropriate values.
      */
-    void GetTransactionAncestry(const Txid& txid, size_t& ancestors, size_t& cluster_count, size_t* ancestorsize = nullptr, CAmount* ancestorfees = nullptr) const;
+    void GetTransactionAncestry(const Txid& txid, size_t& ancestors, size_t& cluster_count, size_t* ancestorsize = nullptr, Amount* ancestorfees = nullptr) const;
 
     /**
      * @returns true if an initial attempt to load the persisted mempool was made, regardless of
@@ -492,7 +492,7 @@ public:
         return totalTxSize;
     }
 
-    CAmount GetTotalFee() const EXCLUSIVE_LOCKS_REQUIRED(cs)
+    Amount GetTotalFee() const EXCLUSIVE_LOCKS_REQUIRED(cs)
     {
         AssertLockHeld(cs);
         return m_total_fee;
@@ -631,7 +631,7 @@ public:
 
         using TxHandle = CTxMemPool::txiter;
 
-        TxHandle StageAddition(const CTransactionRef& tx, CAmount fee, int64_t time, unsigned int entry_height, uint64_t entry_sequence, bool spends_coinbase, int64_t sigops_cost, LockPoints lp);
+        TxHandle StageAddition(const CTransactionRef& tx, Amount fee, int64_t time, unsigned int entry_height, uint64_t entry_sequence, bool spends_coinbase, int64_t sigops_cost, LockPoints lp);
 
         void StageRemoval(CTxMemPool::txiter it);
 

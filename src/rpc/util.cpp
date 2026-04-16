@@ -95,11 +95,11 @@ int ParseVerbosity(const UniValue& arg, int default_verbosity, bool allow_bool)
     return default_verbosity;
 }
 
-CAmount AmountFromValue(const UniValue& value, int decimals)
+Amount AmountFromValue(const UniValue& value, int decimals)
 {
     if (!value.isNum() && !value.isStr())
         throw JSONRPCError(RPC_TYPE_ERROR, "Amount is not a number or string");
-    std::optional<CAmount> amount{ParseFixedPoint(value.getValStr(), decimals)};
+    std::optional<Amount> amount{ParseFixedPoint(value.getValStr(), decimals)};
     if (!amount)
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount");
     if (!MoneyRange(*amount))
@@ -109,7 +109,7 @@ CAmount AmountFromValue(const UniValue& value, int decimals)
 
 CFeeRate ParseFeeRate(const UniValue& json)
 {
-    CAmount val{AmountFromValue(json)};
+    Amount val{AmountFromValue(json)};
     if (val >= COIN) throw JSONRPCError(RPC_INVALID_PARAMETER, "Fee rates larger than or equal to 1BTC/kvB are not accepted");
     return CFeeRate{val};
 }

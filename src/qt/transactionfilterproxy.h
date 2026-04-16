@@ -32,7 +32,7 @@ public:
       @note Type filter takes a bit field created with TYPE() or ALL_TYPES
      */
     void setTypeFilter(quint32 modes);
-    void setMinAmount(const CAmount& minimum);
+    void setMinAmount(const Amount& minimum);
 
     /** Set whether to show conflicted transactions. */
     void setShowInactive(bool showInactive);
@@ -45,7 +45,7 @@ private:
     std::optional<QDateTime> dateTo;
     QString m_search_string;
     quint32 typeFilter{ALL_TYPES};
-    CAmount minAmount{0};
+    Amount minAmount{0};
     bool showInactive{true};
 };
 

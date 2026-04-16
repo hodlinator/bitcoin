@@ -36,7 +36,7 @@ extern const std::function<std::vector<const char*>()> G_TEST_COMMAND_LINE_ARGUM
 /** Retrieve the unit test name. */
 extern const std::function<std::string()> G_TEST_GET_FULL_NAME;
 
-static constexpr CAmount CENT{1000000};
+static constexpr Amount CENT{1000000};
 
 /** Register common test args. Shared across binaries that rely on the test framework. */
 void SetupCommonTestArgs(ArgsManager& argsman);
@@ -170,7 +170,7 @@ struct TestChain100Setup : public TestingSetup {
     * @param fee_output           The index of the output to take the fee from.
     * @return The transaction and the fee it pays
     */
-    std::pair<CMutableTransaction, CAmount> CreateValidTransaction(const std::vector<CTransactionRef>& input_transactions,
+    std::pair<CMutableTransaction, Amount> CreateValidTransaction(const std::vector<CTransactionRef>& input_transactions,
                                                                    const std::vector<COutPoint>& inputs,
                                                                    int input_height,
                                                                    const std::vector<CKey>& input_signing_keys,
@@ -210,7 +210,7 @@ struct TestChain100Setup : public TestingSetup {
                                                       int input_height,
                                                       CKey input_signing_key,
                                                       CScript output_destination,
-                                                      CAmount output_amount = CAmount(1 * COIN),
+                                                      Amount output_amount = Amount(1 * COIN),
                                                       bool submit = true);
 
     /** Create transactions spending from m_coinbase_txns. These transactions will only spend coins

@@ -30,7 +30,7 @@
 #include <vector>
 
 namespace wallet {
-static void addCoin(const CAmount& nValue, std::vector<std::unique_ptr<CWalletTx>>& wtxs)
+static void addCoin(const Amount& nValue, std::vector<std::unique_ptr<CWalletTx>>& wtxs)
 {
     static int nextLockTime = 0;
     CMutableTransaction tx;
@@ -59,7 +59,7 @@ static void CoinSelection(benchmark::Bench& bench)
 
     // Generate coin amounts biased towards smaller amounts
     for (int i = 0; i < 400; ++i) {
-        CAmount amount;
+        Amount amount;
         int p{det_rand.randrange(100)};
         if (p < 50) {
             amount = 10'000 + det_rand.randrange(90'000);
@@ -93,14 +93,14 @@ static void CoinSelection(benchmark::Bench& bench)
             outtype = OutputType::BECH32M;
             input_bytes = 58;
         }
-        CAmount fees = 20 * input_bytes;
+        Amount fees = 20 * input_bytes;
         available_coins.coins[outtype].emplace_back(COutPoint(wtx->GetHash(), 0), txout, /*depth=*/6 * 24, /*input_bytes=*/input_bytes, /*solvable=*/true, /*safe=*/true, wtx->GetTxTime(), /*from_me=*/true, /*fees=*/fees);
     }
 
     const CoinEligibilityFilter filter_standard(/*conf_mine=*/1, /*conf_theirs=*/6, /*max_ancestors=*/0);
 
     constexpr size_t NUM_TARGETS{10};
-    std::vector<CAmount> targets;
+    std::vector<Amount> targets;
     targets.reserve(NUM_TARGETS);
     for (size_t i{0}; i < NUM_TARGETS; ++i) {
         targets.push_back(10'000'000 + det_rand.randrange(90'000'000));
@@ -137,7 +137,7 @@ static void CoinSelection(benchmark::Bench& bench)
         });
 }
 
-static void add_coin(const CAmount& nValue, uint32_t nInput, std::vector<OutputGroup>& set)
+static void add_coin(const Amount& nValue, uint32_t nInput, std::vector<OutputGroup>& set)
 {
     CMutableTransaction tx;
     tx.vout.resize(nInput + 1);
@@ -147,14 +147,14 @@ static void add_coin(const CAmount& nValue, uint32_t nInput, std::vector<OutputG
     set.back().Insert(std::make_shared<COutput>(output), /*ancestors=*/0, /*cluster_count=*/0);
 }
 
-static CAmount make_hard_case(int utxos, std::vector<OutputGroup>& utxo_pool)
+static Amount make_hard_case(int utxos, std::vector<OutputGroup>& utxo_pool)
 {
     utxo_pool.clear();
-    CAmount target = 0;
+    Amount target{0};
     for (int i = 0; i < utxos; ++i) {
-        target += CAmount{1} << (utxos+i);
-        add_coin(CAmount{1} << (utxos+i), 2*i, utxo_pool);
-        add_coin((CAmount{1} << (utxos+i)) + (CAmount{1} << (utxos-1-i)), 2*i + 1, utxo_pool);
+        target += Amount{1} << (utxos+i);
+        add_coin(Amount{1} << (utxos+i), 2*i, utxo_pool);
+        add_coin((Amount{1} << (utxos+i)) + (Amount{1} << (utxos-1-i)), 2*i + 1, utxo_pool);
     }
     return target;
 }
@@ -162,7 +162,7 @@ static CAmount make_hard_case(int utxos, std::vector<OutputGroup>& utxo_pool)
 static void BnBExhaustion(benchmark::Bench& bench)
 {
     std::vector<OutputGroup> utxo_pool;
-    CAmount target;
+    Amount target;
     bench.setup([&] { target = make_hard_case(17, utxo_pool); })
         .run([&] {
             auto res{SelectCoinsBnB(utxo_pool, target, /*cost_of_change=*/0, MAX_STANDARD_TX_WEIGHT)}; // Should exhaust

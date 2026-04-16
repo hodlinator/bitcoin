@@ -32,9 +32,9 @@ extern std::atomic<bool> g_seeded_g_prng_zero;
 extern std::atomic<bool> g_used_g_prng;
 
 template <RandomNumberGenerator Rng>
-inline CAmount RandMoney(Rng&& rng)
+inline Amount RandMoney(Rng&& rng)
 {
-    return CAmount{rng.randrange(MAX_MONEY + 1)};
+    return Amount{rng.randrange(MAX_MONEY + 1)};
 }
 
 #endif // BITCOIN_TEST_UTIL_RANDOM_H

@@ -18,7 +18,7 @@
 
 
 namespace wallet {
-static CAmount GetReceived(const CWallet& wallet, const UniValue& params, bool by_label) EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet)
+static Amount GetReceived(const CWallet& wallet, const UniValue& params, bool by_label) EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet)
 {
     std::vector<CTxDestination> addresses;
     if (by_label) {
@@ -55,7 +55,7 @@ static CAmount GetReceived(const CWallet& wallet, const UniValue& params, bool b
     const bool include_immature_coinbase{params[2].isNull() ? false : params[2].get_bool()};
 
     // Tally
-    CAmount amount = 0;
+    Amount amount{0};
     for (const auto& [_, wtx] : wallet.mapWallet) {
         int depth{wallet.GetTxDepthInMainChain(wtx)};
         if (depth < min_depth
@@ -664,7 +664,7 @@ RPCMethod listunspent()
         entry.pushKV("confirmations", out.depth);
         if (!out.depth) {
             size_t ancestor_count, unused_cluster_count, ancestor_size;
-            CAmount ancestor_fees;
+            Amount ancestor_fees;
             pwallet->chain().getTransactionAncestry(out.outpoint.hash, ancestor_count, unused_cluster_count, &ancestor_size, &ancestor_fees);
             if (ancestor_count) {
                 entry.pushKV("ancestorcount", ancestor_count);

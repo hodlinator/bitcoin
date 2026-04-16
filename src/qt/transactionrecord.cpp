@@ -28,9 +28,9 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
 {
     QList<TransactionRecord> parts;
     int64_t nTime = wtx.time;
-    CAmount nCredit = wtx.credit;
-    CAmount nDebit = wtx.debit;
-    CAmount nNet = nCredit - nDebit;
+    Amount nCredit = wtx.credit;
+    Amount nDebit = wtx.debit;
+    Amount nNet = nCredit - nDebit;
     Txid hash = wtx.tx->GetHash();
     std::map<std::string, std::string> mapValue = wtx.value_map;
 
@@ -47,7 +47,7 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
     }
 
     if (all_from_me || !any_from_me) {
-        CAmount nTxFee = nDebit - wtx.tx->GetValueOut();
+        Amount nTxFee = nDebit - wtx.tx->GetValueOut();
 
         for(unsigned int i = 0; i < wtx.tx->vout.size(); i++)
         {
@@ -80,7 +80,7 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
                     sub.address = mapValue["to"];
                 }
 
-                CAmount nValue = txout.nValue;
+                Amount nValue = txout.nValue;
                 /* Add fee to first output */
                 if (nTxFee > 0)
                 {

@@ -31,17 +31,17 @@ public:
 
     unsigned int getTransactionSize();
 
-    void setTransactionFee(const CAmount& newFee);
-    CAmount getTransactionFee() const;
+    void setTransactionFee(const Amount& newFee);
+    Amount getTransactionFee() const;
 
-    CAmount getTotalTransactionAmount() const;
+    Amount getTotalTransactionAmount() const;
 
     void reassignAmounts(int nChangePosRet); // needed for the subtract-fee-from-amount feature
 
 private:
     QList<SendCoinsRecipient> recipients;
     CTransactionRef wtx;
-    CAmount fee{0};
+    Amount fee{0};
 };
 
 #endif // BITCOIN_QT_WALLETMODELTRANSACTION_H

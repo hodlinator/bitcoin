@@ -32,7 +32,7 @@ using common::TransactionErrorString;
 using node::TransactionError;
 
 namespace wallet {
-std::vector<CRecipient> CreateRecipients(const std::vector<std::pair<CTxDestination, CAmount>>& outputs, const std::set<int>& subtract_fee_outputs)
+std::vector<CRecipient> CreateRecipients(const std::vector<std::pair<CTxDestination, Amount>>& outputs, const std::set<int>& subtract_fee_outputs)
 {
     std::vector<CRecipient> recipients;
     for (size_t i = 0; i < outputs.size(); ++i) {
@@ -809,7 +809,7 @@ RPCMethod fundrawtransaction()
         throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "TX decode failed");
     }
     UniValue options = request.params[1];
-    std::vector<std::pair<CTxDestination, CAmount>> destinations;
+    std::vector<std::pair<CTxDestination, Amount>> destinations;
     for (const auto& tx_out : tx.vout) {
         CTxDestination dest;
         ExtractDestination(tx_out.scriptPubKey, dest);
@@ -1108,8 +1108,8 @@ static RPCMethod bumpfee_helper(std::string method_name)
 
 
     std::vector<bilingual_str> errors;
-    CAmount old_fee;
-    CAmount new_fee;
+    Amount old_fee;
+    Amount new_fee;
     CMutableTransaction mtx;
     // Targeting feerate bump.
     [&](){
@@ -1463,7 +1463,7 @@ RPCMethod sendall()
             CMutableTransaction rawTx{ConstructTransaction(options["inputs"], recipient_key_value_pairs, options["locktime"], rbf, coin_control.m_version)};
             LOCK(pwallet->cs_wallet);
 
-            CAmount total_input_value(0);
+            Amount total_input_value(0);
             bool send_max{options.exists("send_max") ? options["send_max"].get_bool() : false};
             if (options.exists("inputs") && options.exists("send_max")) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot combine send_max with specific inputs.");
@@ -1516,9 +1516,9 @@ RPCMethod sendall()
             if (tx_size.vsize == -1) {
                 throw JSONRPCError(RPC_WALLET_ERROR, "Unable to determine the size of the transaction, the wallet contains unsolvable descriptors");
             }
-            const CAmount fee_from_size{fee_rate.GetFee(tx_size.vsize)};
-            const std::optional<CAmount> total_bump_fees{pwallet->chain().calculateCombinedBumpFee(outpoints_spent, fee_rate)};
-            CAmount effective_value = total_input_value - fee_from_size - total_bump_fees.value_or(0);
+            const Amount fee_from_size{fee_rate.GetFee(tx_size.vsize)};
+            const std::optional<Amount> total_bump_fees{pwallet->chain().calculateCombinedBumpFee(outpoints_spent, fee_rate)};
+            Amount effective_value = total_input_value - fee_from_size - total_bump_fees.value_or(0);
 
             if (fee_from_size > pwallet->m_default_max_tx_fee) {
                 throw JSONRPCError(RPC_WALLET_ERROR, TransactionErrorString(TransactionError::MAX_FEE_EXCEEDED).original);
@@ -1537,7 +1537,7 @@ RPCMethod sendall()
                 throw JSONRPCError(RPC_WALLET_ERROR, "Transaction too large.");
             }
 
-            CAmount output_amounts_claimed{0};
+            Amount output_amounts_claimed{0};
             for (const CTxOut& out : rawTx.vout) {
                 output_amounts_claimed += out.nValue;
             }
@@ -1546,12 +1546,12 @@ RPCMethod sendall()
                 throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Assigned more value to outputs than available funds.");
             }
 
-            const CAmount remainder{effective_value - output_amounts_claimed};
+            const Amount remainder{effective_value - output_amounts_claimed};
             if (remainder < 0) {
                 throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Insufficient funds for fees after creating specified outputs.");
             }
 
-            const CAmount per_output_without_amount{remainder / (long)addresses_without_amount.size()};
+            const Amount per_output_without_amount{remainder / (long)addresses_without_amount.size()};
 
             bool gave_remaining_to_first{false};
             for (CTxOut& out : rawTx.vout) {

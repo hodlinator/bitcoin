@@ -47,15 +47,15 @@ struct DBVal {
     uint256 muhash{uint256::ZERO};
     uint64_t transaction_output_count{0};
     uint64_t bogo_size{0};
-    CAmount total_amount{0};
-    CAmount total_subsidy{0};
+    Amount total_amount{0};
+    Amount total_subsidy{0};
     arith_uint256 total_prevout_spent_amount{0};
     arith_uint256 total_new_outputs_ex_coinbase_amount{0};
     arith_uint256 total_coinbase_amount{0};
-    CAmount total_unspendables_genesis_block{0};
-    CAmount total_unspendables_bip30{0};
-    CAmount total_unspendables_scripts{0};
-    CAmount total_unspendables_unclaimed_rewards{0};
+    Amount total_unspendables_genesis_block{0};
+    Amount total_unspendables_bip30{0};
+    Amount total_unspendables_scripts{0};
+    Amount total_unspendables_unclaimed_rewards{0};
 
     SERIALIZE_METHODS(DBVal, obj)
     {
@@ -107,7 +107,7 @@ CoinStatsIndex::CoinStatsIndex(std::unique_ptr<interfaces::Chain> chain, size_t 
 
 bool CoinStatsIndex::CustomAppend(const interfaces::BlockInfo& block)
 {
-    const CAmount block_subsidy{GetBlockSubsidy(block.height, Params().GetConsensus())};
+    const Amount block_subsidy{GetBlockSubsidy(block.height, Params().GetConsensus())};
     m_total_subsidy += block_subsidy;
 
     // Ignore genesis block
@@ -182,10 +182,10 @@ bool CoinStatsIndex::CustomAppend(const interfaces::BlockInfo& block)
     // new outputs + coinbase + current unspendable amount this means
     // the miner did not claim the full block reward. Unclaimed block
     // rewards are also unspendable.
-    const CAmount temp_total_unspendable_amount{m_total_unspendables_genesis_block + m_total_unspendables_bip30 + m_total_unspendables_scripts + m_total_unspendables_unclaimed_rewards};
+    const Amount temp_total_unspendable_amount{m_total_unspendables_genesis_block + m_total_unspendables_bip30 + m_total_unspendables_scripts + m_total_unspendables_unclaimed_rewards};
     const arith_uint256 unclaimed_rewards{(m_total_prevout_spent_amount + m_total_subsidy) - (m_total_new_outputs_ex_coinbase_amount + m_total_coinbase_amount + temp_total_unspendable_amount)};
-    assert(unclaimed_rewards <= arith_uint256(std::numeric_limits<CAmount>::max()));
-    m_total_unspendables_unclaimed_rewards += static_cast<CAmount>(unclaimed_rewards.GetLow64());
+    assert(unclaimed_rewards <= arith_uint256(std::numeric_limits<Amount>::max()));
+    m_total_unspendables_unclaimed_rewards += static_cast<Amount>(unclaimed_rewards.GetLow64());
 
     std::pair<uint256, DBVal> value;
     value.first = block.hash;

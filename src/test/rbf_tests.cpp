@@ -17,7 +17,7 @@
 BOOST_FIXTURE_TEST_SUITE(rbf_tests, BasicTestingSetup)
 
 static inline CTransactionRef make_tx(const std::vector<CTransactionRef>& inputs,
-                                      const std::vector<CAmount>& output_values)
+                                      const std::vector<Amount>& output_values)
 {
     CMutableTransaction tx = CMutableTransaction();
     tx.vin.resize(inputs.size());
@@ -61,9 +61,9 @@ BOOST_FIXTURE_TEST_CASE(rbf_helper_functions, TestChain100Setup)
     LOCK2(::cs_main, pool.cs);
     TestMemPoolEntryHelper entry;
 
-    const CAmount low_fee{CENT/100};
-    const CAmount normal_fee{CENT/10};
-    const CAmount high_fee{CENT};
+    const Amount low_fee{CENT/100};
+    const Amount normal_fee{CENT/10};
+    const Amount high_fee{CENT};
 
     // Create a parent tx1 and child tx2 with normal fees:
     const auto tx1 = make_tx(/*inputs=*/ {m_coinbase_txns[0]}, /*output_values=*/ {10 * COIN});
@@ -167,11 +167,11 @@ BOOST_FIXTURE_TEST_CASE(rbf_conflicts_calculator, TestChain100Setup)
     LOCK2(::cs_main, pool.cs);
     TestMemPoolEntryHelper entry;
 
-    const CAmount normal_fee{CENT/10};
+    const Amount normal_fee{CENT/10};
 
     // Create two parent transactions with 51 outputs each
     const int NUM_OUTPUTS = 51;
-    std::vector<CAmount> output_values;
+    std::vector<Amount> output_values;
     output_values.reserve(NUM_OUTPUTS);
     for (int i = 0; i < NUM_OUTPUTS; ++i) {
         output_values.push_back(1 * COIN);
@@ -252,8 +252,8 @@ BOOST_FIXTURE_TEST_CASE(improves_feerate, TestChain100Setup)
     LOCK2(::cs_main, pool.cs);
     TestMemPoolEntryHelper entry;
 
-    const CAmount low_fee{CENT/100};
-    const CAmount normal_fee{CENT/10};
+    const Amount low_fee{CENT/100};
+    const Amount normal_fee{CENT/10};
 
     // low feerate parent with normal feerate child
     const auto tx1 = make_tx(/*inputs=*/ {m_coinbase_txns[0], m_coinbase_txns[1]}, /*output_values=*/ {10 * COIN});
@@ -342,8 +342,8 @@ BOOST_FIXTURE_TEST_CASE(calc_feerate_diagram_rbf, TestChain100Setup)
     LOCK2(::cs_main, pool.cs);
     TestMemPoolEntryHelper entry;
 
-    const CAmount low_fee{CENT/100};
-    const CAmount high_fee{CENT};
+    const Amount low_fee{CENT/100};
+    const Amount high_fee{CENT};
 
     // low -> high -> medium fee transactions that would result in two chunks together since they
     // are all same size

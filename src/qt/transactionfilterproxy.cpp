@@ -96,7 +96,7 @@ void TransactionFilterProxy::setTypeFilter(quint32 modes)
 #endif
 }
 
-void TransactionFilterProxy::setMinAmount(const CAmount& minimum)
+void TransactionFilterProxy::setMinAmount(const Amount& minimum)
 {
 #if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
     beginFilterChange();

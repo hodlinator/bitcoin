@@ -167,8 +167,8 @@ public:
     virtual bool createBumpTransaction(const Txid& txid,
         const wallet::CCoinControl& coin_control,
         std::vector<bilingual_str>& errors,
-        CAmount& old_fee,
-        CAmount& new_fee,
+        Amount& old_fee,
+        Amount& new_fee,
         CMutableTransaction& mtx) = 0;
 
     //! Sign bump transaction.
@@ -215,10 +215,10 @@ public:
     virtual bool tryGetBalances(WalletBalances& balances, uint256& block_hash) = 0;
 
     //! Get balance.
-    virtual CAmount getBalance() = 0;
+    virtual Amount getBalance() = 0;
 
     //! Get available balance.
-    virtual CAmount getAvailableBalance(const wallet::CCoinControl& coin_control) = 0;
+    virtual Amount getAvailableBalance(const wallet::CCoinControl& coin_control) = 0;
 
     //! Return whether transaction input belongs to wallet.
     virtual bool txinIsMine(const CTxIn& txin) = 0;
@@ -227,10 +227,10 @@ public:
     virtual bool txoutIsMine(const CTxOut& txout) = 0;
 
     //! Return debit amount if transaction input belongs to wallet.
-    virtual CAmount getDebit(const CTxIn& txin) = 0;
+    virtual Amount getDebit(const CTxIn& txin) = 0;
 
     //! Return credit amount if transaction input belongs to wallet.
-    virtual CAmount getCredit(const CTxOut& txout) = 0;
+    virtual Amount getCredit(const CTxOut& txout) = 0;
 
     //! Return AvailableCoins + LockedCoins grouped by wallet address.
     //! (put change in one group with wallet address)
@@ -241,10 +241,10 @@ public:
     virtual std::vector<WalletTxOut> getCoins(const std::vector<COutPoint>& outputs) = 0;
 
     //! Get required fee.
-    virtual CAmount getRequiredFee(unsigned int tx_bytes) = 0;
+    virtual Amount getRequiredFee(unsigned int tx_bytes) = 0;
 
     //! Get minimum fee.
-    virtual CAmount getMinimumFee(unsigned int tx_bytes,
+    virtual Amount getMinimumFee(unsigned int tx_bytes,
         const wallet::CCoinControl& coin_control,
         int* returned_target,
         FeeReason* reason) = 0;
@@ -271,7 +271,7 @@ public:
     virtual OutputType getDefaultAddressType() = 0;
 
     //! Get max tx fee.
-    virtual CAmount getDefaultMaxTxFee() = 0;
+    virtual Amount getDefaultMaxTxFee() = 0;
 
     // Remove wallet.
     virtual void remove() = 0;
@@ -365,11 +365,11 @@ struct WalletAddress
 //! Collection of wallet balances.
 struct WalletBalances
 {
-    CAmount balance = 0;
-    CAmount unconfirmed_balance = 0;
-    CAmount immature_balance = 0;
-    CAmount used_balance = 0;
-    CAmount nonmempool_balance = 0;
+    Amount balance{0};
+    Amount unconfirmed_balance{0};
+    Amount immature_balance{0};
+    Amount used_balance{0};
+    Amount nonmempool_balance{0};
 
     bool balanceChanged(const WalletBalances& prev) const
     {
@@ -388,9 +388,9 @@ struct WalletTx
     std::vector<bool> txout_is_change;
     std::vector<CTxDestination> txout_address;
     std::vector<bool> txout_address_is_mine;
-    CAmount credit;
-    CAmount debit;
-    CAmount change;
+    Amount credit;
+    Amount debit;
+    Amount change;
     int64_t time;
     std::map<std::string, std::string> value_map;
     bool is_coinbase;

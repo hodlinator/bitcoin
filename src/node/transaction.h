@@ -31,7 +31,7 @@ static const CFeeRate DEFAULT_MAX_RAW_TX_FEE_RATE{COIN / 10};
  * By default, a transaction with a burn value higher than this will be rejected
  * by these RPCs and the GUI. This can be overridden with the maxburnamount argument.
  */
-static const CAmount DEFAULT_MAX_BURN_AMOUNT{0};
+constexpr Amount DEFAULT_MAX_BURN_AMOUNT{0};
 
 /**
  * Submit a transaction to the mempool and (optionally) relay it to all P2P peers.
@@ -53,7 +53,7 @@ static const CAmount DEFAULT_MAX_BURN_AMOUNT{0};
 [[nodiscard]] TransactionError BroadcastTransaction(NodeContext& node,
                                                     CTransactionRef tx,
                                                     std::string& err_string,
-                                                    const CAmount& max_tx_fee,
+                                                    const Amount& max_tx_fee,
                                                     TxBroadcast broadcast_method,
                                                     bool wait_callback);
 

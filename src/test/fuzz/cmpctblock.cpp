@@ -61,9 +61,9 @@ namespace {
 TestingSetup* g_setup;
 
 //! Fee each created tx will pay.
-const CAmount AMOUNT_FEE{1000};
+const Amount AMOUNT_FEE{1000};
 //! Cached coinbases that each iteration can copy and use.
-std::vector<std::pair<COutPoint, CAmount>> g_mature_coinbase;
+std::vector<std::pair<COutPoint, Amount>> g_mature_coinbase;
 //! Constant value used to create valid headers.
 uint32_t g_nBits;
 //! One for each block the fuzzer generates.
@@ -129,7 +129,7 @@ void ResetChainmanAndMempool(TestingSetup& setup)
         COutPoint prevout{MineBlock(setup.m_node, options)};
         if (i < COINBASE_MATURITY) {
             LOCK(cs_main);
-            CAmount subsidy{setup.m_node.chainman->ActiveChainstate().CoinsTip().GetCoin(prevout)->out.nValue};
+            Amount subsidy{setup.m_node.chainman->ActiveChainstate().CoinsTip().GetCoin(prevout)->out.nValue};
             g_mature_coinbase.emplace_back(prevout, subsidy);
         }
     }
@@ -199,7 +199,7 @@ FUZZ_TARGET(cmpctblock, .init = initialize_cmpctblock)
     std::vector<BlockInfo> info;
 
     // Coinbase UTXOs for this iteration.
-    std::vector<std::pair<COutPoint, CAmount>> mature_coinbase = g_mature_coinbase;
+    std::vector<std::pair<COutPoint, Amount>> mature_coinbase = g_mature_coinbase;
 
     const uint64_t initial_sequence{WITH_LOCK(mempool.cs, return mempool.GetSequence())};
 
@@ -209,7 +209,7 @@ FUZZ_TARGET(cmpctblock, .init = initialize_cmpctblock)
         tx_mut.nLockTime = fuzzed_data_provider.ConsumeBool() ? 0 : fuzzed_data_provider.ConsumeIntegral<uint32_t>();
 
         // Choose an outpoint from the mempool, created blocks, or coinbases.
-        CAmount amount_in;
+        Amount amount_in;
         COutPoint outpoint;
         unsigned long mempool_size = mempool.size();
         if (mempool_size != 0 && fuzzed_data_provider.ConsumeBool()) {
@@ -243,7 +243,7 @@ FUZZ_TARGET(cmpctblock, .init = initialize_cmpctblock)
         in.scriptWitness.stack = script_wit_stack;
         tx_mut.vin.push_back(in);
 
-        const CAmount amount_out = amount_in - AMOUNT_FEE;
+        const Amount amount_out = amount_in - AMOUNT_FEE;
         tx_mut.vout.emplace_back(amount_out, P2WSH_OP_TRUE);
 
         auto tx = MakeTransactionRef(tx_mut);

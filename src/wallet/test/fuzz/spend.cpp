@@ -38,7 +38,7 @@ FUZZ_TARGET(wallet_create_transaction, .init = initialize_setup)
     const auto& node = g_setup->m_node;
     Chainstate& chainstate{node.chainman->ActiveChainstate()};
     ArgsManager& args = *node.args;
-    args.ForceSetArg("-dustrelayfee", ToString(fuzzed_data_provider.ConsumeIntegralInRange<CAmount>(0, MAX_MONEY)));
+    args.ForceSetArg("-dustrelayfee", ToString(fuzzed_data_provider.ConsumeIntegralInRange<Amount>(0, MAX_MONEY)));
     FuzzedWallet fuzzed_wallet{
         *g_setup->m_node.chain,
         "fuzzed_wallet_a",
@@ -58,13 +58,13 @@ FUZZ_TARGET(wallet_create_transaction, .init = initialize_setup)
     coin_control.fOverrideFeeRate = fuzzed_data_provider.ConsumeBool();
 
     int next_locktime{0};
-    CAmount all_values{0};
+    Amount all_values{0};
     LIMITED_WHILE(fuzzed_data_provider.ConsumeBool(), 10000)
     {
         CMutableTransaction tx;
         tx.nLockTime = next_locktime++;
         tx.vout.resize(1);
-        CAmount n_value{ConsumeMoney(fuzzed_data_provider)};
+        Amount n_value{ConsumeMoney(fuzzed_data_provider)};
         all_values += n_value;
         if (all_values > MAX_MONEY) return;
         tx.vout[0].nValue = n_value;

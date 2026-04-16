@@ -152,7 +152,7 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
 {
     transaction.getWtx() = nullptr; // reset tx output
 
-    CAmount total = 0;
+    Amount total{0};
     bool fSubtractFeeFromAmount = false;
     QList<SendCoinsRecipient> recipients = transaction.getRecipients();
     std::vector<CRecipient> vecSend;
@@ -194,7 +194,7 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
 
     // If no coin was manually selected, use the cached balance
     // Future: can merge this call with 'createTransaction'.
-    CAmount nBalance = getAvailableBalance(&coinControl);
+    Amount nBalance = getAvailableBalance(&coinControl);
 
     if(total > nBalance)
     {
@@ -211,7 +211,7 @@ WalletModel::SendCoinsReturn WalletModel::prepareTransaction(WalletModelTransact
         }
 
         newTx = res->tx;
-        CAmount nFeeRequired = res->fee;
+        Amount nFeeRequired = res->fee;
         transaction.setTransactionFee(nFeeRequired);
         if (fSubtractFeeFromAmount && newTx) {
             transaction.reassignAmounts(static_cast<int>(res->change_pos.value_or(-1)));
@@ -465,8 +465,8 @@ bool WalletModel::bumpFee(Txid hash, Txid& new_hash)
 {
     CCoinControl coin_control;
     std::vector<bilingual_str> errors;
-    CAmount old_fee;
-    CAmount new_fee;
+    Amount old_fee;
+    Amount new_fee;
     CMutableTransaction mtx;
     if (!m_wallet->createBumpTransaction(hash, coin_control, errors, old_fee, new_fee, mtx)) {
         QMessageBox::critical(nullptr, tr("Fee bump error"), tr("Increasing transaction fee failed") + "<br />(" +
@@ -593,7 +593,7 @@ uint256 WalletModel::getLastBlockProcessed() const
     return m_client_model ? m_client_model->getBestBlockHash() : uint256{};
 }
 
-CAmount WalletModel::getAvailableBalance(const CCoinControl* control)
+Amount WalletModel::getAvailableBalance(const CCoinControl* control)
 {
     // No selected coins, return the cached balance
     if (!control || !control->HasSelected()) {

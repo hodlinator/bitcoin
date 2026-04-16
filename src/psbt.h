@@ -953,7 +953,7 @@ public:
     std::map<std::vector<unsigned char>, std::vector<unsigned char>> unknown;
     std::set<PSBTProprietary> m_proprietary;
 
-    CAmount amount;
+    Amount amount;
     CScript script;
 
     bool IsNull() const;
@@ -962,7 +962,7 @@ public:
     [[nodiscard]] bool Merge(const PSBTOutput& output);
     uint32_t GetVersion() const { return m_psbt_version; }
 
-    explicit PSBTOutput(uint32_t psbt_version, CAmount amount, const CScript& script)
+    explicit PSBTOutput(uint32_t psbt_version, Amount amount, const CScript& script)
         : m_psbt_version(psbt_version),
         amount(amount),
         script(script)

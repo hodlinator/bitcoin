@@ -31,7 +31,7 @@ bool DecompressScript(CScript& script, unsigned int nSize, const CompressedScrip
  * Compress amount.
  *
  * nAmount is of type uint64_t and thus cannot be negative. If you're passing in
- * a CAmount (int64_t), make sure to properly handle the case where the amount
+ * a Amount (int64_t), make sure to properly handle the case where the amount
  * is negative before calling CompressAmount(...).
  *
  * @pre Function defined only for 0 <= nAmount <= MAX_MONEY.

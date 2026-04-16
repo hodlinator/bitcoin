@@ -89,7 +89,7 @@ static RPCMethod sendrawtransaction()
                 },
         [](const RPCMethod& self, const JSONRPCRequest& request) -> UniValue
         {
-            const CAmount max_burn_amount = request.params[2].isNull() ? 0 : AmountFromValue(request.params[2]);
+            const Amount max_burn_amount = request.params[2].isNull() ? 0 : AmountFromValue(request.params[2]);
 
             CMutableTransaction mtx;
             if (!DecodeHexTx(mtx, request.params[0].get_str())) {
@@ -107,7 +107,7 @@ static RPCMethod sendrawtransaction()
             const CFeeRate max_raw_tx_fee_rate{ParseFeeRate(self.Arg<UniValue>("maxfeerate"))};
 
             int64_t virtual_size = GetVirtualTransactionSize(*tx);
-            CAmount max_raw_tx_fee = max_raw_tx_fee_rate.GetFee(virtual_size);
+            Amount max_raw_tx_fee = max_raw_tx_fee_rate.GetFee(virtual_size);
 
             std::string err_string;
             AssertLockNotHeld(cs_main);
@@ -382,10 +382,10 @@ static RPCMethod testmempoolaccept()
                 // Package testmempoolaccept doesn't allow transactions to already be in the mempool.
                 CHECK_NONFATAL(tx_result.m_result_type != MempoolAcceptResult::ResultType::MEMPOOL_ENTRY);
                 if (tx_result.m_result_type == MempoolAcceptResult::ResultType::VALID) {
-                    const CAmount fee = tx_result.m_base_fees.value();
+                    const Amount fee = tx_result.m_base_fees.value();
                     // Check that fee does not exceed maximum fee
                     const int64_t virtual_size = tx_result.m_vsize.value();
-                    const CAmount max_raw_tx_fee = max_raw_tx_fee_rate.GetFee(virtual_size);
+                    const Amount max_raw_tx_fee = max_raw_tx_fee_rate.GetFee(virtual_size);
                     if (max_raw_tx_fee && fee > max_raw_tx_fee) {
                         result_inner.pushKV("allowed", false);
                         result_inner.pushKV("reject-reason", "max-fee-exceeded");
@@ -1396,7 +1396,7 @@ static RPCMethod submitpackage()
             }
 
             // Burn sanity check is run with no context
-            const CAmount max_burn_amount = request.params[2].isNull() ? 0 : AmountFromValue(request.params[2]);
+            const Amount max_burn_amount = request.params[2].isNull() ? 0 : AmountFromValue(request.params[2]);
 
             std::vector<CTransactionRef> txns;
             txns.reserve(raw_transactions.size());

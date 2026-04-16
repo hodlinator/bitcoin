@@ -37,7 +37,7 @@ public:
     virtual CBlock getBlock() = 0;
 
     // Fees per transaction, not including coinbase transaction.
-    virtual std::vector<CAmount> getTxFees() = 0;
+    virtual std::vector<Amount> getTxFees() = 0;
     // Sigop cost per transaction, not including coinbase transaction.
     virtual std::vector<int64_t> getTxSigops() = 0;
 

@@ -15,7 +15,7 @@ class CCoinsViewCache;
 
 // create crediting transaction
 // [1 coinbase input => 1 output with given scriptPubkey and value]
-CMutableTransaction BuildCreditingTransaction(const CScript& scriptPubKey, CAmount nValue = 0);
+CMutableTransaction BuildCreditingTransaction(const CScript& scriptPubKey, Amount nValue = 0);
 
 // create spending transaction
 // [1 input with referenced transaction outpoint, scriptSig, scriptWitness =>
@@ -25,7 +25,7 @@ CMutableTransaction BuildSpendingTransaction(const CScript& scriptSig, const CSc
 // Helper: create two dummy transactions, each with two outputs.
 // The first has nValues[0] and nValues[1] outputs paid to a TxoutType::PUBKEY,
 // the second nValues[2] and nValues[3] outputs paid to a TxoutType::PUBKEYHASH.
-std::vector<CMutableTransaction> SetupDummyInputs(FillableSigningProvider& keystoreRet, CCoinsViewCache& coinsRet, const std::array<CAmount,4>& nValues);
+std::vector<CMutableTransaction> SetupDummyInputs(FillableSigningProvider& keystoreRet, CCoinsViewCache& coinsRet, const std::array<Amount,4>& nValues);
 
 // bulk transaction to reach a certain target weight,
 // by appending a single output with padded output script
@@ -46,7 +46,7 @@ void BulkTransaction(CMutableTransaction& tx, int32_t target_weight);
  * @return           True if the produced script is entirely satisfying `fromPubKey`.
  **/
 bool SignSignature(const SigningProvider &provider, const CScript& fromPubKey, CMutableTransaction& txTo,
-                   unsigned int nIn, const CAmount& amount, int nHashType, SignatureData& sig_data);
+                   unsigned int nIn, const Amount& amount, int nHashType, SignatureData& sig_data);
 bool SignSignature(const SigningProvider &provider, const CTransaction& txFrom, CMutableTransaction& txTo,
                    unsigned int nIn, int nHashType, SignatureData& sig_data);
 

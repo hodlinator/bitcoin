@@ -96,7 +96,7 @@ bool LoadMempool(CTxMemPool& pool, const fs::path& load_path, Chainstate& active
                 nTime = TicksSinceEpoch<std::chrono::seconds>(now);
             }
 
-            CAmount amountdelta = nFeeDelta;
+            Amount amountdelta{nFeeDelta};
             if (amountdelta && opts.apply_fee_delta_priority) {
                 pool.PrioritiseTransaction(tx->GetHash(), amountdelta);
             }
@@ -122,7 +122,7 @@ bool LoadMempool(CTxMemPool& pool, const fs::path& load_path, Chainstate& active
             if (active_chainstate.m_chainman.m_interrupt)
                 return false;
         }
-        std::map<Txid, CAmount> mapDeltas;
+        std::map<Txid, Amount> mapDeltas;
         file >> mapDeltas;
 
         if (opts.apply_fee_delta_priority) {
@@ -154,7 +154,7 @@ bool DumpMempool(const CTxMemPool& pool, const fs::path& dump_path, FopenFn mock
 {
     auto start = SteadyClock::now();
 
-    std::map<Txid, CAmount> mapDeltas;
+    std::map<Txid, Amount> mapDeltas;
     std::vector<TxMempoolInfo> vinfo;
     std::set<Txid> unbroadcast_txids;
 

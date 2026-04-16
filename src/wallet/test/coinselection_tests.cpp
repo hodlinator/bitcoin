@@ -60,12 +60,12 @@ static CoinSelectionParams init_cs_params(int eff_feerate = 5000)
 static const CoinSelectionParams default_cs_params = init_cs_params();
 
 /** Make one OutputGroup with a single UTXO that either has a given effective value (default) or a given amount (`is_eff_value = false`). */
-static OutputGroup MakeCoin(const CAmount& amount, bool is_eff_value = true, CoinSelectionParams cs_params = default_cs_params, int custom_spending_vsize = P2WPKH_INPUT_VSIZE)
+static OutputGroup MakeCoin(const Amount& amount, bool is_eff_value = true, CoinSelectionParams cs_params = default_cs_params, int custom_spending_vsize = P2WPKH_INPUT_VSIZE)
 {
     // Always assume that we only have one input
     CMutableTransaction tx;
     tx.vout.resize(1);
-    CAmount fees = cs_params.m_effective_feerate.GetFee(custom_spending_vsize);
+    Amount fees = cs_params.m_effective_feerate.GetFee(custom_spending_vsize);
     tx.vout[0].nValue = amount + int(is_eff_value) * fees;
     tx.nLockTime = next_lock_time++;        // so all transactions get different hashes
     OutputGroup group(cs_params);
@@ -74,9 +74,9 @@ static OutputGroup MakeCoin(const CAmount& amount, bool is_eff_value = true, Coi
 }
 
 /** Make multiple OutputGroups with the given values as their effective value */
-static void AddCoins(std::vector<OutputGroup>& utxo_pool, std::vector<CAmount> coins, CoinSelectionParams cs_params = default_cs_params)
+static void AddCoins(std::vector<OutputGroup>& utxo_pool, std::vector<Amount> coins, CoinSelectionParams cs_params = default_cs_params)
 {
-    for (CAmount c : coins) {
+    for (Amount c : coins) {
         utxo_pool.push_back(MakeCoin(c, true, cs_params));
     }
 }
@@ -92,8 +92,8 @@ static void AddDuplicateCoins(std::vector<OutputGroup>& utxo_pool, int count, in
  * Two results are equivalent if they are composed of the same input values, even if they have different inputs (i.e., same value, different prevout) */
 static bool HaveEquivalentValues(const SelectionResult& a, const SelectionResult& b)
 {
-    std::vector<CAmount> a_amts;
-    std::vector<CAmount> b_amts;
+    std::vector<Amount> a_amts;
+    std::vector<Amount> b_amts;
     for (const auto& coin : a.GetInputSet()) {
         a_amts.push_back(coin->txout.nValue);
     }
@@ -112,11 +112,11 @@ static std::string InputAmountsToString(const SelectionResult& selection)
     return "[" + util::Join(selection.GetInputSet(), " ", [](const auto& input){ return util::ToString(input->txout.nValue);}) + "]";
 }
 
-static void TestBnBSuccess(std::string test_title, std::vector<OutputGroup>& utxo_pool, const CAmount& selection_target, const std::vector<CAmount>& expected_input_amounts, size_t expected_attempts, const CoinSelectionParams& cs_params = default_cs_params, const int custom_spending_vsize = P2WPKH_INPUT_VSIZE, const int max_selection_weight = MAX_STANDARD_TX_WEIGHT)
+static void TestBnBSuccess(std::string test_title, std::vector<OutputGroup>& utxo_pool, const Amount& selection_target, const std::vector<Amount>& expected_input_amounts, size_t expected_attempts, const CoinSelectionParams& cs_params = default_cs_params, const int custom_spending_vsize = P2WPKH_INPUT_VSIZE, const int max_selection_weight = MAX_STANDARD_TX_WEIGHT)
 {
-    SelectionResult expected_result(CAmount(0), SelectionAlgorithm::BNB);
-    CAmount expected_amount = 0;
-    for (CAmount input_amount : expected_input_amounts) {
+    SelectionResult expected_result(Amount(0), SelectionAlgorithm::BNB);
+    Amount expected_amount{0};
+    for (Amount input_amount : expected_input_amounts) {
         OutputGroup group = MakeCoin(input_amount, true, cs_params, custom_spending_vsize);
         expected_amount += group.m_value;
         expected_result.AddInput(group);
@@ -130,7 +130,7 @@ static void TestBnBSuccess(std::string test_title, std::vector<OutputGroup>& utx
     BOOST_CHECK_MESSAGE(result->GetSelectionsEvaluated() == expected_attempts, strprintf("Unexpected number of attempts in BnB-Success: %s. Expected %i attempts, but got %i", test_title, expected_attempts, result->GetSelectionsEvaluated()));
 }
 
-static void TestBnBFail(std::string test_title, std::vector<OutputGroup>& utxo_pool, const CAmount& selection_target, const CoinSelectionParams& cs_params = default_cs_params, int max_selection_weight = MAX_STANDARD_TX_WEIGHT, const bool expect_max_weight_exceeded = false)
+static void TestBnBFail(std::string test_title, std::vector<OutputGroup>& utxo_pool, const Amount& selection_target, const CoinSelectionParams& cs_params = default_cs_params, int max_selection_weight = MAX_STANDARD_TX_WEIGHT, const bool expect_max_weight_exceeded = false)
 {
     const auto result = SelectCoinsBnB(utxo_pool, selection_target, /*cost_of_change=*/cs_params.m_cost_of_change, max_selection_weight);
     BOOST_CHECK_MESSAGE(!result, "BnB-Fail: " + test_title);
@@ -194,8 +194,8 @@ BOOST_AUTO_TEST_CASE(bnb_test)
          * window.
          */
         std::vector<OutputGroup> doppelganger_pool;
-        std::vector<CAmount> doppelgangers;
-        std::vector<CAmount> expected_inputs;
+        std::vector<Amount> doppelgangers;
+        std::vector<Amount> expected_inputs;
         for (int i = 0; i < 17; ++i) {
             if (i < 8) {
                 // The eight smallest UTXOs can be combined to create expected_result
@@ -242,18 +242,18 @@ BOOST_AUTO_TEST_CASE(bnb_feerate_sensitivity_test)
     TestBnBSuccess("Prefer two light inputs over two heavy inputs at high feerates", high_feerate_pool, /*selection_target=*/13 * CENT, /*expected_input_amounts=*/{3 * CENT, 10 * CENT}, /*expected_attempts=*/9, high_feerate_params);
 }
 
-static void TestSRDSuccess(std::string test_title, std::vector<OutputGroup>& utxo_pool, const CAmount& selection_target, const CoinSelectionParams& cs_params = default_cs_params, const int max_selection_weight = MAX_STANDARD_TX_WEIGHT)
+static void TestSRDSuccess(std::string test_title, std::vector<OutputGroup>& utxo_pool, const Amount& selection_target, const CoinSelectionParams& cs_params = default_cs_params, const int max_selection_weight = MAX_STANDARD_TX_WEIGHT)
 {
-    CAmount expected_min_amount = selection_target + cs_params.m_change_fee + CHANGE_LOWER;
+    Amount expected_min_amount = selection_target + cs_params.m_change_fee + CHANGE_LOWER;
 
     const auto result = SelectCoinsSRD(utxo_pool, selection_target, cs_params.m_change_fee, cs_params.rng_fast, max_selection_weight);
     BOOST_CHECK_MESSAGE(result, "Falsy result in SRD-Success: " + test_title);
-    const CAmount selected_effective_value = result->GetSelectedEffectiveValue();
+    const Amount selected_effective_value = result->GetSelectedEffectiveValue();
     BOOST_CHECK_MESSAGE(selected_effective_value >= expected_min_amount, strprintf("Selected effective value is lower than expected in SRD-Success: %s. Expected %d, but got %d", test_title, expected_min_amount, selected_effective_value));
     BOOST_CHECK_MESSAGE(result->GetWeight() <= max_selection_weight, strprintf("Selected weight is higher than permitted in SRD-Success: %s. Expected %d, but got %d", test_title, max_selection_weight, result->GetWeight()));
 }
 
-static void TestSRDFail(std::string test_title, std::vector<OutputGroup>& utxo_pool, const CAmount& selection_target, const CoinSelectionParams& cs_params = default_cs_params, int max_selection_weight = MAX_STANDARD_TX_WEIGHT, const bool expect_max_weight_exceeded = false)
+static void TestSRDFail(std::string test_title, std::vector<OutputGroup>& utxo_pool, const Amount& selection_target, const CoinSelectionParams& cs_params = default_cs_params, int max_selection_weight = MAX_STANDARD_TX_WEIGHT, const bool expect_max_weight_exceeded = false)
 {
     const auto result = SelectCoinsSRD(utxo_pool, selection_target, cs_params.m_change_fee, cs_params.rng_fast, max_selection_weight);
     BOOST_CHECK_MESSAGE(!result, "SRD-Fail: " + test_title);

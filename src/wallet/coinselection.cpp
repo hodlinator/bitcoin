@@ -102,9 +102,9 @@ struct {
  * @param const std::vector<OutputGroup>& utxo_pool The set of UTXO groups that we are choosing from.
  *        These UTXO groups will be sorted in descending order by effective value and the OutputGroups'
  *        values are their effective values.
- * @param const CAmount& selection_target This is the value that we want to select. It is the lower
+ * @param const Amount& selection_target This is the value that we want to select. It is the lower
  *        bound of the range.
- * @param const CAmount& cost_of_change This is the cost of creating and spending a change output.
+ * @param const Amount& cost_of_change This is the cost of creating and spending a change output.
  *        This plus selection_target is the upper bound of the range.
  * @param int max_selection_weight The maximum allowed weight for a selection result to be valid.
  * @returns The result of this coin selection algorithm, or std::nullopt
@@ -112,15 +112,15 @@ struct {
 
 static const size_t TOTAL_TRIES = 100000;
 
-util::Result<SelectionResult> SelectCoinsBnB(std::vector<OutputGroup>& utxo_pool, const CAmount& selection_target, const CAmount& cost_of_change,
+util::Result<SelectionResult> SelectCoinsBnB(std::vector<OutputGroup>& utxo_pool, const Amount& selection_target, const Amount& cost_of_change,
                                              int max_selection_weight)
 {
     std::sort(utxo_pool.begin(), utxo_pool.end(), descending);
     // The sum of UTXO amounts after this UTXO index, e.g. lookahead[5] = Σ(UTXO[6+].amount)
-    std::vector<CAmount> lookahead(utxo_pool.size());
+    std::vector<Amount> lookahead(utxo_pool.size());
 
     // Calculate lookahead values, and check that there are sufficient funds
-    CAmount total_available = 0;
+    Amount total_available{0};
     for (int index = static_cast<int>(utxo_pool.size()) - 1; index >= 0; --index) {
         lookahead[index] = total_available;
         // UTXOs with non-positive effective value must have been filtered
@@ -139,11 +139,11 @@ util::Result<SelectionResult> SelectCoinsBnB(std::vector<OutputGroup>& utxo_pool
     std::vector<size_t> best_selection;
 
     // The currently selected effective amount
-    CAmount curr_amount = 0;
+    Amount curr_amount{0};
 
     // The waste score of the current selection, and the best waste score so far
-    CAmount curr_selection_waste = 0;
-    CAmount best_waste = MAX_MONEY;
+    Amount curr_selection_waste{0};
+    Amount best_waste{MAX_MONEY};
 
     // The weight of the currently selected input set
     int curr_weight = 0;
@@ -201,8 +201,8 @@ util::Result<SelectionResult> SelectCoinsBnB(std::vector<OutputGroup>& utxo_pool
             // Adding more UTXOs only increases fees and cannot be better: SHIFT
             should_shift = true;
             // The amount exceeding the selection_target (the "excess"), would be dropped to the fees: it is waste.
-            CAmount curr_excess = curr_amount - selection_target;
-            CAmount curr_waste = curr_selection_waste + curr_excess;
+            Amount curr_excess = curr_amount - selection_target;
+            Amount curr_waste = curr_selection_waste + curr_excess;
             if (curr_waste <= best_waste) {
                 // New best solution
                 best_selection = curr_selection;
@@ -391,21 +391,21 @@ util::Result<SelectionResult> SelectCoinsBnB(std::vector<OutputGroup>& utxo_pool
  * @param std::vector<OutputGroup>& utxo_pool The UTXOs that we are choosing from. These UTXOs will be sorted in
  *        descending order by effective value, with lower weight preferred as a tie-breaker. (We can think of an output
  *        group with multiple as a heavier UTXO with the combined amount here.)
- * @param const CAmount& selection_target This is the minimum amount that we need for the transaction without considering change.
- * @param const CAmount& change_target The minimum budget for creating a change output, by which we increase the selection_target.
+ * @param const Amount& selection_target This is the minimum amount that we need for the transaction without considering change.
+ * @param const Amount& change_target The minimum budget for creating a change output, by which we increase the selection_target.
  * @param int max_selection_weight The maximum allowed weight for a selection result to be valid.
  * @returns The result of this coin selection algorithm, or std::nullopt
  */
-util::Result<SelectionResult> CoinGrinder(std::vector<OutputGroup>& utxo_pool, const CAmount& selection_target, CAmount change_target, int max_selection_weight)
+util::Result<SelectionResult> CoinGrinder(std::vector<OutputGroup>& utxo_pool, const Amount& selection_target, Amount change_target, int max_selection_weight)
 {
     std::sort(utxo_pool.begin(), utxo_pool.end(), descending_effval_weight);
     // The sum of UTXO amounts after this UTXO index, e.g. lookahead[5] = Σ(UTXO[6+].amount)
-    std::vector<CAmount> lookahead(utxo_pool.size());
+    std::vector<Amount> lookahead(utxo_pool.size());
     // The minimum UTXO weight among the remaining UTXOs after this UTXO index, e.g. min_tail_weight[5] = min(UTXO[6+].weight)
     std::vector<int> min_tail_weight(utxo_pool.size());
 
     // Calculate lookahead values, min_tail_weights, and check that there are sufficient funds
-    CAmount total_available = 0;
+    Amount total_available{0};
     int min_group_weight = std::numeric_limits<int>::max();
     for (size_t i = 0; i < utxo_pool.size(); ++i) {
         size_t index = utxo_pool.size() - 1 - i; // Loop over every element in reverse order
@@ -417,7 +417,7 @@ util::Result<SelectionResult> CoinGrinder(std::vector<OutputGroup>& utxo_pool, c
         min_group_weight = std::min(min_group_weight, utxo_pool[index].m_weight);
     }
 
-    const CAmount total_target = selection_target + change_target;
+    const Amount total_target = selection_target + change_target;
     if (total_available < total_target) {
         // Insufficient funds
         return util::Error();
@@ -428,8 +428,8 @@ util::Result<SelectionResult> CoinGrinder(std::vector<OutputGroup>& utxo_pool, c
     std::vector<size_t> best_selection;
 
     // The currently selected effective amount, and the effective amount of the best selection so far
-    CAmount curr_amount = 0;
-    CAmount best_selection_amount = MAX_MONEY;
+    Amount curr_amount{0};
+    Amount best_selection_amount{MAX_MONEY};
 
     // The weight of the currently selected input set, and the weight of the best selection
     int curr_weight = 0;
@@ -607,7 +607,7 @@ public:
     }
 };
 
-util::Result<SelectionResult> SelectCoinsSRD(const std::vector<OutputGroup>& utxo_pool, CAmount target_value, CAmount change_fee, FastRandomContext& rng,
+util::Result<SelectionResult> SelectCoinsSRD(const std::vector<OutputGroup>& utxo_pool, Amount target_value, Amount change_fee, FastRandomContext& rng,
                                              int max_selection_weight)
 {
     SelectionResult result(target_value, SelectionAlgorithm::SRD);
@@ -624,7 +624,7 @@ util::Result<SelectionResult> SelectCoinsSRD(const std::vector<OutputGroup>& utx
     std::iota(indexes.begin(), indexes.end(), 0);
     std::shuffle(indexes.begin(), indexes.end(), rng);
 
-    CAmount selected_eff_value = 0;
+    Amount selected_eff_value{0};
     int weight = 0;
     bool max_tx_weight_exceeded = false;
     for (const size_t i : indexes) {
@@ -674,8 +674,8 @@ util::Result<SelectionResult> SelectCoinsSRD(const std::vector<OutputGroup>& utx
  * @param[in]   iterations      Maximum number of tries.
  */
 static void ApproximateBestSubset(FastRandomContext& insecure_rand, const std::vector<OutputGroup>& groups,
-                                  const CAmount& nTotalLower, const CAmount& nTargetValue,
-                                  std::vector<char>& vfBest, CAmount& nBest, int max_selection_weight, int iterations = 1000)
+                                  const Amount& nTotalLower, const Amount& nTargetValue,
+                                  std::vector<char>& vfBest, Amount& nBest, int max_selection_weight, int iterations = 1000)
 {
     std::vector<char> vfIncluded;
 
@@ -686,7 +686,7 @@ static void ApproximateBestSubset(FastRandomContext& insecure_rand, const std::v
     for (int nRep = 0; nRep < iterations && nBest != nTargetValue; nRep++)
     {
         vfIncluded.assign(groups.size(), false);
-        CAmount nTotal = 0;
+        Amount nTotal{0};
         int selected_coins_weight{0};
         bool fReachedTarget = false;
         for (int nPass = 0; nPass < 2 && !fReachedTarget; nPass++)
@@ -723,8 +723,8 @@ static void ApproximateBestSubset(FastRandomContext& insecure_rand, const std::v
     }
 }
 
-util::Result<SelectionResult> KnapsackSolver(std::vector<OutputGroup>& groups, const CAmount& nTargetValue,
-                                             CAmount change_target, FastRandomContext& rng, int max_selection_weight)
+util::Result<SelectionResult> KnapsackSolver(std::vector<OutputGroup>& groups, const Amount& nTargetValue,
+                                             Amount change_target, FastRandomContext& rng, int max_selection_weight)
 {
     SelectionResult result(nTargetValue, SelectionAlgorithm::KNAPSACK);
 
@@ -734,7 +734,7 @@ util::Result<SelectionResult> KnapsackSolver(std::vector<OutputGroup>& groups, c
     // Groups with selection amount smaller than the target and any change we might produce.
     // Don't include groups larger than this, because they will only cause us to overshoot.
     std::vector<OutputGroup> applicable_groups;
-    CAmount nTotalLower = 0;
+    Amount nTotalLower{0};
 
     std::shuffle(groups.begin(), groups.end(), rng);
 
@@ -777,7 +777,7 @@ util::Result<SelectionResult> KnapsackSolver(std::vector<OutputGroup>& groups, c
     // Solve subset sum by stochastic approximation
     std::sort(applicable_groups.begin(), applicable_groups.end(), descending);
     std::vector<char> vfBest;
-    CAmount nBest;
+    Amount nBest;
 
     ApproximateBestSubset(rng, applicable_groups, nTotalLower, nTargetValue, vfBest, nBest, max_selection_weight);
     if (nBest != nTargetValue && nTotalLower >= nTargetValue + change_target) {
@@ -860,7 +860,7 @@ bool OutputGroup::EligibleForSpending(const CoinEligibilityFilter& eligibility_f
         && m_max_cluster_count <= eligibility_filter.max_cluster_count;
 }
 
-CAmount OutputGroup::GetSelectionAmount() const
+Amount OutputGroup::GetSelectionAmount() const
 {
     return m_subtract_fee_outputs ? m_value : effective_value;
 }
@@ -880,7 +880,7 @@ void OutputGroupTypeMap::Push(const OutputGroup& group, OutputType type, bool in
     }
 }
 
-CAmount GenerateChangeTarget(const CAmount payment_value, const CAmount change_fee, FastRandomContext& rng)
+Amount GenerateChangeTarget(const Amount payment_value, const Amount change_fee, FastRandomContext& rng)
 {
     if (payment_value <= CHANGE_LOWER / 2) {
         return change_fee + CHANGE_LOWER;
@@ -891,20 +891,20 @@ CAmount GenerateChangeTarget(const CAmount payment_value, const CAmount change_f
     }
 }
 
-void SelectionResult::SetBumpFeeDiscount(const CAmount discount)
+void SelectionResult::SetBumpFeeDiscount(const Amount discount)
 {
     // Overlapping ancestry can only lower the fees, not increase them
     assert (discount >= 0);
     bump_fee_group_discount = discount;
 }
 
-void SelectionResult::RecalculateWaste(const CAmount min_viable_change, const CAmount change_cost, const CAmount change_fee)
+void SelectionResult::RecalculateWaste(const Amount min_viable_change, const Amount change_cost, const Amount change_fee)
 {
     // This function should not be called with empty inputs as that would mean the selection failed
     assert(!m_selected_inputs.empty());
 
     // Always consider the cost of spending an input now vs in the future.
-    CAmount waste = 0;
+    Amount waste{0};
     for (const auto& coin_ptr : m_selected_inputs) {
         const COutput& coin = *coin_ptr;
         waste += coin.GetFee() - coin.long_term_fee;
@@ -918,7 +918,7 @@ void SelectionResult::RecalculateWaste(const CAmount min_viable_change, const CA
         waste += change_cost;
     } else {
         // When we are not making change (GetChange(…) == 0), consider the excess we are throwing away to fees
-        CAmount selected_effective_value = m_use_effective ? GetSelectedEffectiveValue() : GetSelectedValue();
+        Amount selected_effective_value = m_use_effective ? GetSelectedEffectiveValue() : GetSelectedValue();
         assert(selected_effective_value >= m_target);
         waste += selected_effective_value - m_target;
     }
@@ -946,24 +946,24 @@ size_t SelectionResult::GetSelectionsEvaluated() const
     return m_selections_evaluated;
 }
 
-CAmount SelectionResult::GetWaste() const
+Amount SelectionResult::GetWaste() const
 {
     return *Assert(m_waste);
 }
 
-CAmount SelectionResult::GetSelectedValue() const
+Amount SelectionResult::GetSelectedValue() const
 {
-    return std::accumulate(m_selected_inputs.cbegin(), m_selected_inputs.cend(), CAmount{0}, [](CAmount sum, const auto& coin) { return sum + coin->txout.nValue; });
+    return std::accumulate(m_selected_inputs.cbegin(), m_selected_inputs.cend(), Amount{0}, [](Amount sum, const auto& coin) { return sum + coin->txout.nValue; });
 }
 
-CAmount SelectionResult::GetSelectedEffectiveValue() const
+Amount SelectionResult::GetSelectedEffectiveValue() const
 {
-    return std::accumulate(m_selected_inputs.cbegin(), m_selected_inputs.cend(), CAmount{0}, [](CAmount sum, const auto& coin) { return sum + coin->GetEffectiveValue(); }) + bump_fee_group_discount;
+    return std::accumulate(m_selected_inputs.cbegin(), m_selected_inputs.cend(), Amount{0}, [](Amount sum, const auto& coin) { return sum + coin->GetEffectiveValue(); }) + bump_fee_group_discount;
 }
 
-CAmount SelectionResult::GetTotalBumpFees() const
+Amount SelectionResult::GetTotalBumpFees() const
 {
-    return std::accumulate(m_selected_inputs.cbegin(), m_selected_inputs.cend(), CAmount{0}, [](CAmount sum, const auto& coin) { return sum + coin->ancestor_bump_fees; }) - bump_fee_group_discount;
+    return std::accumulate(m_selected_inputs.cbegin(), m_selected_inputs.cend(), Amount{0}, [](Amount sum, const auto& coin) { return sum + coin->ancestor_bump_fees; }) - bump_fee_group_discount;
 }
 
 void SelectionResult::Clear()
@@ -1045,7 +1045,7 @@ std::string GetAlgorithmName(const SelectionAlgorithm algo)
     assert(false);
 }
 
-CAmount SelectionResult::GetChange(const CAmount min_viable_change, const CAmount change_fee) const
+Amount SelectionResult::GetChange(const Amount min_viable_change, const Amount change_fee) const
 {
     // change = SUM(inputs) - SUM(outputs) - fees
     // 1) With SFFO we don't pay any fees
@@ -1053,7 +1053,7 @@ CAmount SelectionResult::GetChange(const CAmount min_viable_change, const CAmoun
     //  - input fees are covered by GetSelectedEffectiveValue()
     //  - non_input_fee is included in m_target
     //  - change_fee
-    const CAmount change = m_use_effective
+    const Amount change = m_use_effective
                            ? GetSelectedEffectiveValue() - m_target - change_fee
                            : GetSelectedValue() - m_target;
 

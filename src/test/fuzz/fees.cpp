@@ -22,8 +22,8 @@ FUZZ_TARGET(fees)
     FastRandomContext rng{/*fDeterministic=*/true};
     FeeFilterRounder fee_filter_rounder{minimal_incremental_fee, rng};
     LIMITED_WHILE(fuzzed_data_provider.ConsumeBool(), 10000) {
-        const CAmount current_minimum_fee = ConsumeMoney(fuzzed_data_provider);
-        const CAmount rounded_fee = fee_filter_rounder.round(current_minimum_fee);
+        const Amount current_minimum_fee = ConsumeMoney(fuzzed_data_provider);
+        const Amount rounded_fee = fee_filter_rounder.round(current_minimum_fee);
         assert(MoneyRange(rounded_fee));
     }
     const FeeReason fee_reason = fuzzed_data_provider.PickValueInArray({FeeReason::NONE, FeeReason::HALF_ESTIMATE, FeeReason::FULL_ESTIMATE, FeeReason::DOUBLE_ESTIMATE, FeeReason::CONSERVATIVE, FeeReason::MEMPOOL_MIN, FeeReason::FALLBACK, FeeReason::REQUIRED});

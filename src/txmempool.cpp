@@ -441,8 +441,8 @@ void CTxMemPool::check(const CCoinsViewCache& active_coins_tip, int64_t spendhei
     LogDebug(BCLog::MEMPOOL, "Checking mempool with %u transactions and %u inputs\n", (unsigned int)mapTx.size(), (unsigned int)mapNextTx.size());
 
     uint64_t checkTotal = 0;
-    CAmount check_total_fee{0};
-    CAmount check_total_modified_fee{0};
+    Amount check_total_fee{0};
+    Amount check_total_modified_fee{0};
     int64_t check_total_adjusted_weight{0};
     uint64_t innerUsage = 0;
 
@@ -532,7 +532,7 @@ void CTxMemPool::check(const CCoinsViewCache& active_coins_tip, int64_t spendhei
         assert(std::equal(setChildrenCheck.begin(), setChildrenCheck.end(), setChildrenStored.begin(), comp));
 
         TxValidationState dummy_state; // Not used. CheckTxInputs() should always pass
-        CAmount txfee = 0;
+        Amount txfee{0};
         assert(!tx.IsCoinBase());
         assert(Consensus::CheckTxInputs(tx, dummy_state, mempoolDuplicate, spendheight, txfee));
         for (const auto& input: tx.vin) mempoolDuplicate.SpendCoin(input.prevout);
@@ -627,11 +627,11 @@ CTransactionRef CTxMemPool::get(const Txid& hash) const
     return i->GetSharedTx();
 }
 
-void CTxMemPool::PrioritiseTransaction(const Txid& hash, const CAmount& nFeeDelta)
+void CTxMemPool::PrioritiseTransaction(const Txid& hash, const Amount& nFeeDelta)
 {
     {
         LOCK(cs);
-        CAmount &delta = mapDeltas[hash];
+        Amount& delta = mapDeltas[hash];
         delta = SaturatingAdd(delta, nFeeDelta);
         txiter it = mapTx.find(hash);
         if (it != mapTx.end()) {
@@ -654,13 +654,13 @@ void CTxMemPool::PrioritiseTransaction(const Txid& hash, const CAmount& nFeeDelt
     }
 }
 
-void CTxMemPool::ApplyDelta(const Txid& hash, CAmount &nFeeDelta) const
+void CTxMemPool::ApplyDelta(const Txid& hash, Amount& nFeeDelta) const
 {
     AssertLockHeld(cs);
-    std::map<Txid, CAmount>::const_iterator pos = mapDeltas.find(hash);
+    std::map<Txid, Amount>::const_iterator pos = mapDeltas.find(hash);
     if (pos == mapDeltas.end())
         return;
-    const CAmount &delta = pos->second;
+    const Amount& delta = pos->second;
     nFeeDelta += delta;
 }
 
@@ -679,7 +679,7 @@ std::vector<CTxMemPool::delta_info> CTxMemPool::GetPrioritisedTransactions() con
     for (const auto& [txid, delta] : mapDeltas) {
         const auto iter{mapTx.find(txid)};
         const bool in_mempool{iter != mapTx.end()};
-        std::optional<CAmount> modified_fee;
+        std::optional<Amount> modified_fee;
         if (in_mempool) modified_fee = iter->GetModifiedFee();
         result.emplace_back(delta_info{in_mempool, delta, modified_fee, txid});
     }
@@ -910,13 +910,13 @@ void CTxMemPool::TrimToSize(size_t sizelimit, std::vector<COutPoint>* pvNoSpends
     }
 }
 
-std::tuple<size_t, size_t, CAmount> CTxMemPool::CalculateAncestorData(const CTxMemPoolEntry& entry) const
+std::tuple<size_t, size_t, Amount> CTxMemPool::CalculateAncestorData(const CTxMemPoolEntry& entry) const
 {
     auto ancestors = m_txgraph->GetAncestors(entry, TxGraph::Level::MAIN);
 
     size_t ancestor_count = ancestors.size();
     size_t ancestor_size = 0;
-    CAmount ancestor_fees = 0;
+    Amount ancestor_fees{0};
     for (auto tx: ancestors) {
         const CTxMemPoolEntry& anc = static_cast<const CTxMemPoolEntry&>(*tx);
         ancestor_size += anc.GetTxSize();
@@ -925,12 +925,12 @@ std::tuple<size_t, size_t, CAmount> CTxMemPool::CalculateAncestorData(const CTxM
     return {ancestor_count, ancestor_size, ancestor_fees};
 }
 
-std::tuple<size_t, size_t, CAmount> CTxMemPool::CalculateDescendantData(const CTxMemPoolEntry& entry) const
+std::tuple<size_t, size_t, Amount> CTxMemPool::CalculateDescendantData(const CTxMemPoolEntry& entry) const
 {
     auto descendants = m_txgraph->GetDescendants(entry, TxGraph::Level::MAIN);
     size_t descendant_count = descendants.size();
     size_t descendant_size = 0;
-    CAmount descendant_fees = 0;
+    Amount descendant_fees{0};
 
     for (auto tx: descendants) {
         const CTxMemPoolEntry &desc = static_cast<const CTxMemPoolEntry&>(*tx);
@@ -940,7 +940,7 @@ std::tuple<size_t, size_t, CAmount> CTxMemPool::CalculateDescendantData(const CT
     return {descendant_count, descendant_size, descendant_fees};
 }
 
-void CTxMemPool::GetTransactionAncestry(const Txid& txid, size_t& ancestors, size_t& cluster_count, size_t* const ancestorsize, CAmount* const ancestorfees) const {
+void CTxMemPool::GetTransactionAncestry(const Txid& txid, size_t& ancestors, size_t& cluster_count, size_t* const ancestorsize, Amount* const ancestorfees) const {
     LOCK(cs);
     auto it = mapTx.find(txid);
     ancestors = cluster_count = 0;
@@ -1002,7 +1002,7 @@ util::Result<std::pair<std::vector<FeeFrac>, std::vector<FeeFrac>>> CTxMemPool::
     return m_pool->m_txgraph->GetMainStagingDiagrams();
 }
 
-CTxMemPool::ChangeSet::TxHandle CTxMemPool::ChangeSet::StageAddition(const CTransactionRef& tx, const CAmount fee, int64_t time, unsigned int entry_height, uint64_t entry_sequence, bool spends_coinbase, int64_t sigops_cost, LockPoints lp)
+CTxMemPool::ChangeSet::TxHandle CTxMemPool::ChangeSet::StageAddition(const CTransactionRef& tx, const Amount fee, int64_t time, unsigned int entry_height, uint64_t entry_sequence, bool spends_coinbase, int64_t sigops_cost, LockPoints lp)
 {
     LOCK(m_pool->cs);
     Assume(m_to_add.find(tx->GetHash()) == m_to_add.end());
@@ -1011,7 +1011,7 @@ CTxMemPool::ChangeSet::TxHandle CTxMemPool::ChangeSet::StageAddition(const CTran
     // We need to process dependencies after adding a new transaction.
     m_dependencies_processed = false;
 
-    CAmount delta{0};
+    Amount delta{0};
     m_pool->ApplyDelta(tx->GetHash(), delta);
 
     FeePerWeight feerate(fee, GetSigOpsAdjustedWeight(GetTransactionWeight(*tx), sigops_cost, ::nBytesPerSigOp));

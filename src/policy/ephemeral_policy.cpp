@@ -20,7 +20,7 @@
 #include <utility>
 #include <vector>
 
-bool PreCheckEphemeralTx(const CTransaction& tx, CFeeRate dust_relay_rate, CAmount base_fee, CAmount mod_fee, TxValidationState& state)
+bool PreCheckEphemeralTx(const CTransaction& tx, CFeeRate dust_relay_rate, Amount base_fee, Amount mod_fee, TxValidationState& state)
 {
     // We never want to give incentives to mine this transaction alone
     if ((base_fee != 0 || mod_fee != 0) && !GetDust(tx, dust_relay_rate).empty()) {

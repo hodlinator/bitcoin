@@ -64,7 +64,7 @@ Result<BlockCreateOptions> ReadMiningArgs(const ArgsManager& args)
 {
     BlockCreateOptions options;
     if (const auto arg{args.GetArg("-blockmintxfee")}) {
-        std::optional<CAmount> block_min_tx_fee{ParseMoney(*arg)};
+        std::optional<Amount> block_min_tx_fee{ParseMoney(*arg)};
         if (!block_min_tx_fee) return Error{AmountErrMsg("blockmintxfee", *arg)};
         options.block_min_fee_rate = CFeeRate{*block_min_tx_fee};
     }

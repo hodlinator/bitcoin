@@ -99,7 +99,7 @@ enum class SynchronizationState {
 /** Documentation for argument 'checklevel'. */
 extern const std::vector<std::string> CHECKLEVEL_DOC;
 
-CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams);
+Amount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams);
 
 bool FatalError(kernel::Notifications& notifications, BlockValidationState& state, const bilingual_str& message);
 
@@ -147,7 +147,7 @@ struct MempoolAcceptResult {
     /** Virtual size as used by the mempool, calculated using serialized size and sigops. */
     const std::optional<int64_t> m_vsize;
     /** Raw base fees in satoshis. */
-    const std::optional<CAmount> m_base_fees;
+    const std::optional<Amount> m_base_fees;
     /** The feerate at which this transaction was considered. This includes any fee delta added
      * using prioritisetransaction (i.e. modified fees). If this transaction was submitted as a
      * package, this is the package feerate, which may also include its descendants and/or
@@ -176,14 +176,14 @@ struct MempoolAcceptResult {
 
     static MempoolAcceptResult Success(std::list<CTransactionRef>&& replaced_txns,
                                        int64_t vsize,
-                                       CAmount fees,
+                                       Amount fees,
                                        CFeeRate effective_feerate,
                                        const std::vector<Wtxid>& wtxids_fee_calculations) {
         return MempoolAcceptResult(std::move(replaced_txns), vsize, fees,
                                    effective_feerate, wtxids_fee_calculations);
     }
 
-    static MempoolAcceptResult MempoolTx(int64_t vsize, CAmount fees) {
+    static MempoolAcceptResult MempoolTx(int64_t vsize, Amount fees) {
         return MempoolAcceptResult(vsize, fees);
     }
 
@@ -202,7 +202,7 @@ private:
     /** Constructor for success case */
     explicit MempoolAcceptResult(std::list<CTransactionRef>&& replaced_txns,
                                  int64_t vsize,
-                                 CAmount fees,
+                                 Amount fees,
                                  CFeeRate effective_feerate,
                                  const std::vector<Wtxid>& wtxids_fee_calculations)
         : m_result_type(ResultType::VALID),
@@ -222,7 +222,7 @@ private:
         m_wtxids_fee_calculations(wtxids_fee_calculations) {}
 
     /** Constructor for already-in-mempool case. It wouldn't replace any transactions. */
-    explicit MempoolAcceptResult(int64_t vsize, CAmount fees)
+    explicit MempoolAcceptResult(int64_t vsize, Amount fees)
         : m_result_type(ResultType::MEMPOOL_ENTRY), m_vsize{vsize}, m_base_fees(fees) {}
 
     /** Constructor for witness-swapped case. */

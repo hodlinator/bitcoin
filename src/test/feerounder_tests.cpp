@@ -17,7 +17,7 @@ BOOST_AUTO_TEST_CASE(FeeRounder)
     FeeFilterRounder fee_rounder{CFeeRate{1000}, rng};
 
     // check that 1000 rounds to 974 or 1071
-    std::set<CAmount> results;
+    std::set<Amount> results;
     while (results.size() < 2) {
         results.emplace(fee_rounder.round(1000));
     }

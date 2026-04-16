@@ -116,13 +116,13 @@ std::vector<unsigned char> ParseHexO(const UniValue& o, std::string_view strKey)
 int ParseVerbosity(const UniValue& arg, int default_verbosity, bool allow_bool);
 
 /**
- * Validate and return a CAmount from a UniValue number or string.
+ * Validate and return a Amount from a UniValue number or string.
  *
  * @param[in] value     UniValue number or string to parse.
  * @param[in] decimals  Number of significant digits (default: 8).
- * @returns a CAmount if the various checks pass.
+ * @returns a Amount if the various checks pass.
  */
-CAmount AmountFromValue(const UniValue& value, int decimals = 8);
+Amount AmountFromValue(const UniValue& value, int decimals = 8);
 /**
  * Parse a json number or string, denoting BTC/kvB, into a CFeeRate (sat/kvB).
  * Reject negative values or rates larger than 1BTC/kvB.

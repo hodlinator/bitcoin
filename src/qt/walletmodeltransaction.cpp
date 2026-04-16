@@ -31,12 +31,12 @@ unsigned int WalletModelTransaction::getTransactionSize()
     return wtx ? GetVirtualTransactionSize(*wtx) : 0;
 }
 
-CAmount WalletModelTransaction::getTransactionFee() const
+Amount WalletModelTransaction::getTransactionFee() const
 {
     return fee;
 }
 
-void WalletModelTransaction::setTransactionFee(const CAmount& newFee)
+void WalletModelTransaction::setTransactionFee(const Amount& newFee)
 {
     fee = newFee;
 }
@@ -57,9 +57,9 @@ void WalletModelTransaction::reassignAmounts(int nChangePosRet)
     }
 }
 
-CAmount WalletModelTransaction::getTotalTransactionAmount() const
+Amount WalletModelTransaction::getTotalTransactionAmount() const
 {
-    CAmount totalTransactionAmount = 0;
+    Amount totalTransactionAmount{0};
     for (const SendCoinsRecipient &rcp : recipients)
     {
         totalTransactionAmount += rcp.amount;

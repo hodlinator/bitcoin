@@ -25,7 +25,7 @@ enum class FeeRateFormat {
 };
 
 /**
- * Fee rate in satoshis per virtualbyte: CAmount / vB
+ * Fee rate in satoshis per virtualbyte: Amount / vB
  * the feerate is represented internally as FeeFrac
  */
 class CFeeRate
@@ -45,21 +45,21 @@ public:
      *
      * Passing any virtual_bytes less than or equal to 0 will result in 0 fee rate per 0 size.
      */
-    CFeeRate(const CAmount& nFeePaid, int32_t virtual_bytes);
+    CFeeRate(const Amount& nFeePaid, int32_t virtual_bytes);
 
     /**
      * Return the fee in satoshis for the given vsize in vbytes.
      * If the calculated fee would have fractional satoshis, then the
      * returned fee will always be rounded up to the nearest satoshi.
      */
-    CAmount GetFee(int32_t virtual_bytes) const;
+    Amount GetFee(int32_t virtual_bytes) const;
 
     FeePerVSize GetFeePerVSize() const { return m_feerate; }
 
     /**
      * Return the fee in satoshis for a vsize of 1000 vbytes
      */
-    CAmount GetFeePerK() const { return CAmount(m_feerate.EvaluateFeeDown(1000)); }
+    Amount GetFeePerK() const { return Amount(m_feerate.EvaluateFeeDown(1000)); }
     friend std::strong_ordering operator<=>(const CFeeRate& a, const CFeeRate& b) noexcept
     {
         return ByRatio{a.m_feerate} <=> ByRatio{b.m_feerate};

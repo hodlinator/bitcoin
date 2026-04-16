@@ -58,27 +58,27 @@ struct CoinsResult {
     void Shuffle(FastRandomContext& rng_fast);
     void Add(OutputType type, const COutput& out);
 
-    CAmount GetTotalAmount() const { return total_amount; }
-    std::optional<CAmount> GetEffectiveTotalAmount() const { return total_effective_amount; }
+    Amount GetTotalAmount() const { return total_amount; }
+    std::optional<Amount> GetEffectiveTotalAmount() const { return total_effective_amount; }
     // Returns the appropriate total based on whether fees are being subtracted from outputs
-    std::optional<CAmount> GetAppropriateTotal(bool subtract_fee_outputs) const {
+    std::optional<Amount> GetAppropriateTotal(bool subtract_fee_outputs) const {
         return subtract_fee_outputs ? total_amount : total_effective_amount;
     }
 
 private:
     /** Sum of all available coins raw value */
-    CAmount total_amount{0};
+    Amount total_amount{0};
     /** Sum of all available coins effective value (each output value minus fees required to spend it) */
-    std::optional<CAmount> total_effective_amount;
+    std::optional<Amount> total_effective_amount;
 };
 
 struct CoinFilterParams {
     // Outputs below the minimum amount will not get selected
-    CAmount min_amount{1};
+    Amount min_amount{1};
     // Outputs above the maximum amount will not get selected
-    CAmount max_amount{MAX_MONEY};
+    Amount max_amount{MAX_MONEY};
     // Return outputs until the minimum sum amount is covered
-    CAmount min_sum_amount{MAX_MONEY};
+    Amount min_sum_amount{MAX_MONEY};
     // Maximum number of outputs that can be returned
     uint64_t max_count{0};
     // By default, do not include immature coinbase outputs
@@ -137,7 +137,7 @@ FilteredOutputGroups GroupOutputs(const CWallet& wallet,
  *                                                  or (2) a specific error message if there was something particularly wrong (e.g. a selection
  *                                                  result that surpassed the tx max weight size).
  */
-util::Result<SelectionResult> AttemptSelection(interfaces::Chain& chain, const CAmount& nTargetValue, OutputGroupTypeMap& groups,
+util::Result<SelectionResult> AttemptSelection(interfaces::Chain& chain, const Amount& nTargetValue, OutputGroupTypeMap& groups,
                         const CoinSelectionParams& coin_selection_params, bool allow_mixed_output_types);
 
 /**
@@ -154,7 +154,7 @@ util::Result<SelectionResult> AttemptSelection(interfaces::Chain& chain, const C
  *                                                  or (2) a specific error message if there was something particularly wrong (e.g. a selection
  *                                                  result that surpassed the tx max weight size).
  */
-util::Result<SelectionResult> ChooseSelectionResult(interfaces::Chain& chain, const CAmount& nTargetValue, Groups& groups, const CoinSelectionParams& coin_selection_params);
+util::Result<SelectionResult> ChooseSelectionResult(interfaces::Chain& chain, const Amount& nTargetValue, Groups& groups, const CoinSelectionParams& coin_selection_params);
 
 /**
  * Fetch and validate coin control selected inputs.
@@ -175,7 +175,7 @@ util::Result<CoinsResult> FetchSelectedInputs(const CWallet& wallet, const CCoin
  *                                                or (2) an specific error message if there was something particularly wrong (e.g. a selection
  *                                                result that surpassed the tx max weight size).
  */
-util::Result<SelectionResult> AutomaticCoinSelection(const CWallet& wallet, CoinsResult& available_coins, const CAmount& nTargetValue,
+util::Result<SelectionResult> AutomaticCoinSelection(const CWallet& wallet, CoinsResult& available_coins, const Amount& nTargetValue,
                  const CoinSelectionParams& coin_selection_params) EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet);
 
 /**
@@ -183,7 +183,7 @@ util::Result<SelectionResult> AutomaticCoinSelection(const CWallet& wallet, Coin
  * select a set of coins such that nTargetValue - pre_set_inputs.total_amount is met.
  */
 util::Result<SelectionResult> SelectCoins(const CWallet& wallet, CoinsResult& available_coins, const CoinsResult& pre_set_inputs,
-                                          const CAmount& nTargetValue, const CCoinControl& coin_control,
+                                          const Amount& nTargetValue, const CCoinControl& coin_control,
                                           const CoinSelectionParams& coin_selection_params) EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet);
 
 /**

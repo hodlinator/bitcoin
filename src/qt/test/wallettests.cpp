@@ -75,7 +75,7 @@ void ConfirmSend(QString* text = nullptr, QMessageBox::StandardButton confirm_ty
 }
 
 //! Send coins to address and return txid.
-Txid SendCoins(CWallet& wallet, SendCoinsDialog& sendCoinsDialog, const CTxDestination& address, CAmount amount,
+Txid SendCoins(CWallet& wallet, SendCoinsDialog& sendCoinsDialog, const CTxDestination& address, Amount amount,
                   QMessageBox::StandardButton confirm_type = QMessageBox::Yes)
 {
     QVBoxLayout* entries = sendCoinsDialog.findChild<QVBoxLayout*>("entries");
@@ -132,7 +132,7 @@ void BumpFee(TransactionView& view, const Txid& txid, bool expectDisabled, std::
     QVERIFY(text.indexOf(QString::fromStdString(expectError)) != -1);
 }
 
-void CompareBalance(WalletModel& walletModel, CAmount expected_balance, QLabel* balance_label_to_check)
+void CompareBalance(WalletModel& walletModel, Amount expected_balance, QLabel* balance_label_to_check)
 {
     BitcoinUnit unit = walletModel.getOptionsModel()->getDisplayUnit();
     QString balanceComparison = BitcoinUnits::formatWithUnit(unit, expected_balance, false, BitcoinUnits::SeparatorStyle::ALWAYS);
@@ -159,7 +159,7 @@ void VerifyUseAvailableBalance(SendCoinsDialog& sendCoinsDialog, const WalletMod
     // (only the sum of the selected coins should be set).
     int COINS_TO_SELECT = 2;
     auto coins = walletModel.wallet().listCoins();
-    CAmount sum_selected_coins = 0;
+    Amount sum_selected_coins{0};
     int selected = 0;
     QVERIFY(coins.size() == 1); // context check, coins received only on one destination
     for (const auto& [outpoint, tx_out] : coins.begin()->second) {
@@ -349,7 +349,7 @@ void TestGUI(interfaces::Node& node, const std::shared_ptr<CWallet>& wallet)
     QPushButton* clearButton = receiveCoinsDialog.findChild<QPushButton*>("clearButton");
     clearButton->click();
     QCOMPARE(labelInput->text(), QString(""));
-    QCOMPARE(amountInput->value(), CAmount(0));
+    QCOMPARE(amountInput->value(), Amount(0));
     QCOMPARE(messageInput->text(), QString(""));
 
     // Check addition to history
@@ -366,7 +366,7 @@ void TestGUI(interfaces::Node& node, const std::shared_ptr<CWallet>& wallet)
     QVERIFY(entry.date.isValid());
     QCOMPARE(entry.recipient.address, address);
     QCOMPARE(entry.recipient.label, QString{"TEST_LABEL_1"});
-    QCOMPARE(entry.recipient.amount, CAmount{1});
+    QCOMPARE(entry.recipient.amount, Amount{1});
     QCOMPARE(entry.recipient.message, QString{"TEST_MESSAGE_1"});
     QCOMPARE(entry.recipient.sPaymentRequest, std::string{});
     QCOMPARE(entry.recipient.authenticatedMerchant, QString{});

@@ -92,7 +92,7 @@ bool CheckTxScripts(const CTransaction& tx, const std::map<COutPoint, CScript>& 
     ScriptError err = expect_valid ? SCRIPT_ERR_UNKNOWN_ERROR : SCRIPT_ERR_OK;
     for (unsigned int i = 0; i < tx.vin.size() && tx_valid; ++i) {
         const CTxIn input = tx.vin[i];
-        const CAmount amount = map_prevout_values.contains(input.prevout) ? map_prevout_values.at(input.prevout) : 0;
+        const Amount amount = map_prevout_values.contains(input.prevout) ? map_prevout_values.at(input.prevout) : 0;
         try {
             tx_valid = VerifyScript(input.scriptSig, map_prevout_scriptPubKeys.at(input.prevout),
                 &input.scriptWitness, flags, TransactionSignatureChecker(&tx, i, amount, txdata, MissingDataBehavior::ASSERT_FAIL), &err);
@@ -776,7 +776,7 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
     CheckIsStandard(t);
 
     // Check dust with default relay fee:
-    CAmount nDustThreshold = 182 * g_dust.GetFeePerK() / 1000;
+    Amount nDustThreshold = 182 * g_dust.GetFeePerK() / 1000;
     BOOST_CHECK_EQUAL(nDustThreshold, 546);
 
     // Add dust outputs up to allowed maximum, still standard!
@@ -1129,7 +1129,7 @@ BOOST_AUTO_TEST_CASE(max_standard_legacy_sigops)
 
 BOOST_AUTO_TEST_CASE(checktxinputs_invalid_transactions_test)
 {
-    auto check_invalid{[](CAmount input_value, CAmount output_value, bool coinbase, int spend_height, TxValidationResult expected_result, std::string_view expected_reason) {
+    auto check_invalid{[](Amount input_value, Amount output_value, bool coinbase, int spend_height, TxValidationResult expected_result, std::string_view expected_reason) {
         CCoinsViewCache inputs{&CoinsViewEmpty::Get()};
 
         const COutPoint prevout{Txid::FromUint256(uint256::ONE), 0};
@@ -1140,7 +1140,7 @@ BOOST_AUTO_TEST_CASE(checktxinputs_invalid_transactions_test)
         mtx.vout.emplace_back(output_value, CScript() << OP_TRUE);
 
         TxValidationState state;
-        CAmount txfee{0};
+        Amount txfee{0};
         BOOST_CHECK(!Consensus::CheckTxInputs(CTransaction{mtx}, state, inputs, spend_height, txfee));
         BOOST_CHECK(state.IsInvalid());
         BOOST_CHECK_EQUAL(state.GetResult(), expected_result);

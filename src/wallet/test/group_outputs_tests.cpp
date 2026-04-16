@@ -28,7 +28,7 @@ static std::shared_ptr<CWallet> NewWallet(const node::NodeContext& m_node)
 static void addCoin(CoinsResult& coins,
                      CWallet& wallet,
                      const CTxDestination& dest,
-                     const CAmount& nValue,
+                     const Amount& nValue,
                      bool is_from_me,
                      CFeeRate fee_rate = CFeeRate(0),
                      int depth = 6)

@@ -47,7 +47,7 @@ public:
     void fixup(QString &input) const override
     {
         bool valid;
-        CAmount val;
+        Amount val;
 
         if (input.isEmpty() && !m_allow_empty) {
             valid = true;
@@ -64,12 +64,12 @@ public:
         }
     }
 
-    CAmount value(bool *valid_out=nullptr) const
+    Amount value(bool *valid_out=nullptr) const
     {
         return parse(text(), valid_out);
     }
 
-    void setValue(const CAmount& value)
+    void setValue(const Amount& value)
     {
         lineEdit()->setText(BitcoinUnits::format(currentUnit, value, false, BitcoinUnits::SeparatorStyle::ALWAYS));
         Q_EMIT valueChanged();
@@ -80,12 +80,12 @@ public:
         m_allow_empty = allow;
     }
 
-    void SetMinValue(const CAmount& value)
+    void SetMinValue(const Amount& value)
     {
         m_min_amount = value;
     }
 
-    void SetMaxValue(const CAmount& value)
+    void SetMaxValue(const Amount& value)
     {
         m_max_amount = value;
     }
@@ -93,7 +93,7 @@ public:
     void stepBy(int steps) override
     {
         bool valid = false;
-        CAmount val = value(&valid);
+        Amount val = value(&valid);
         val = val + steps * singleStep;
         val = qBound(m_min_amount, val, m_max_amount);
         setValue(val);
@@ -102,7 +102,7 @@ public:
     void setDisplayUnit(BitcoinUnit unit)
     {
         bool valid = false;
-        CAmount val = value(&valid);
+        Amount val = value(&valid);
 
         currentUnit = unit;
         lineEdit()->setPlaceholderText(BitcoinUnits::format(currentUnit, m_min_amount, false, BitcoinUnits::SeparatorStyle::ALWAYS));
@@ -112,7 +112,7 @@ public:
             clear();
     }
 
-    void setSingleStep(const CAmount& step)
+    void setSingleStep(const Amount& step)
     {
         singleStep = step;
     }
@@ -151,20 +151,20 @@ public:
 
 private:
     BitcoinUnit currentUnit{BitcoinUnit::BTC};
-    CAmount singleStep{CAmount(100000)}; // satoshis
+    Amount singleStep{Amount(100000)}; // satoshis
     mutable QSize cachedMinimumSizeHint;
     bool m_allow_empty{true};
-    CAmount m_min_amount{CAmount(0)};
-    CAmount m_max_amount{BitcoinUnits::maxMoney()};
+    Amount m_min_amount{Amount(0)};
+    Amount m_max_amount{BitcoinUnits::maxMoney()};
 
     /**
      * Parse a string into a number of base monetary units and
      * return validity.
      * @note Must return 0 if !valid.
      */
-    CAmount parse(const QString &text, bool *valid_out=nullptr) const
+    Amount parse(const QString &text, bool *valid_out=nullptr) const
     {
-        std::optional<CAmount> val{BitcoinUnits::parse(currentUnit, text)};
+        std::optional<Amount> val{BitcoinUnits::parse(currentUnit, text)};
         bool valid = val.has_value();
         if(valid)
         {
@@ -201,7 +201,7 @@ protected:
 
         StepEnabled rv = StepNone;
         bool valid = false;
-        CAmount val = value(&valid);
+        Amount val = value(&valid);
         if (valid) {
             if (val > m_min_amount)
                 rv |= StepDownEnabled;
@@ -291,12 +291,12 @@ QWidget *BitcoinAmountField::setupTabChain(QWidget *prev)
     return unit;
 }
 
-CAmount BitcoinAmountField::value(bool *valid_out) const
+Amount BitcoinAmountField::value(bool *valid_out) const
 {
     return amount->value(valid_out);
 }
 
-void BitcoinAmountField::setValue(const CAmount& value)
+void BitcoinAmountField::setValue(const Amount& value)
 {
     amount->setValue(value);
 }
@@ -306,12 +306,12 @@ void BitcoinAmountField::SetAllowEmpty(bool allow)
     amount->SetAllowEmpty(allow);
 }
 
-void BitcoinAmountField::SetMinValue(const CAmount& value)
+void BitcoinAmountField::SetMinValue(const Amount& value)
 {
     amount->SetMinValue(value);
 }
 
-void BitcoinAmountField::SetMaxValue(const CAmount& value)
+void BitcoinAmountField::SetMaxValue(const Amount& value)
 {
     amount->SetMaxValue(value);
 }
@@ -337,7 +337,7 @@ void BitcoinAmountField::setDisplayUnit(BitcoinUnit new_unit)
     unit->setValue(QVariant::fromValue(new_unit));
 }
 
-void BitcoinAmountField::setSingleStep(const CAmount& step)
+void BitcoinAmountField::setSingleStep(const Amount& step)
 {
     amount->setSingleStep(step);
 }

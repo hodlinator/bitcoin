@@ -50,7 +50,7 @@ public:
     // static because also called from sendcoinsdialog
     static void updateLabels(wallet::CCoinControl& m_coin_control, WalletModel*, QDialog*);
 
-    static QList<CAmount> payAmounts;
+    static QList<Amount> payAmounts;
     static bool fSubtractFeeFromAmount;
 
 protected:

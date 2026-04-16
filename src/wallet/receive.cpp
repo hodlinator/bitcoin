@@ -29,7 +29,7 @@ bool AllInputsMine(const CWallet& wallet, const CTransaction& tx)
     return true;
 }
 
-CAmount OutputGetCredit(const CWallet& wallet, const CTxOut& txout)
+Amount OutputGetCredit(const CWallet& wallet, const CTxOut& txout)
 {
     if (!MoneyRange(txout.nValue))
         throw std::runtime_error(std::string(__func__) + ": value out of range");
@@ -37,9 +37,9 @@ CAmount OutputGetCredit(const CWallet& wallet, const CTxOut& txout)
     return (wallet.IsMine(txout) ? txout.nValue : 0);
 }
 
-CAmount TxGetCredit(const CWallet& wallet, const CTransaction& tx)
+Amount TxGetCredit(const CWallet& wallet, const CTransaction& tx)
 {
-    CAmount nCredit = 0;
+    Amount nCredit{0};
     for (const CTxOut& txout : tx.vout)
     {
         nCredit += OutputGetCredit(wallet, txout);
@@ -76,7 +76,7 @@ bool OutputIsChange(const CWallet& wallet, const CTxOut& txout)
     return ScriptIsChange(wallet, txout.scriptPubKey);
 }
 
-CAmount OutputGetChange(const CWallet& wallet, const CTxOut& txout)
+Amount OutputGetChange(const CWallet& wallet, const CTxOut& txout)
 {
     AssertLockHeld(wallet.cs_wallet);
     if (!MoneyRange(txout.nValue))
@@ -84,10 +84,10 @@ CAmount OutputGetChange(const CWallet& wallet, const CTxOut& txout)
     return (OutputIsChange(wallet, txout) ? txout.nValue : 0);
 }
 
-CAmount TxGetChange(const CWallet& wallet, const CTransaction& tx)
+Amount TxGetChange(const CWallet& wallet, const CTransaction& tx)
 {
     LOCK(wallet.cs_wallet);
-    CAmount nChange = 0;
+    Amount nChange{0};
     for (const CTxOut& txout : tx.vout)
     {
         nChange += OutputGetChange(wallet, txout);
@@ -97,7 +97,7 @@ CAmount TxGetChange(const CWallet& wallet, const CTransaction& tx)
     return nChange;
 }
 
-static CAmount GetCachableAmount(const CWallet& wallet, const CWalletTx& wtx, CWalletTx::AmountType type, bool avoid_reuse)
+static Amount GetCachableAmount(const CWallet& wallet, const CWalletTx& wtx, CWalletTx::AmountType type, bool avoid_reuse)
 {
     auto& amount = wtx.m_amounts[type];
     if (!amount.IsCached(avoid_reuse)) {
@@ -107,7 +107,7 @@ static CAmount GetCachableAmount(const CWallet& wallet, const CWalletTx& wtx, CW
     return amount.Get(avoid_reuse);
 }
 
-CAmount CachedTxGetCredit(const CWallet& wallet, const CWalletTx& wtx, bool avoid_reuse)
+Amount CachedTxGetCredit(const CWallet& wallet, const CWalletTx& wtx, bool avoid_reuse)
 {
     AssertLockHeld(wallet.cs_wallet);
 
@@ -119,7 +119,7 @@ CAmount CachedTxGetCredit(const CWallet& wallet, const CWalletTx& wtx, bool avoi
     return GetCachableAmount(wallet, wtx, CWalletTx::CREDIT, avoid_reuse);
 }
 
-CAmount CachedTxGetDebit(const CWallet& wallet, const CWalletTx& wtx, bool avoid_reuse)
+Amount CachedTxGetDebit(const CWallet& wallet, const CWalletTx& wtx, bool avoid_reuse)
 {
     if (wtx.tx->vin.empty())
         return 0;
@@ -127,7 +127,7 @@ CAmount CachedTxGetDebit(const CWallet& wallet, const CWalletTx& wtx, bool avoid
     return GetCachableAmount(wallet, wtx, CWalletTx::DEBIT, avoid_reuse);
 }
 
-CAmount CachedTxGetChange(const CWallet& wallet, const CWalletTx& wtx)
+Amount CachedTxGetChange(const CWallet& wallet, const CWalletTx& wtx)
 {
     if (wtx.fChangeCached)
         return wtx.nChangeCached;
@@ -138,7 +138,7 @@ CAmount CachedTxGetChange(const CWallet& wallet, const CWalletTx& wtx)
 
 void CachedTxGetAmounts(const CWallet& wallet, const CWalletTx& wtx,
                   std::list<COutputEntry>& listReceived,
-                  std::list<COutputEntry>& listSent, CAmount& nFee,
+                  std::list<COutputEntry>& listSent, Amount& nFee,
                   bool include_change)
 {
     nFee = 0;
@@ -146,10 +146,10 @@ void CachedTxGetAmounts(const CWallet& wallet, const CWalletTx& wtx,
     listSent.clear();
 
     // Compute fee:
-    CAmount nDebit = CachedTxGetDebit(wallet, wtx, /*avoid_reuse=*/false);
+    Amount nDebit = CachedTxGetDebit(wallet, wtx, /*avoid_reuse=*/false);
     if (nDebit > 0) // debit>0 means we signed/sent this transaction
     {
-        CAmount nValueOut = wtx.tx->GetValueOut();
+        Amount nValueOut = wtx.tx->GetValueOut();
         nFee = nDebit - nValueOut;
     }
 
@@ -266,7 +266,7 @@ Balance GetBalance(const CWallet& wallet, const int min_depth, bool avoid_reuse,
                 nonmempool_spent = true;
                 [[fallthrough]];
             case CWallet::SpendType::UNSPENT:
-                CAmount* bucket = nullptr;
+                Amount* bucket = nullptr;
 
                 // Set the amounts in the return object
                 if (wallet.IsTxImmatureCoinBase(wtx) && wtx.isConfirmed()) {
@@ -278,7 +278,7 @@ Balance GetBalance(const CWallet& wallet, const int min_depth, bool avoid_reuse,
                 }
                 if (bucket) {
                     // Get the amounts for mine
-                    CAmount credit_mine = txo.GetTxOut().nValue;
+                    Amount credit_mine = txo.GetTxOut().nValue;
 
                     if (!allow_used_addresses && wallet.IsSpentKey(txo.GetTxOut().scriptPubKey)) {
                         bucket = &ret.m_mine_used;
@@ -294,9 +294,9 @@ Balance GetBalance(const CWallet& wallet, const int min_depth, bool avoid_reuse,
     return ret;
 }
 
-std::map<CTxDestination, CAmount> GetAddressBalances(const CWallet& wallet)
+std::map<CTxDestination, Amount> GetAddressBalances(const CWallet& wallet)
 {
-    std::map<CTxDestination, CAmount> balances;
+    std::map<CTxDestination, Amount> balances;
 
     {
         LOCK(wallet.cs_wallet);
@@ -314,7 +314,7 @@ std::map<CTxDestination, CAmount> GetAddressBalances(const CWallet& wallet)
             Assume(wallet.IsMine(txo.GetTxOut()));
             if(!ExtractDestination(txo.GetTxOut().scriptPubKey, addr)) continue;
 
-            CAmount n = wallet.IsSpent(outpoint) ? 0 : txo.GetTxOut().nValue;
+            Amount n = wallet.IsSpent(outpoint) ? 0 : txo.GetTxOut().nValue;
             balances[addr] += n;
         }
     }

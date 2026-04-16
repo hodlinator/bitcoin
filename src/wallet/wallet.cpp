@@ -1630,7 +1630,7 @@ void CWallet::BlockUntilSyncedToCurrentChain() const {
 
 // Note that this function doesn't distinguish between a 0-valued input,
 // and a not-"is mine" input.
-CAmount CWallet::GetDebit(const CTxIn &txin) const
+Amount CWallet::GetDebit(const CTxIn &txin) const
 {
     LOCK(cs_wallet);
     auto txo = GetTXO(txin.prevout);
@@ -1701,9 +1701,9 @@ bool CWallet::IsFromMe(const CTransaction& tx) const
     return false;
 }
 
-CAmount CWallet::GetDebit(const CTransaction& tx) const
+Amount CWallet::GetDebit(const CTransaction& tx) const
 {
-    CAmount nDebit = 0;
+    Amount nDebit{0};
     for (const CTxIn& txin : tx.vin)
     {
         nDebit += GetDebit(txin);
@@ -2991,7 +2991,7 @@ bool CWallet::LoadWalletArgs(std::shared_ptr<CWallet> wallet, const WalletContex
     }
 
     if (const auto arg{args.GetArg("-mintxfee")}) {
-        std::optional<CAmount> min_tx_fee = ParseMoney(*arg);
+        std::optional<Amount> min_tx_fee = ParseMoney(*arg);
         if (!min_tx_fee) {
             error = AmountErrMsg("mintxfee", *arg);
             return false;
@@ -3007,7 +3007,7 @@ bool CWallet::LoadWalletArgs(std::shared_ptr<CWallet> wallet, const WalletContex
         const std::string& max_aps_fee{*arg};
         if (max_aps_fee == "-1") {
             wallet->m_max_aps_fee = -1;
-        } else if (std::optional<CAmount> max_fee = ParseMoney(max_aps_fee)) {
+        } else if (std::optional<Amount> max_fee = ParseMoney(max_aps_fee)) {
             if (max_fee.value() > HIGH_APS_FEE) {
                 warnings.push_back(AmountHighWarn("-maxapsfee") + Untranslated(" ") +
                                   _("This is the maximum transaction fee you pay (in addition to the normal fee) to prioritize partial spend avoidance over regular coin selection."));
@@ -3020,7 +3020,7 @@ bool CWallet::LoadWalletArgs(std::shared_ptr<CWallet> wallet, const WalletContex
     }
 
     if (const auto arg{args.GetArg("-fallbackfee")}) {
-        std::optional<CAmount> fallback_fee = ParseMoney(*arg);
+        std::optional<Amount> fallback_fee = ParseMoney(*arg);
         if (!fallback_fee) {
             error = strprintf(_("Invalid amount for %s=<amount>: '%s'"), "-fallbackfee", *arg);
             return false;
@@ -3035,7 +3035,7 @@ bool CWallet::LoadWalletArgs(std::shared_ptr<CWallet> wallet, const WalletContex
     wallet->m_allow_fallback_fee = wallet->m_fallback_fee.GetFeePerK() != 0;
 
     if (const auto arg{args.GetArg("-discardfee")}) {
-        std::optional<CAmount> discard_fee = ParseMoney(*arg);
+        std::optional<Amount> discard_fee = ParseMoney(*arg);
         if (!discard_fee) {
             error = strprintf(_("Invalid amount for %s=<amount>: '%s'"), "-discardfee", *arg);
             return false;
@@ -3047,7 +3047,7 @@ bool CWallet::LoadWalletArgs(std::shared_ptr<CWallet> wallet, const WalletContex
     }
 
     if (const auto arg{args.GetArg("-maxtxfee")}) {
-        std::optional<CAmount> max_fee = ParseMoney(*arg);
+        std::optional<Amount> max_fee = ParseMoney(*arg);
         if (!max_fee) {
             error = AmountErrMsg("maxtxfee", *arg);
             return false;
@@ -3065,7 +3065,7 @@ bool CWallet::LoadWalletArgs(std::shared_ptr<CWallet> wallet, const WalletContex
     }
 
     if (const auto arg{args.GetArg("-consolidatefeerate")}) {
-        if (std::optional<CAmount> consolidate_feerate = ParseMoney(*arg)) {
+        if (std::optional<Amount> consolidate_feerate = ParseMoney(*arg)) {
             wallet->m_consolidate_feerate = CFeeRate(*consolidate_feerate);
         } else {
             error = AmountErrMsg("consolidatefeerate", *arg);

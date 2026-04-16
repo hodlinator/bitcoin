@@ -59,7 +59,7 @@ util::Result<void> ApplyArgsManOptions(const ArgsManager& argsman, const CChainP
     // incremental relay fee sets the minimum feerate increase necessary for replacement in the mempool
     // and the amount the mempool min fee increases above the feerate of txs evicted due to mempool limiting.
     if (const auto arg{argsman.GetArg("-incrementalrelayfee")}) {
-        if (std::optional<CAmount> inc_relay_fee = ParseMoney(*arg)) {
+        if (std::optional<Amount> inc_relay_fee = ParseMoney(*arg)) {
             mempool_opts.incremental_relay_feerate = CFeeRate{inc_relay_fee.value()};
         } else {
             return util::Error{AmountErrMsg("incrementalrelayfee", *arg)};
@@ -68,7 +68,7 @@ util::Result<void> ApplyArgsManOptions(const ArgsManager& argsman, const CChainP
 
     static_assert(DEFAULT_MIN_RELAY_TX_FEE == DEFAULT_INCREMENTAL_RELAY_FEE);
     if (const auto arg{argsman.GetArg("-minrelaytxfee")}) {
-        if (std::optional<CAmount> min_relay_feerate = ParseMoney(*arg)) {
+        if (std::optional<Amount> min_relay_feerate = ParseMoney(*arg)) {
             // High fee check is done afterward in CWallet::Create()
             mempool_opts.min_relay_feerate = CFeeRate{min_relay_feerate.value()};
         } else {
@@ -83,7 +83,7 @@ util::Result<void> ApplyArgsManOptions(const ArgsManager& argsman, const CChainP
     // Feerate used to define dust.  Shouldn't be changed lightly as old
     // implementations may inadvertently create non-standard transactions
     if (const auto arg{argsman.GetArg("-dustrelayfee")}) {
-        if (std::optional<CAmount> parsed = ParseMoney(*arg)) {
+        if (std::optional<Amount> parsed = ParseMoney(*arg)) {
             mempool_opts.dust_relay_feerate = CFeeRate{parsed.value()};
         } else {
             return util::Error{AmountErrMsg("dustrelayfee", *arg)};

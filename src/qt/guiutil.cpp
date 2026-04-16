@@ -185,7 +185,7 @@ bool parseBitcoinURI(const QUrl &uri, SendCoinsRecipient *out)
         {
             if(!i->second.isEmpty())
             {
-                if (std::optional<CAmount> parsed{BitcoinUnits::parse(BitcoinUnit::BTC, i->second)}) {
+                if (std::optional<Amount> parsed{BitcoinUnits::parse(BitcoinUnit::BTC, i->second)}) {
                     rv.amount = *parsed;
                 } else {
                     return false;
@@ -240,7 +240,7 @@ QString formatBitcoinURI(const SendCoinsRecipient &info)
     return ret;
 }
 
-bool isDust(interfaces::Node& node, const QString& address, const CAmount& amount)
+bool isDust(interfaces::Node& node, const QString& address, const Amount& amount)
 {
     CTxDestination dest = DecodeDestination(address.toStdString());
     CScript script = GetScriptForDestination(dest);

@@ -32,7 +32,7 @@ static TransactionError HandleATMPError(const TxValidationState& state, std::str
 TransactionError BroadcastTransaction(NodeContext& node,
                                       const CTransactionRef tx,
                                       std::string& err_string,
-                                      const CAmount& max_tx_fee,
+                                      const Amount& max_tx_fee,
                                       TxBroadcast broadcast_method,
                                       bool wait_callback)
 {

@@ -267,7 +267,7 @@ util::Result<CoinsResult> FetchSelectedInputs(const CWallet& wallet, const CCoin
 {
     CoinsResult result;
     const bool can_grind_r = wallet.CanGrindR();
-    std::map<COutPoint, CAmount> map_of_bump_fees = wallet.chain().calculateIndividualBumpFees(coin_control.ListSelected(), coin_selection_params.m_effective_feerate);
+    std::map<COutPoint, Amount> map_of_bump_fees = wallet.chain().calculateIndividualBumpFees(coin_control.ListSelected(), coin_selection_params.m_effective_feerate);
     for (const COutPoint& outpoint : coin_control.ListSelected()) {
         int64_t input_bytes = coin_control.GetInputWeight(outpoint).value_or(-1);
         if (input_bytes != -1) {
@@ -323,7 +323,7 @@ CoinsResult AvailableCoins(const CWallet& wallet,
     CoinsResult result;
     // track unconfirmed truc outputs separately if we are tracking trucness
     std::vector<std::pair<OutputType, COutput>> unconfirmed_truc_coins;
-    std::unordered_map<Txid, CAmount, SaltedTxidHasher> truc_txid_by_value;
+    std::unordered_map<Txid, Amount, SaltedTxidHasher> truc_txid_by_value;
     // Either the WALLET_FLAG_AVOID_REUSE flag is not set (in which case we always allow), or we default to avoiding, and only in the case where
     // a coin control object is provided, and has the avoid address reuse flag set to false, do we allow already used addresses
     bool allow_used_addresses = !wallet.IsWalletFlagSet(WALLET_FLAG_AVOID_REUSE) || (coinControl && !coinControl->m_avoid_address_reuse);
@@ -509,7 +509,7 @@ CoinsResult AvailableCoins(const CWallet& wallet,
     }
 
     if (feerate.has_value()) {
-        std::map<COutPoint, CAmount> map_of_bump_fees = wallet.chain().calculateIndividualBumpFees(outpoints, feerate.value());
+        std::map<COutPoint, Amount> map_of_bump_fees = wallet.chain().calculateIndividualBumpFees(outpoints, feerate.value());
 
         for (auto& [_, outputs] : result.coins) {
             for (auto& output : outputs) {
@@ -695,7 +695,7 @@ FilteredOutputGroups GroupOutputs(const CWallet& wallet,
 // Returns true if the result contains an error and the message is not empty
 static bool HasErrorMsg(const util::Result<SelectionResult>& res) { return !util::ErrorString(res).empty(); }
 
-util::Result<SelectionResult> AttemptSelection(interfaces::Chain& chain, const CAmount& nTargetValue, OutputGroupTypeMap& groups,
+util::Result<SelectionResult> AttemptSelection(interfaces::Chain& chain, const Amount& nTargetValue, OutputGroupTypeMap& groups,
                                const CoinSelectionParams& coin_selection_params, bool allow_mixed_output_types)
 {
     // Run coin selection on each OutputType and compute the Waste Metric
@@ -722,7 +722,7 @@ util::Result<SelectionResult> AttemptSelection(interfaces::Chain& chain, const C
     return util::Error();
 };
 
-util::Result<SelectionResult> ChooseSelectionResult(interfaces::Chain& chain, const CAmount& nTargetValue, Groups& groups, const CoinSelectionParams& coin_selection_params)
+util::Result<SelectionResult> ChooseSelectionResult(interfaces::Chain& chain, const Amount& nTargetValue, Groups& groups, const CoinSelectionParams& coin_selection_params)
 {
     // Vector of results. We will choose the best one based on waste.
     std::vector<SelectionResult> results;
@@ -785,17 +785,17 @@ util::Result<SelectionResult> ChooseSelectionResult(interfaces::Chain& chain, co
     for (auto& result : results) {
         std::vector<COutPoint> outpoints;
         OutputSet coins = result.GetInputSet();
-        CAmount summed_bump_fees = 0;
+        Amount summed_bump_fees{0};
         for (auto& coin : coins) {
             if (coin->depth > 0) continue; // Bump fees only exist for unconfirmed inputs
             outpoints.push_back(coin->outpoint);
             summed_bump_fees += coin->ancestor_bump_fees;
         }
-        std::optional<CAmount> combined_bump_fee = chain.calculateCombinedBumpFee(outpoints, coin_selection_params.m_effective_feerate);
+        std::optional<Amount> combined_bump_fee = chain.calculateCombinedBumpFee(outpoints, coin_selection_params.m_effective_feerate);
         if (!combined_bump_fee.has_value()) {
             return util::Error{_("Failed to calculate bump fees, because unconfirmed UTXOs depend on an enormous cluster of unconfirmed transactions.")};
         }
-        CAmount bump_fee_overestimate = summed_bump_fees - combined_bump_fee.value();
+        Amount bump_fee_overestimate = summed_bump_fees - combined_bump_fee.value();
         if (bump_fee_overestimate) {
             result.SetBumpFeeDiscount(bump_fee_overestimate);
         }
@@ -808,11 +808,11 @@ util::Result<SelectionResult> ChooseSelectionResult(interfaces::Chain& chain, co
 }
 
 util::Result<SelectionResult> SelectCoins(const CWallet& wallet, CoinsResult& available_coins, const CoinsResult& pre_set_inputs,
-                                          const CAmount& nTargetValue, const CCoinControl& coin_control,
+                                          const Amount& nTargetValue, const CCoinControl& coin_control,
                                           const CoinSelectionParams& coin_selection_params)
 {
     // Deduct preset inputs amount from the search target
-    CAmount selection_target = nTargetValue - pre_set_inputs.GetAppropriateTotal(coin_selection_params.m_subtract_fee_outputs).value_or(0);
+    Amount selection_target = nTargetValue - pre_set_inputs.GetAppropriateTotal(coin_selection_params.m_subtract_fee_outputs).value_or(0);
 
     // Return if automatic coin selection is disabled, and we don't cover the selection target
     if (!coin_control.m_allow_other_inputs && selection_target > 0) {
@@ -835,7 +835,7 @@ util::Result<SelectionResult> SelectCoins(const CWallet& wallet, CoinsResult& av
 
     // Return early if we cannot cover the target with the wallet's UTXO.
     // We use the total effective value if we are not subtracting fee from outputs and 'available_coins' contains the data.
-    CAmount available_coins_total_amount = available_coins.GetAppropriateTotal(coin_selection_params.m_subtract_fee_outputs).value_or(0);
+    Amount available_coins_total_amount = available_coins.GetAppropriateTotal(coin_selection_params.m_subtract_fee_outputs).value_or(0);
     if (selection_target > available_coins_total_amount) {
         return util::Error(); // Insufficient funds
     }
@@ -865,7 +865,7 @@ util::Result<SelectionResult> SelectCoins(const CWallet& wallet, CoinsResult& av
     return op_selection_result;
 }
 
-util::Result<SelectionResult> AutomaticCoinSelection(const CWallet& wallet, CoinsResult& available_coins, const CAmount& value_to_select, const CoinSelectionParams& coin_selection_params)
+util::Result<SelectionResult> AutomaticCoinSelection(const CWallet& wallet, CoinsResult& available_coins, const Amount& value_to_select, const CoinSelectionParams& coin_selection_params)
 {
     // Try to enforce a mixture of cluster limits and ancestor/descendant limits on transactions we create by limiting
     // the ancestors and the maximum cluster count of any UTXO we use. We use the ancestor/descendant limits, which are
@@ -928,14 +928,14 @@ util::Result<SelectionResult> AutomaticCoinSelection(const CWallet& wallet, Coin
         FilteredOutputGroups filtered_groups = GroupOutputs(wallet, available_coins, coin_selection_params, ordered_filters, discarded_groups);
 
         // Check if we still have enough balance after applying filters (some coins might be discarded)
-        CAmount total_discarded = 0;
-        CAmount total_unconf_long_chain = 0;
+        Amount total_discarded{0};
+        Amount total_unconf_long_chain{0};
         for (const auto& group : discarded_groups) {
             total_discarded += group.GetSelectionAmount();
             if (group.m_ancestors >= max_ancestors || group.m_max_cluster_count >= max_cluster_count) total_unconf_long_chain += group.GetSelectionAmount();
         }
 
-        if (CAmount total_amount = available_coins.GetTotalAmount() - total_discarded; total_amount < value_to_select) {
+        if (Amount total_amount = available_coins.GetTotalAmount() - total_discarded; total_amount < value_to_select) {
             // Special case, too-long-mempool cluster.
             if (total_amount + total_unconf_long_chain > value_to_select) {
                 return util::Error{_("Unconfirmed UTXOs are available, but spending them creates a chain of transactions that will be rejected by the mempool")};
@@ -1084,7 +1084,7 @@ static util::Result<CreatedTransactionResult> CreateTransactionInternal(
     // Static vsize overhead + outputs vsize. 4 nVersion, 4 nLocktime, 1 input count, 1 witness overhead (dummy, flag, stack size)
     coin_selection_params.tx_noinputs_size = 10 + GetSizeOfCompactSize(vecSend.size()); // bytes for output count
 
-    CAmount recipients_sum = 0;
+    Amount recipients_sum{0};
     const OutputType change_type = wallet.TransactionChangeType(coin_control.m_change_type ? *coin_control.m_change_type : wallet.m_default_change_type, vecSend);
     ReserveDestination reservedest(&wallet, change_type);
     unsigned int outputs_to_subtract_fee_from = 0; // The number of outputs which we are subtracting the fee from
@@ -1191,8 +1191,8 @@ static util::Result<CreatedTransactionResult> CreateTransactionInternal(
     coin_selection_params.min_viable_change = std::max(change_spend_fee + 1, dust);
 
     // Include the fees for things that aren't inputs, excluding the change output
-    const CAmount not_input_fees = coin_selection_params.m_effective_feerate.GetFee(coin_selection_params.m_subtract_fee_outputs ? 0 : coin_selection_params.tx_noinputs_size);
-    CAmount selection_target = recipients_sum + not_input_fees;
+    const Amount not_input_fees = coin_selection_params.m_effective_feerate.GetFee(coin_selection_params.m_subtract_fee_outputs ? 0 : coin_selection_params.tx_noinputs_size);
+    Amount selection_target = recipients_sum + not_input_fees;
 
     // This can only happen if feerate is 0, and requested destinations are value of 0 (e.g. OP_RETURN)
     // and no pre-selected inputs. This will result in 0-input transaction, which is consensus-invalid anyways
@@ -1223,14 +1223,14 @@ static util::Result<CreatedTransactionResult> CreateTransactionInternal(
         if (!err.empty()) return util::Error{err};
 
         // Check if we have enough balance but cannot cover the fees
-        CAmount available_balance = preset_inputs.GetTotalAmount() + available_coins.GetTotalAmount();
+        Amount available_balance = preset_inputs.GetTotalAmount() + available_coins.GetTotalAmount();
         // Note: if SelectCoins() fails when SFFO is enabled (recipients_sum = selection_target with SFFO),
         // then recipients_sum > available_balance and we wouldn't enter into the if condition below.
         if (available_balance >= recipients_sum) {
             // If we have coins with balance, they should have effective values since we constructed them with valid feerate.
             assert(!preset_inputs.Size() || preset_inputs.GetEffectiveTotalAmount().has_value());
             assert(!available_coins.Size() || available_coins.GetEffectiveTotalAmount().has_value());
-            CAmount available_effective_balance = preset_inputs.GetEffectiveTotalAmount().value_or(0) + available_coins.GetEffectiveTotalAmount().value_or(0);
+            Amount available_effective_balance = preset_inputs.GetEffectiveTotalAmount().value_or(0) + available_coins.GetEffectiveTotalAmount().value_or(0);
             if (available_effective_balance < selection_target) {
                 Assume(!coin_selection_params.m_subtract_fee_outputs);
                 return util::Error{strprintf(_("The total exceeds your balance when the %s transaction fee is included."), FormatMoney(selection_target - recipients_sum))};
@@ -1254,7 +1254,7 @@ static util::Result<CreatedTransactionResult> CreateTransactionInternal(
     {
         txNew.vout.emplace_back(recipient.nAmount, GetScriptForDestination(recipient.dest));
     }
-    const CAmount change_amount = result.GetChange(coin_selection_params.min_viable_change, coin_selection_params.m_change_fee);
+    const Amount change_amount = result.GetChange(coin_selection_params.min_viable_change, coin_selection_params.m_change_fee);
     if (change_amount > 0) {
         CTxOut newTxOut(change_amount, scriptChange);
         if (!change_pos) {
@@ -1332,10 +1332,10 @@ static util::Result<CreatedTransactionResult> CreateTransactionInternal(
     if (nBytes == -1) {
         return util::Error{_("Missing solving data for estimating transaction size")};
     }
-    CAmount fee_needed = coin_selection_params.m_effective_feerate.GetFee(nBytes) + result.GetTotalBumpFees();
-    const CAmount output_value = CalculateOutputValue(txNew);
+    Amount fee_needed = coin_selection_params.m_effective_feerate.GetFee(nBytes) + result.GetTotalBumpFees();
+    const Amount output_value = CalculateOutputValue(txNew);
     Assume(recipients_sum + change_amount == output_value);
-    CAmount current_fee = result.GetSelectedValue() - output_value;
+    Amount current_fee = result.GetSelectedValue() - output_value;
 
     // Sanity check that the fee cannot be negative as that means we have more output value than input value
     if (current_fee < 0) {
@@ -1354,7 +1354,7 @@ static util::Result<CreatedTransactionResult> CreateTransactionInternal(
 
     // Reduce output values for subtractFeeFromAmount
     if (coin_selection_params.m_subtract_fee_outputs) {
-        CAmount to_reduce = fee_needed - current_fee;
+        Amount to_reduce = fee_needed - current_fee;
         unsigned int i = 0;
         bool fFirst = true;
         for (const auto& recipient : vecSend)

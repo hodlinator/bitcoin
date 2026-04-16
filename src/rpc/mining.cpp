@@ -554,7 +554,7 @@ static RPCMethod prioritisetransaction()
 
     auto txid{Txid::FromUint256(ParseHashV(request.params[0], "txid"))};
     const auto dummy{self.MaybeArg<double>("dummy")};
-    CAmount nAmount = request.params[2].getInt<int64_t>();
+    Amount nAmount = request.params[2].getInt<int64_t>();
 
     if (dummy && *dummy != 0) {
         throw JSONRPCError(RPC_INVALID_PARAMETER, "Priority is no longer supported, dummy argument to prioritisetransaction must be 0.");
@@ -926,7 +926,7 @@ static RPCMethod getblocktemplate()
 
     UniValue transactions(UniValue::VARR);
     std::map<Txid, int64_t> setTxIndex;
-    std::vector<CAmount> tx_fees{block_template->getTxFees()};
+    std::vector<Amount> tx_fees{block_template->getTxFees()};
     std::vector<int64_t> tx_sigops{block_template->getTxSigops()};
 
     int i = 0;

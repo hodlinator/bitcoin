@@ -71,7 +71,7 @@ private:
     CTxMemPoolEntry(const CTxMemPoolEntry&) = delete;
 
     const CTransactionRef tx;
-    const CAmount nFee;             //!< Cached to avoid expensive parent-transaction lookups
+    const Amount nFee;             //!< Cached to avoid expensive parent-transaction lookups
     const int32_t nTxWeight;         //!< ... and avoid recomputing tx weight (also used for GetTxSize())
     const size_t nUsageSize;        //!< ... and total memory usage
     const int64_t nTime;            //!< Local time when entering the mempool
@@ -79,12 +79,12 @@ private:
     const unsigned int entryHeight; //!< Chain height when entering the mempool
     const bool spendsCoinbase;      //!< keep track of transactions that spend a coinbase
     const int64_t sigOpCost;        //!< Total sigop cost
-    mutable CAmount m_modified_fee; //!< Used for determining the priority of the transaction for mining in a block
+    mutable Amount m_modified_fee; //!< Used for determining the priority of the transaction for mining in a block
     mutable LockPoints lockPoints;  //!< Track the height and time at which tx was final
 
 public:
     virtual ~CTxMemPoolEntry() = default;
-    CTxMemPoolEntry(const CTransactionRef& tx, CAmount fee,
+    CTxMemPoolEntry(const CTransactionRef& tx, Amount fee,
                     int64_t time, unsigned int entry_height, uint64_t entry_sequence,
                     bool spends_coinbase,
                     int64_t sigops_cost, LockPoints lp)
@@ -106,7 +106,7 @@ public:
 
     const CTransaction& GetTx() const { return *this->tx; }
     CTransactionRef GetSharedTx() const { return this->tx; }
-    const CAmount& GetFee() const { return nFee; }
+    const Amount& GetFee() const { return nFee; }
     int32_t GetTxSize() const
     {
         return GetVirtualTransactionSize(nTxWeight, sigOpCost, ::nBytesPerSigOp);
@@ -117,12 +117,12 @@ public:
     unsigned int GetHeight() const { return entryHeight; }
     uint64_t GetSequence() const { return entry_sequence; }
     int64_t GetSigOpCost() const { return sigOpCost; }
-    CAmount GetModifiedFee() const { return m_modified_fee; }
+    Amount GetModifiedFee() const { return m_modified_fee; }
     size_t DynamicMemoryUsage() const { return nUsageSize; }
     const LockPoints& GetLockPoints() const { return lockPoints; }
 
     // Updates the modified fees with descendants/ancestors.
-    void UpdateModifiedFee(CAmount fee_diff) const
+    void UpdateModifiedFee(Amount fee_diff) const
     {
         m_modified_fee = SaturatingAdd(m_modified_fee, fee_diff);
     }
@@ -143,7 +143,7 @@ using CTxMemPoolEntryRef = CTxMemPoolEntry::CTxMemPoolEntryRef;
 struct TransactionInfo {
     const CTransactionRef m_tx;
     /* The fee the transaction paid */
-    const CAmount m_fee;
+    const Amount m_fee;
     /**
      * The virtual transaction size.
      *
@@ -157,7 +157,7 @@ struct TransactionInfo {
     /* The block height the transaction entered the mempool */
     const unsigned int txHeight;
 
-    TransactionInfo(const CTransactionRef& tx, const CAmount& fee, const int64_t vsize, const unsigned int height)
+    TransactionInfo(const CTransactionRef& tx, const Amount& fee, const int64_t vsize, const unsigned int height)
         : m_tx{tx},
           m_fee{fee},
           m_virtual_transaction_size{vsize},
@@ -187,7 +187,7 @@ struct NewMempoolTransactionInfo {
     /* Indicates whether the transaction has unconfirmed parents. */
     const bool m_has_no_mempool_parents;
 
-    explicit NewMempoolTransactionInfo(const CTransactionRef& tx, const CAmount& fee,
+    explicit NewMempoolTransactionInfo(const CTransactionRef& tx, const Amount& fee,
                                        const int64_t vsize, const unsigned int height,
                                        const bool mempool_limit_bypassed, const bool submitted_in_package,
                                        const bool chainstate_is_current,

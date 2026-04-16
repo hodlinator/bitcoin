@@ -97,8 +97,8 @@ std::optional<std::string> EntriesAndTxidsDisjoint(const CTxMemPool::setEntries&
     return std::nullopt;
 }
 
-std::optional<std::string> PaysForRBF(CAmount original_fees,
-                                      CAmount replacement_fees,
+std::optional<std::string> PaysForRBF(Amount original_fees,
+                                      Amount replacement_fees,
                                       size_t replacement_vsize,
                                       CFeeRate relay_fee,
                                       const Txid& txid)
@@ -114,7 +114,7 @@ std::optional<std::string> PaysForRBF(CAmount original_fees,
     // Rule #4: The new transaction must pay for its own bandwidth. Otherwise, we have a DoS
     // vector where attackers can cause a transaction to be replaced (and relayed) repeatedly by
     // increasing the fee by tiny amounts.
-    CAmount additional_fees = replacement_fees - original_fees;
+    Amount additional_fees = replacement_fees - original_fees;
     if (additional_fees < relay_fee.GetFee(replacement_vsize)) {
         return strprintf("rejecting replacement %s, not enough additional fees to relay; %s < %s",
                          txid.ToString(),

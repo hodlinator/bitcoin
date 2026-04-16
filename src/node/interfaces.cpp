@@ -371,7 +371,7 @@ public:
         LOCK(::cs_main);
         return chainman().ActiveChainstate().CoinsTip().GetCoin(output);
     }
-    TransactionError broadcastTransaction(CTransactionRef tx, CAmount max_tx_fee, std::string& err_string) override
+    TransactionError broadcastTransaction(CTransactionRef tx, Amount max_tx_fee, std::string& err_string) override
     {
         return BroadcastTransaction(*m_context,
                                     std::move(tx),
@@ -683,7 +683,7 @@ public:
         return m_node.mempool->HasDescendants(txid);
     }
     bool broadcastTransaction(const CTransactionRef& tx,
-        const CAmount& max_tx_fee,
+        const Amount& max_tx_fee,
         TxBroadcast broadcast_method,
         std::string& err_string) override
     {
@@ -693,17 +693,17 @@ public:
         // that Chain clients do not need to know about.
         return TransactionError::OK == err;
     }
-    void getTransactionAncestry(const Txid& txid, size_t& ancestors, size_t& cluster_count, size_t* ancestorsize, CAmount* ancestorfees) override
+    void getTransactionAncestry(const Txid& txid, size_t& ancestors, size_t& cluster_count, size_t* ancestorsize, Amount* ancestorfees) override
     {
         ancestors = cluster_count = 0;
         if (!m_node.mempool) return;
         m_node.mempool->GetTransactionAncestry(txid, ancestors, cluster_count, ancestorsize, ancestorfees);
     }
 
-    std::map<COutPoint, CAmount> calculateIndividualBumpFees(const std::vector<COutPoint>& outpoints, const CFeeRate& target_feerate) override
+    std::map<COutPoint, Amount> calculateIndividualBumpFees(const std::vector<COutPoint>& outpoints, const CFeeRate& target_feerate) override
     {
         if (!m_node.mempool) {
-            std::map<COutPoint, CAmount> bump_fees;
+            std::map<COutPoint, Amount> bump_fees;
             for (const auto& outpoint : outpoints) {
                 bump_fees.emplace(outpoint, 0);
             }
@@ -712,7 +712,7 @@ public:
         return MiniMiner(*m_node.mempool, outpoints).CalculateBumpFees(target_feerate);
     }
 
-    std::optional<CAmount> calculateCombinedBumpFee(const std::vector<COutPoint>& outpoints, const CFeeRate& target_feerate) override
+    std::optional<Amount> calculateCombinedBumpFee(const std::vector<COutPoint>& outpoints, const CFeeRate& target_feerate) override
     {
         if (!m_node.mempool) {
             return 0;
@@ -897,7 +897,7 @@ public:
         return m_block_template->block;
     }
 
-    std::vector<CAmount> getTxFees() override
+    std::vector<Amount> getTxFees() override
     {
         return m_block_template->vTxFees;
     }

@@ -43,7 +43,7 @@ struct CBlockTemplate
 {
     CBlock block;
     // Fees per transaction, not including coinbase transaction (unlike CBlock::vtx).
-    std::vector<CAmount> vTxFees;
+    std::vector<Amount> vTxFees;
     // Sigops per transaction, not including coinbase transaction (unlike CBlock::vtx).
     std::vector<int64_t> vTxSigOpsCost;
     /* A vector of package fee rates, ordered by the sequence in which
@@ -67,7 +67,7 @@ private:
     uint64_t nBlockWeight;
     uint64_t nBlockTx;
     uint64_t nBlockSigOpsCost;
-    CAmount nFees;
+    Amount nFees;
 
     // Chain context for the block
     int nHeight;

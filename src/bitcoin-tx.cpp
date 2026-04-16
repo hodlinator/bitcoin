@@ -201,9 +201,9 @@ static void RegisterLoad(const std::string& strInput)
     RegisterSetJson(key, valStr);
 }
 
-static CAmount ExtractAndValidateValue(const std::string& strValue)
+static Amount ExtractAndValidateValue(const std::string& strValue)
 {
-    if (std::optional<CAmount> parsed = ParseMoney(strValue)) {
+    if (std::optional<Amount> parsed = ParseMoney(strValue)) {
         return parsed.value();
     } else {
         throw std::runtime_error("invalid TX output value");
@@ -301,7 +301,7 @@ static void MutateTxAddOutAddr(CMutableTransaction& tx, const std::string& strIn
         throw std::runtime_error("TX output missing or too many separators");
 
     // Extract and validate VALUE
-    CAmount value = ExtractAndValidateValue(vStrInputParts[0]);
+    Amount value = ExtractAndValidateValue(vStrInputParts[0]);
 
     // extract and validate ADDRESS
     const std::string& strAddr = vStrInputParts[1];
@@ -325,7 +325,7 @@ static void MutateTxAddOutPubKey(CMutableTransaction& tx, const std::string& str
         throw std::runtime_error("TX output missing or too many separators");
 
     // Extract and validate VALUE
-    CAmount value = ExtractAndValidateValue(vStrInputParts[0]);
+    Amount value = ExtractAndValidateValue(vStrInputParts[0]);
 
     // Extract and validate PUBKEY
     CPubKey pubkey(ParseHex(vStrInputParts[1]));
@@ -369,7 +369,7 @@ static void MutateTxAddOutMultiSig(CMutableTransaction& tx, const std::string& s
         throw std::runtime_error("Not enough multisig parameters");
 
     // Extract and validate VALUE
-    CAmount value = ExtractAndValidateValue(vStrInputParts[0]);
+    Amount value = ExtractAndValidateValue(vStrInputParts[0]);
 
     // Extract REQUIRED
     const uint32_t required{TrimAndParse<uint32_t>(vStrInputParts.at(1), "invalid multisig required number")};
@@ -434,7 +434,7 @@ static void MutateTxAddOutMultiSig(CMutableTransaction& tx, const std::string& s
 
 static void MutateTxAddOutData(CMutableTransaction& tx, const std::string& strInput)
 {
-    CAmount value = 0;
+    Amount value{0};
 
     // separate [VALUE:]DATA in string
     size_t pos = strInput.find(':');
@@ -470,7 +470,7 @@ static void MutateTxAddOutScript(CMutableTransaction& tx, const std::string& str
         throw std::runtime_error("TX output missing separator");
 
     // Extract and validate VALUE
-    CAmount value = ExtractAndValidateValue(vStrInputParts[0]);
+    Amount value = ExtractAndValidateValue(vStrInputParts[0]);
 
     // extract and validate script
     const std::string& strScript = vStrInputParts[1];
@@ -552,11 +552,11 @@ static bool findSighashFlags(int& flags, const std::string& flagStr)
     return false;
 }
 
-static CAmount AmountFromValue(const UniValue& value)
+static Amount AmountFromValue(const UniValue& value)
 {
     if (!value.isNum() && !value.isStr())
         throw std::runtime_error("Amount is not a number or string");
-    std::optional<CAmount> amount{ParseFixedPoint(value.getValStr(), 8)};
+    std::optional<Amount> amount{ParseFixedPoint(value.getValStr(), 8)};
     if (!amount)
         throw std::runtime_error("Invalid amount");
     if (!MoneyRange(*amount))
@@ -676,7 +676,7 @@ static void MutateTxSign(CMutableTransaction& tx, const std::string& flagStr)
             continue;
         }
         const CScript& prevPubKey = coin.out.scriptPubKey;
-        const CAmount& amount = coin.out.nValue;
+        const Amount& amount = coin.out.nValue;
 
         SignatureData sigdata = DataFromTransaction(mergedTx, i, coin.out);
         // Only sign SIGHASH_SINGLE if there's a corresponding output:

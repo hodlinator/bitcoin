@@ -98,11 +98,11 @@ UniValue NormalizeOutputs(const UniValue& outputs_in)
     return outputs;
 }
 
-std::vector<std::pair<CTxDestination, CAmount>> ParseOutputs(const UniValue& outputs)
+std::vector<std::pair<CTxDestination, Amount>> ParseOutputs(const UniValue& outputs)
 {
     // Duplicate checking
     std::set<CTxDestination> destinations;
-    std::vector<std::pair<CTxDestination, CAmount>> parsed_outputs;
+    std::vector<std::pair<CTxDestination, Amount>> parsed_outputs;
     bool has_data{false};
     for (const std::string& name_ : outputs.getKeys()) {
         if (name_ == "data") {
@@ -112,11 +112,11 @@ std::vector<std::pair<CTxDestination, CAmount>> ParseOutputs(const UniValue& out
             has_data = true;
             std::vector<unsigned char> data = ParseHexV(outputs[name_].getValStr(), "Data");
             CTxDestination destination{CNoDestination{CScript() << OP_RETURN << data}};
-            CAmount amount{0};
+            Amount amount{0};
             parsed_outputs.emplace_back(destination, amount);
         } else {
             CTxDestination destination{DecodeDestination(name_)};
-            CAmount amount{AmountFromValue(outputs[name_])};
+            Amount amount{AmountFromValue(outputs[name_])};
             if (!IsValidDestination(destination)) {
                 throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, std::string("Invalid Bitcoin address: ") + name_);
             }
@@ -135,7 +135,7 @@ void AddOutputs(CMutableTransaction& rawTx, const UniValue& outputs_in)
     UniValue outputs(UniValue::VOBJ);
     outputs = NormalizeOutputs(outputs_in);
 
-    std::vector<std::pair<CTxDestination, CAmount>> parsed_outputs = ParseOutputs(outputs);
+    std::vector<std::pair<CTxDestination, Amount>> parsed_outputs = ParseOutputs(outputs);
     for (const auto& [destination, nAmount] : parsed_outputs) {
         CScript scriptPubKey = GetScriptForDestination(destination);
 

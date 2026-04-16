@@ -72,7 +72,7 @@ FUZZ_TARGET(mini_miner, .init = initialize_miner)
         }
         CTransactionRef tx = MakeTransactionRef(mtx);
         TestMemPoolEntryHelper entry;
-        const CAmount fee{ConsumeMoney(fuzzed_data_provider, /*max=*/MAX_MONEY/100000)};
+        const Amount fee{ConsumeMoney(fuzzed_data_provider, /*max=*/MAX_MONEY/100000)};
         assert(MoneyRange(fee));
         TryAddToMempool(pool, entry.Fee(fee).FromTx(tx));
 
@@ -99,8 +99,8 @@ FUZZ_TARGET(mini_miner, .init = initialize_miner)
     }
 
     const CFeeRate target_feerate{CFeeRate{ConsumeMoney(fuzzed_data_provider, /*max=*/MAX_MONEY/1000)}};
-    std::optional<CAmount> total_bumpfee;
-    CAmount sum_fees = 0;
+    std::optional<Amount> total_bumpfee;
+    Amount sum_fees{0};
     {
         node::MiniMiner mini_miner{pool, outpoints};
         assert(mini_miner.IsReadyToCalculate());

@@ -17,7 +17,7 @@
 
 namespace wallet {
 
-static void AddCoin(const CAmount& value, int n_input, int n_input_bytes, int locktime, std::vector<COutput>& coins, CFeeRate fee_rate)
+static void AddCoin(const Amount& value, int n_input, int n_input_bytes, int locktime, std::vector<COutput>& coins, CFeeRate fee_rate)
 {
     CMutableTransaction tx;
     tx.vout.resize(n_input + 1);
@@ -47,14 +47,14 @@ static void GroupCoins(FuzzedDataProvider& fuzzed_data_provider, const std::vect
     if (valid_outputgroup) output_groups.push_back(output_group);
 }
 
-static CAmount CreateCoins(FuzzedDataProvider& fuzzed_data_provider, std::vector<COutput>& utxo_pool, CoinSelectionParams& coin_params, int& next_locktime)
+static Amount CreateCoins(FuzzedDataProvider& fuzzed_data_provider, std::vector<COutput>& utxo_pool, CoinSelectionParams& coin_params, int& next_locktime)
 {
-    CAmount total_balance{0};
+    Amount total_balance{0};
     LIMITED_WHILE(fuzzed_data_provider.ConsumeBool(), 10000)
     {
         const int n_input{fuzzed_data_provider.ConsumeIntegralInRange<int>(0, 10)};
         const int n_input_bytes{fuzzed_data_provider.ConsumeIntegralInRange<int>(41, 10000)};
-        const CAmount amount{fuzzed_data_provider.ConsumeIntegralInRange<CAmount>(1, MAX_MONEY)};
+        const Amount amount{fuzzed_data_provider.ConsumeIntegralInRange<Amount>(1, MAX_MONEY)};
         if (total_balance + amount >= MAX_MONEY) {
             break;
         }
@@ -65,7 +65,7 @@ static CAmount CreateCoins(FuzzedDataProvider& fuzzed_data_provider, std::vector
     return total_balance;
 }
 
-static SelectionResult ManualSelection(std::vector<COutput>& utxos, const CAmount& total_amount, const bool& subtract_fee_outputs)
+static SelectionResult ManualSelection(std::vector<COutput>& utxos, const Amount& total_amount, const bool& subtract_fee_outputs)
 {
     SelectionResult result(total_amount, SelectionAlgorithm::MANUAL);
     OutputSet utxo_pool;
@@ -84,7 +84,7 @@ FUZZ_TARGET(coin_grinder)
     FuzzedDataProvider fuzzed_data_provider{buffer.data(), buffer.size()};
     std::vector<COutput> utxo_pool;
 
-    const CAmount target{fuzzed_data_provider.ConsumeIntegralInRange<CAmount>(1, MAX_MONEY)};
+    const Amount target{fuzzed_data_provider.ConsumeIntegralInRange<Amount>(1, MAX_MONEY)};
 
     FastRandomContext fast_random_context{ConsumeUInt256(fuzzed_data_provider)};
     CoinSelectionParams coin_params{fast_random_context};
@@ -99,20 +99,20 @@ FUZZ_TARGET(coin_grinder)
     coin_params.m_min_change_target = CHANGE_LOWER + coin_params.m_change_fee;
 
     // Create some coins
-    CAmount total_balance{0};
-    CAmount max_spendable{0};
+    Amount total_balance{0};
+    Amount max_spendable{0};
     int next_locktime{0};
     LIMITED_WHILE(fuzzed_data_provider.ConsumeBool(), 10000)
     {
         const int n_input{fuzzed_data_provider.ConsumeIntegralInRange<int>(0, 10)};
         const int n_input_bytes{fuzzed_data_provider.ConsumeIntegralInRange<int>(41, 10000)};
-        const CAmount amount{fuzzed_data_provider.ConsumeIntegralInRange<CAmount>(1, MAX_MONEY)};
+        const Amount amount{fuzzed_data_provider.ConsumeIntegralInRange<Amount>(1, MAX_MONEY)};
         if (total_balance + amount >= MAX_MONEY) {
             break;
         }
         AddCoin(amount, n_input, n_input_bytes, ++next_locktime, utxo_pool, coin_params.m_effective_feerate);
         total_balance += amount;
-        CAmount eff_value = amount - coin_params.m_effective_feerate.GetFee(n_input_bytes);
+        Amount eff_value = amount - coin_params.m_effective_feerate.GetFee(n_input_bytes);
         max_spendable += eff_value;
     }
 
@@ -148,7 +148,7 @@ FUZZ_TARGET(coin_grinder_is_optimal)
     coin_params.m_min_change_target = ConsumeMoney(fuzzed_data_provider);
 
     // Create some coins
-    CAmount max_spendable{0};
+    Amount max_spendable{0};
     int next_locktime{0};
     static constexpr unsigned max_output_groups{16};
     std::vector<OutputGroup> group_pos;
@@ -157,10 +157,10 @@ FUZZ_TARGET(coin_grinder_is_optimal)
         // With maximum m_effective_feerate and n_input_bytes = 1'000'000, input_fee <= MAX_MONEY.
         const int n_input_bytes{fuzzed_data_provider.ConsumeIntegralInRange<int>(1, 1'000'000)};
         // Only make UTXOs with positive effective value
-        const CAmount input_fee = coin_params.m_effective_feerate.GetFee(n_input_bytes);
+        const Amount input_fee = coin_params.m_effective_feerate.GetFee(n_input_bytes);
         // Ensure that each UTXO has at least an effective value of 1 sat
-        const CAmount eff_value{fuzzed_data_provider.ConsumeIntegralInRange<CAmount>(1, MAX_MONEY + group_pos.size() - max_spendable - max_output_groups)};
-        const CAmount amount{eff_value + input_fee};
+        const Amount eff_value{fuzzed_data_provider.ConsumeIntegralInRange<Amount>(1, MAX_MONEY + group_pos.size() - max_spendable - max_output_groups)};
+        const Amount amount{eff_value + input_fee};
         std::vector<COutput> temp_utxo_pool;
 
         AddCoin(amount, /*n_input=*/0, n_input_bytes, ++next_locktime, temp_utxo_pool, coin_params.m_effective_feerate);
@@ -174,13 +174,13 @@ FUZZ_TARGET(coin_grinder_is_optimal)
     assert(num_groups <= max_output_groups);
 
     // Only choose targets below max_spendable
-    const CAmount target{fuzzed_data_provider.ConsumeIntegralInRange<CAmount>(1, std::max(CAmount{1}, max_spendable - coin_params.m_min_change_target))};
+    const Amount target{fuzzed_data_provider.ConsumeIntegralInRange<Amount>(1, std::max(Amount{1}, max_spendable - coin_params.m_min_change_target))};
 
     // Brute force optimal solution
-    CAmount best_amount{MAX_MONEY};
+    Amount best_amount{MAX_MONEY};
     int best_weight{std::numeric_limits<int>::max()};
     for (uint32_t pattern = 1; (pattern >> num_groups) == 0; ++pattern) {
-        CAmount subset_amount{0};
+        Amount subset_amount{0};
         int subset_weight{0};
         for (unsigned i = 0; i < num_groups; ++i) {
             if ((pattern >> i) & 1) {
@@ -240,7 +240,7 @@ FUZZ_TARGET(bnb_finds_min_waste)
     coin_params.min_viable_change = std::max(change_spend_fee + 1, dust);
 
     // Create some coins
-    CAmount max_spendable{0};
+    Amount max_spendable{0};
     int next_locktime{0};
     // Too many output groups (>17?) would make it possible to generate UTXO
     // pool and target combinations that cannot be completely searched by BnB
@@ -254,10 +254,10 @@ FUZZ_TARGET(bnb_finds_min_waste)
     {
         // With maximum m_effective_feerate 10'000 s/vB and n_input_bytes = 20'000 B, input_fee <= MAX_MONEY.
         const int n_input_bytes{fuzzed_data_provider.ConsumeIntegralInRange<int>(1, 20'000)};
-        const CAmount input_fee = coin_params.m_effective_feerate.GetFee(n_input_bytes);
+        const Amount input_fee = coin_params.m_effective_feerate.GetFee(n_input_bytes);
         // Ensure that each UTXO has at least an effective value of 1 sat
-        const CAmount eff_value{fuzzed_data_provider.ConsumeIntegralInRange<CAmount>(1, MAX_MONEY + group_pos.size() - max_spendable - max_output_groups)};
-        const CAmount amount{eff_value + input_fee};
+        const Amount eff_value{fuzzed_data_provider.ConsumeIntegralInRange<Amount>(1, MAX_MONEY + group_pos.size() - max_spendable - max_output_groups)};
+        const Amount amount{eff_value + input_fee};
         std::vector<COutput> temp_utxo_pool;
 
         AddCoin(amount, /*n_input=*/0, n_input_bytes, ++next_locktime, temp_utxo_pool, coin_params.m_effective_feerate);
@@ -271,11 +271,11 @@ FUZZ_TARGET(bnb_finds_min_waste)
     assert(num_groups <= max_output_groups);
 
     // Only choose targets below max_spendable
-    const CAmount target{fuzzed_data_provider.ConsumeIntegralInRange<CAmount>(1, std::max(CAmount{1}, max_spendable - coin_params.m_cost_of_change))};
+    const Amount target{fuzzed_data_provider.ConsumeIntegralInRange<Amount>(1, std::max(Amount{1}, max_spendable - coin_params.m_cost_of_change))};
 
     // Brute force optimal solution (lowest waste, but cannot be superset of another solution)
     std::vector<uint32_t> solutions;
-    CAmount best_waste{std::numeric_limits<int64_t>::max()};
+    Amount best_waste{std::numeric_limits<int64_t>::max()};
     int best_weight{std::numeric_limits<int>::max()};
     for (uint32_t pattern = 1; (pattern >> num_groups) == 0; ++pattern) {
         // BnB does not permit adding more inputs to a solution, i.e. a superset of a solution cannot ever be a solution.
@@ -291,8 +291,8 @@ FUZZ_TARGET(bnb_finds_min_waste)
             continue;
         }
 
-        CAmount subset_amount{0};
-        CAmount subset_waste{0};
+        Amount subset_amount{0};
+        Amount subset_waste{0};
         int subset_weight{0};
         for (unsigned i = 0; i < num_groups; ++i) {
             if ((pattern >> i) & 1) {
@@ -304,7 +304,7 @@ FUZZ_TARGET(bnb_finds_min_waste)
         if (subset_amount >= target && subset_amount <= target + coin_params.m_cost_of_change) {
             solutions.push_back(pattern);
             // Add the excess (overselection that gets dropped to fees) to waste score
-            CAmount excess = subset_amount - target;
+            Amount excess = subset_amount - target;
             subset_waste += excess;
             SelectionResult result_bf(target, SelectionAlgorithm::MANUAL);
 
@@ -358,8 +358,8 @@ void FuzzCoinSelectionAlgorithm(std::span<const uint8_t> buffer) {
     const CFeeRate long_term_fee_rate{ConsumeMoney(fuzzed_data_provider, /*max=*/COIN)};
     const CFeeRate effective_fee_rate{ConsumeMoney(fuzzed_data_provider, /*max=*/COIN)};
     // Discard feerate must be at least dust relay feerate
-    const CFeeRate discard_fee_rate{fuzzed_data_provider.ConsumeIntegralInRange<CAmount>(DUST_RELAY_TX_FEE, COIN)};
-    const CAmount target{fuzzed_data_provider.ConsumeIntegralInRange<CAmount>(1, MAX_MONEY)};
+    const CFeeRate discard_fee_rate{fuzzed_data_provider.ConsumeIntegralInRange<Amount>(DUST_RELAY_TX_FEE, COIN)};
+    const Amount target{fuzzed_data_provider.ConsumeIntegralInRange<Amount>(1, MAX_MONEY)};
     const bool subtract_fee_outputs{fuzzed_data_provider.ConsumeBool()};
 
     FastRandomContext fast_random_context{ConsumeUInt256(fuzzed_data_provider)};
@@ -378,7 +378,7 @@ void FuzzCoinSelectionAlgorithm(std::span<const uint8_t> buffer) {
     coin_params.min_viable_change = std::max(change_spend_fee + 1, dust);
 
     int next_locktime{0};
-    CAmount total_balance{CreateCoins(fuzzed_data_provider, utxo_pool, coin_params, next_locktime)};
+    Amount total_balance{CreateCoins(fuzzed_data_provider, utxo_pool, coin_params, next_locktime)};
 
     std::vector<OutputGroup> group_pos;
     GroupCoins(fuzzed_data_provider, utxo_pool, coin_params, /*positive_only=*/true, group_pos);
@@ -424,7 +424,7 @@ void FuzzCoinSelectionAlgorithm(std::span<const uint8_t> buffer) {
             (void)group.EligibleForSpending(filter);
         }
 
-        CAmount change_target{GenerateChangeTarget(target, coin_params.m_change_fee, fast_random_context)};
+        Amount change_target{GenerateChangeTarget(target, coin_params.m_change_fee, fast_random_context)};
         auto result_knapsack = KnapsackSolver(group_all, target, change_target, fast_random_context, max_selection_weight);
         // If the total balance is sufficient for the target and we are not using
         // effective values, Knapsack should always find a solution (unless the selection exceeded the max tx weight).
@@ -443,7 +443,7 @@ void FuzzCoinSelectionAlgorithm(std::span<const uint8_t> buffer) {
     }
 
     std::vector<COutput> utxos;
-    CAmount new_total_balance{CreateCoins(fuzzed_data_provider, utxos, coin_params, next_locktime)};
+    Amount new_total_balance{CreateCoins(fuzzed_data_provider, utxos, coin_params, next_locktime)};
     if (new_total_balance > 0) {
         OutputSet new_utxo_pool;
         for (const auto& utxo : utxos) {
@@ -457,11 +457,11 @@ void FuzzCoinSelectionAlgorithm(std::span<const uint8_t> buffer) {
     }
 
     std::vector<COutput> manual_inputs;
-    CAmount manual_balance{CreateCoins(fuzzed_data_provider, manual_inputs, coin_params, next_locktime)};
+    Amount manual_balance{CreateCoins(fuzzed_data_provider, manual_inputs, coin_params, next_locktime)};
     if (manual_balance == 0) return;
     auto manual_selection{ManualSelection(manual_inputs, manual_balance, coin_params.m_subtract_fee_outputs)};
     if (result) {
-        const CAmount old_target{result->GetTarget()};
+        const Amount old_target{result->GetTarget()};
         const OutputSet input_set{result->GetInputSet()};
         const int old_weight{result->GetWeight()};
         result->Merge(manual_selection);

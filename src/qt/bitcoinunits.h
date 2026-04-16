@@ -71,15 +71,15 @@ public:
     //! Number of decimals left
     static int decimals(Unit unit);
     //! Format as string
-    static QString format(Unit unit, const CAmount& amount, bool plussign = false, SeparatorStyle separators = SeparatorStyle::STANDARD, bool justify = false);
+    static QString format(Unit unit, const Amount& amount, bool plussign = false, SeparatorStyle separators = SeparatorStyle::STANDARD, bool justify = false);
     //! Format as string (with unit)
-    static QString formatWithUnit(Unit unit, const CAmount& amount, bool plussign = false, SeparatorStyle separators = SeparatorStyle::STANDARD);
+    static QString formatWithUnit(Unit unit, const Amount& amount, bool plussign = false, SeparatorStyle separators = SeparatorStyle::STANDARD);
     //! Format as HTML string (with unit)
-    static QString formatHtmlWithUnit(Unit unit, const CAmount& amount, bool plussign = false, SeparatorStyle separators = SeparatorStyle::STANDARD);
+    static QString formatHtmlWithUnit(Unit unit, const Amount& amount, bool plussign = false, SeparatorStyle separators = SeparatorStyle::STANDARD);
     //! Format as string (with unit) of fixed length to preserve privacy, if it is set.
-    static QString formatWithPrivacy(Unit unit, const CAmount& amount, SeparatorStyle separators, bool privacy);
+    static QString formatWithPrivacy(Unit unit, const Amount& amount, SeparatorStyle separators, bool privacy);
     //! Parse string to coin amount
-    static std::optional<CAmount> parse(Unit unit, const QString& value);
+    static std::optional<Amount> parse(Unit unit, const QString& value);
     //! Gets title for amount column including current display unit if optionsModel reference available */
     static QString getAmountColumnTitle(Unit unit);
     ///@}
@@ -103,7 +103,7 @@ public:
     }
 
     //! Return maximum number of base units (Satoshis)
-    static CAmount maxMoney();
+    static Amount maxMoney();
 
 private:
     QList<Unit> unitlist;

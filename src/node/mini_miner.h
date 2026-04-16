@@ -26,8 +26,8 @@ class MiniMinerMempoolEntry
     const CTransactionRef tx;
     const int64_t vsize_individual;
     int64_t vsize_with_ancestors;
-    const CAmount fee_individual;
-    CAmount fee_with_ancestors;
+    const Amount fee_individual;
+    Amount fee_with_ancestors;
 
 // This class must be constructed while holding mempool.cs. After construction, the object's
 // methods can be called without holding that lock.
@@ -36,8 +36,8 @@ public:
     explicit MiniMinerMempoolEntry(const CTransactionRef& tx_in,
                                    int64_t vsize_self,
                                    int64_t vsize_ancestor,
-                                   CAmount fee_self,
-                                   CAmount fee_ancestor):
+                                   Amount fee_self,
+                                   Amount fee_ancestor):
         tx{tx_in},
         vsize_individual{vsize_self},
         vsize_with_ancestors{vsize_ancestor},
@@ -45,12 +45,12 @@ public:
         fee_with_ancestors{fee_ancestor}
     { }
 
-    CAmount GetModifiedFee() const { return fee_individual; }
-    CAmount GetModFeesWithAncestors() const { return fee_with_ancestors; }
+    Amount GetModifiedFee() const { return fee_individual; }
+    Amount GetModFeesWithAncestors() const { return fee_with_ancestors; }
     int64_t GetTxSize() const { return vsize_individual; }
     int64_t GetSizeWithAncestors() const { return vsize_with_ancestors; }
     const CTransaction& GetTx() const LIFETIMEBOUND { return *tx; }
-    void UpdateAncestorState(int64_t vsize_change, CAmount fee_change) {
+    void UpdateAncestorState(int64_t vsize_change, Amount fee_change) {
         vsize_with_ancestors += vsize_change;
         fee_with_ancestors += fee_change;
     }
@@ -94,13 +94,13 @@ class MiniMiner
     // sequence number.
     std::map<Txid, uint32_t> m_inclusion_order;
     // What we're trying to calculate. Outpoint to the fee needed to bring the transaction to the target feerate.
-    std::map<COutPoint, CAmount> m_bump_fees;
+    std::map<COutPoint, Amount> m_bump_fees;
 
     // The constructed block template
     std::set<Txid> m_in_block;
 
     // Information on the current status of the block
-    CAmount m_total_fees{0};
+    Amount m_total_fees{0};
     int32_t m_total_vsize{0};
 
     /** Main data structure holding the entries, can be indexed by txid */
@@ -153,12 +153,12 @@ public:
      * did not make it into the block, calculate the cost of bumping those transactions (and their
      * ancestors) to the minimum feerate. Returns a map from outpoint to bump fee, or an empty map
      * if they cannot be calculated. */
-    std::map<COutPoint, CAmount> CalculateBumpFees(const CFeeRate& target_feerate);
+    std::map<COutPoint, Amount> CalculateBumpFees(const CFeeRate& target_feerate);
 
     /** Construct a new block template and, calculate the cost of bumping all transactions that did
      * not make it into the block to the target feerate. Returns the total bump fee, or std::nullopt
      * if it cannot be calculated. */
-    std::optional<CAmount> CalculateTotalBumpFees(const CFeeRate& target_feerate);
+    std::optional<Amount> CalculateTotalBumpFees(const CFeeRate& target_feerate);
 
     /** Construct a new block template with all of the transactions and calculate the order in which
      * they are selected. Returns the sequence number (lower = selected earlier) with which each

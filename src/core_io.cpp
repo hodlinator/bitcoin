@@ -280,7 +280,7 @@ util::Result<int> SighashFromStr(const std::string& sighash)
     }
 }
 
-UniValue ValueFromAmount(const CAmount amount)
+UniValue ValueFromAmount(const Amount amount)
 {
     static_assert(COIN > 1);
     int64_t quotient = amount / COIN;
@@ -443,8 +443,8 @@ void TxToUniv(const CTransaction& tx, const uint256& block_hash, UniValue& entry
     // If available, use Undo data to calculate the fee. Note that txundo == nullptr
     // for coinbase transactions and for transactions where undo data is unavailable.
     const bool have_undo = txundo != nullptr;
-    CAmount amt_total_in = 0;
-    CAmount amt_total_out = 0;
+    Amount amt_total_in{0};
+    Amount amt_total_out{0};
 
     for (unsigned int i = 0; i < tx.vin.size(); i++) {
         const CTxIn& txin = tx.vin[i];
@@ -517,7 +517,7 @@ void TxToUniv(const CTransaction& tx, const uint256& block_hash, UniValue& entry
     entry.pushKV("vout", std::move(vout));
 
     if (have_undo) {
-        const CAmount fee = amt_total_in - amt_total_out;
+        const Amount fee = amt_total_in - amt_total_out;
         CHECK_NONFATAL(MoneyRange(fee));
         entry.pushKV("fee", ValueFromAmount(fee));
     }

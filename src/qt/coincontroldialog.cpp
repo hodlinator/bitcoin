@@ -30,7 +30,7 @@
 
 using wallet::CCoinControl;
 
-QList<CAmount> CoinControlDialog::payAmounts;
+QList<Amount> CoinControlDialog::payAmounts;
 bool CoinControlDialog::fSubtractFeeFromAmount = false;
 
 bool CCoinControlWidgetItem::operator<(const QTreeWidgetItem &other) const {
@@ -372,15 +372,15 @@ void CoinControlDialog::updateLabels(CCoinControl& m_coin_control, WalletModel *
         return;
 
     // nPayAmount
-    CAmount nPayAmount = 0;
-    for (const CAmount &amount : CoinControlDialog::payAmounts) {
+    Amount nPayAmount{0};
+    for (const Amount& amount : CoinControlDialog::payAmounts) {
         nPayAmount += amount;
     }
 
-    CAmount nAmount             = 0;
-    CAmount nPayFee             = 0;
-    CAmount nAfterFee           = 0;
-    CAmount nChange             = 0;
+    Amount nAmount             = 0;
+    Amount nPayFee             = 0;
+    Amount nAfterFee           = 0;
+    Amount nChange             = 0;
     unsigned int nBytes         = 0;
     unsigned int nBytesInputs   = 0;
     unsigned int nQuantity      = 0;
@@ -488,7 +488,7 @@ void CoinControlDialog::updateLabels(CCoinControl& m_coin_control, WalletModel *
         }
 
         // after fee
-        nAfterFee = std::max<CAmount>(nAmount - nPayFee, 0);
+        nAfterFee = std::max<Amount>(nAmount - nPayFee, 0);
     }
 
     // actually update labels
@@ -587,7 +587,7 @@ void CoinControlDialog::updateView()
             itemWalletAddress->setText(COLUMN_ADDRESS, sWalletAddress);
         }
 
-        CAmount nSum = 0;
+        Amount nSum{0};
         int nChildren = 0;
         for (const auto& outpair : coins.second) {
             const COutPoint& output = std::get<0>(outpair);
