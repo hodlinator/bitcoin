@@ -222,9 +222,9 @@ class HTTPBasicsTest (BitcoinTestFramework):
         try:
             # Excessive body size is invalid
             conn.post_raw('/', f'{{"jsonrpc": "2.0", "id": "0", "method": "submitblock", "params": ["{"F" * bytes_above_limit}"]}}')
-            self.log.debug("Client finished sending request before connection was terminated")
+            self.log.info("Client finished sending request before connection was terminated")
         except ConnectionError:
-            self.log.debug("Client did not finish sending request before connection was terminated")
+            self.log.info("Client did not finish sending request before connection was terminated")
 
         # The server will send a 413 response and disconnect but due to a race
         # condition, the python client may or may not read the response before
@@ -232,9 +232,10 @@ class HTTPBasicsTest (BitcoinTestFramework):
         try:
             response5 = conn.conn.getresponse()
             assert_equal(response5.status, http.client.BAD_REQUEST)
+            self.log.info(f"Client got expected response status {response5.status}")
             assert conn.sock_closed()
         except http.client.ResponseNotReady:
-            self.log.debug("Client did not read response before disconnecting")
+            self.log.info("Client did not read response before disconnecting")
 
 
     def check_pipelining(self):
@@ -317,9 +318,9 @@ class HTTPBasicsTest (BitcoinTestFramework):
                 body=iter(body_chunked),
                 headers=headers_chunked,
                 encode_chunked=True)
-            self.log.debug("Client finished sending request before connection was terminated")
+            self.log.info("Client finished sending request before connection was terminated")
         except ConnectionError:
-            self.log.debug("Client did not finish sending request before connection was terminated")
+            self.log.info("Client did not finish sending request before connection was terminated")
 
         # The server will send a 413 response and disconnect but due to a race
         # condition, the python client may or may not read the response before
@@ -327,9 +328,10 @@ class HTTPBasicsTest (BitcoinTestFramework):
         try:
             response2 = conn.conn.getresponse()
             assert_equal(response2.status, http.client.REQUEST_ENTITY_TOO_LARGE)
+            self.log.info(f"Client got expected response status {response2.status}")
             assert conn.sock_closed()
         except http.client.ResponseNotReady:
-            self.log.debug("Client did not read response before disconnecting")
+            self.log.info("Client did not read response before disconnecting")
 
 
     def check_idle_timeout(self):
