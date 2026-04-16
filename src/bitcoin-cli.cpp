@@ -880,10 +880,6 @@ bool HTTPClient::SendRequest(Sock& sock, std::string_view request)
     auto deadline = std::chrono::steady_clock::now() + m_timeout;
 
     while (!request.empty()) {
-        if (std::chrono::steady_clock::now() >= deadline) {
-            return false;
-        }
-
         // Wait for socket to be writable
         Sock::Event event{0};
         auto time_left = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -928,19 +924,9 @@ HTTPReply HTTPClient::ReadResponse(Sock& sock)
     size_t headers_end = 0;
 
     while (headers_end == 0) {
-        if (std::chrono::steady_clock::now() >= deadline) {
-            reply.error = Timeout;
-            return reply;
-        }
-
         auto time_left = std::chrono::duration_cast<std::chrono::milliseconds>(
             deadline - std::chrono::steady_clock::now());
-        if (time_left.count() <= 0) {
-            reply.error = Timeout;
-            return reply;
-        }
-
-        if (!WaitForReadable(sock, time_left)) {
+        if (time_left.count() <= 0 || !WaitForReadable(sock, time_left)) {
             reply.error = Timeout;
             return reply;
         }
@@ -1115,11 +1101,6 @@ HTTPReply HTTPClient::ReadResponse(Sock& sock)
     } else if (content_length > 0) {
         // Fixed content length
         while (buffer.size() < content_length) {
-            if (std::chrono::steady_clock::now() >= deadline) {
-                reply.error = Timeout;
-                return reply;
-            }
-
             auto time_left = std::chrono::duration_cast<std::chrono::milliseconds>(
                 deadline - std::chrono::steady_clock::now());
             if (time_left.count() <= 0 || !WaitForReadable(sock, time_left)) {
@@ -1237,14 +1218,11 @@ static UniValue CallRPC(BaseRequestHandler* rh, const std::string& strMethod, co
         }
     }
 
-    // Set connection timeout
-    const int timeout = gArgs.GetIntArg("-rpcclienttimeout", DEFAULT_HTTP_CLIENT_TIMEOUT);
-    std::chrono::seconds timeout_duration;
-    if (timeout > 0) {
+    // Set connection timeout, default to 5 year timeout for "indefinite"
+    std::chrono::seconds timeout_duration{std::chrono::years(5)};
+    if (const int timeout{gArgs.GetArg<int>("-rpcclienttimeout", DEFAULT_HTTP_CLIENT_TIMEOUT)};
+        timeout > 0) {
         timeout_duration = std::chrono::seconds(timeout);
-    } else {
-        // Use 5 year timeout for "indefinite"
-        timeout_duration = std::chrono::years(5);
     }
 
     HTTPClient client(host, port, timeout_duration);
