@@ -249,11 +249,11 @@ static int AppInitRPC(int argc, char* argv[])
     return CONTINUE_EXECUTION;
 }
 
-enum HTTPError {
-    HTTP_NO_ERROR = -1,
-    HTTP_TIMEOUT = 0,
-    HTTP_READ_ERROR = 1,
-    HTTP_EOF = 2,
+enum HTTPReplyError {
+    Ok,
+    Timeout,
+    ReadError,
+    Eof,
 };
 
 /** Reply structure for HTTP response */
@@ -262,7 +262,7 @@ struct HTTPReply
     HTTPReply() = default;
 
     int status{0};
-    HTTPError error{HTTP_NO_ERROR};
+    HTTPReplyError error{Ok};
     std::string body;
 };
 
@@ -933,19 +933,19 @@ HTTPReply HTTPClient::ReadResponse(Sock& sock)
 
     while (!headers_complete) {
         if (std::chrono::steady_clock::now() >= deadline) {
-            reply.error = HTTP_TIMEOUT;
+            reply.error = Timeout;
             return reply;
         }
 
         auto time_left = std::chrono::duration_cast<std::chrono::milliseconds>(
             deadline - std::chrono::steady_clock::now());
         if (time_left.count() <= 0) {
-            reply.error = HTTP_TIMEOUT;
+            reply.error = Timeout;
             return reply;
         }
 
         if (!WaitForReadable(sock, time_left)) {
-            reply.error = HTTP_TIMEOUT;
+            reply.error = Timeout;
             return reply;
         }
 
@@ -957,13 +957,13 @@ HTTPReply HTTPClient::ReadResponse(Sock& sock)
             if (err == WSAEWOULDBLOCK || err == WSAEINTR) {
                 continue;
             }
-            reply.error = HTTP_READ_ERROR;
+            reply.error = ReadError;
             return reply;
         }
 
         if (nrecv == 0) {
             // Connection closed before headers complete
-            reply.error = HTTP_EOF;
+            reply.error = Eof;
             return reply;
         }
 
@@ -1048,7 +1048,7 @@ HTTPReply HTTPClient::ReadResponse(Sock& sock)
 
         while (true) {
             if (std::chrono::steady_clock::now() >= deadline) {
-                reply.error = HTTP_TIMEOUT;
+                reply.error = Timeout;
                 return reply;
             }
 
@@ -1094,7 +1094,7 @@ HTTPReply HTTPClient::ReadResponse(Sock& sock)
             auto time_left = std::chrono::duration_cast<std::chrono::milliseconds>(
                 deadline - std::chrono::steady_clock::now());
             if (time_left.count() <= 0 || !WaitForReadable(sock, time_left)) {
-                reply.error = HTTP_TIMEOUT;
+                reply.error = Timeout;
                 return reply;
             }
 
@@ -1106,12 +1106,12 @@ HTTPReply HTTPClient::ReadResponse(Sock& sock)
                 if (err == WSAEWOULDBLOCK || err == WSAEINTR) {
                     continue;
                 }
-                reply.error = HTTP_READ_ERROR;
+                reply.error = ReadError;
                 return reply;
             }
 
             if (nrecv == 0) {
-                reply.error = HTTP_EOF;
+                reply.error = Eof;
                 return reply;
             }
 
@@ -1128,14 +1128,14 @@ HTTPReply HTTPClient::ReadResponse(Sock& sock)
         // Fixed content length
         while (body_buffer.size() < content_length) {
             if (std::chrono::steady_clock::now() >= deadline) {
-                reply.error = HTTP_TIMEOUT;
+                reply.error = Timeout;
                 return reply;
             }
 
             auto time_left = std::chrono::duration_cast<std::chrono::milliseconds>(
                 deadline - std::chrono::steady_clock::now());
             if (time_left.count() <= 0 || !WaitForReadable(sock, time_left)) {
-                reply.error = HTTP_TIMEOUT;
+                reply.error = Timeout;
                 return reply;
             }
 
@@ -1147,12 +1147,12 @@ HTTPReply HTTPClient::ReadResponse(Sock& sock)
                 if (err == WSAEWOULDBLOCK || err == WSAEINTR) {
                     continue;
                 }
-                reply.error = HTTP_READ_ERROR;
+                reply.error = ReadError;
                 return reply;
             }
 
             if (nrecv == 0) {
-                reply.error = HTTP_EOF;
+                reply.error = Eof;
                 return reply;
             }
 
@@ -1165,7 +1165,7 @@ HTTPReply HTTPClient::ReadResponse(Sock& sock)
         reply.body = std::string(reinterpret_cast<const char*>(body_buffer.data()), body_buffer.size());
     }
 
-    reply.error = HTTP_NO_ERROR;
+    reply.error = Ok;
     return reply;
 }
 
@@ -1286,14 +1286,11 @@ static UniValue CallRPC(BaseRequestHandler* rh, const std::string& strMethod, co
 
     if (response.status == 0) {
         std::string responseErrorMessage;
-        if (response.error != HTTP_NO_ERROR) {
-            if (response.error == HTTP_TIMEOUT) {
-                responseErrorMessage = " (timeout)";
-            } else if (response.error == HTTP_READ_ERROR) {
-                responseErrorMessage = " (read error)";
-            } else if (response.error == HTTP_EOF) {
-                responseErrorMessage = " (EOF)";
-            }
+        switch (response.error) {
+        case Ok:                                                break;
+        case Timeout:   responseErrorMessage = " (timeout)";    break;
+        case ReadError: responseErrorMessage = " (read error)"; break;
+        case Eof:       responseErrorMessage = " (EOF)";        break;
         }
         throw CConnectionFailed(strprintf("Could not connect to the server %s:%d%s\n\n"
                     "Make sure the bitcoind server is running and that you are connecting to the correct RPC port.\n"
