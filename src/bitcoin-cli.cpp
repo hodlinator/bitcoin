@@ -1139,8 +1139,8 @@ HTTPReply HTTPClient::ReadResponse(Sock& sock)
 }
 
 HTTPReply HTTPClient::Post(const std::string& endpoint,
-                                  const std::vector<std::pair<std::string, std::string>>& headers,
-                                  const std::string& body)
+                           const std::vector<std::pair<std::string, std::string>>& headers,
+                           const std::string& body)
 {
     HTTPReply reply;
 
@@ -1148,10 +1148,11 @@ HTTPReply HTTPClient::Post(const std::string& endpoint,
         auto sock = Connect();
 
         // Build HTTP request
-        std::string request = strprintf("POST %s HTTP/1.1\r\n", endpoint);
-        request += strprintf("Host: %s\r\n", m_host);
-        request += "Connection: close\r\n";
-        request += "Content-Length: " + ToString(body.size()) + "\r\n";
+        std::string request = strprintf("POST %s HTTP/1.1\r\n"
+                                        "Host: %s\r\n"
+                                        "Connection: close\r\n"
+                                        "Content-Length: %d\r\n",
+                                        endpoint, m_host, body.size());
 
         for (const auto& [name, value] : headers) {
             request += strprintf("%s: %s\r\n", name, value);
@@ -1164,7 +1165,6 @@ HTTPReply HTTPClient::Post(const std::string& endpoint,
         }
 
         reply = ReadResponse(*sock);
-
     } catch (const CConnectionFailed&) {
         throw;
     } catch (const std::exception& e) {
