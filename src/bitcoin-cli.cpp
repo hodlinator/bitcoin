@@ -921,14 +921,13 @@ bool HTTPClient::WaitForReadable(Sock& sock, std::chrono::milliseconds timeout)
 HTTPReply HTTPClient::ReadResponse(Sock& sock)
 {
     HTTPReply reply;
-    std::vector<std::byte> buffer;
+    std::string buffer;
     auto deadline = std::chrono::steady_clock::now() + m_timeout;
 
     // Read data until we have complete headers
-    bool headers_complete = false;
     size_t headers_end = 0;
 
-    while (!headers_complete) {
+    while (headers_end == 0) {
         if (std::chrono::steady_clock::now() >= deadline) {
             reply.error = Timeout;
             return reply;
@@ -946,7 +945,7 @@ HTTPReply HTTPClient::ReadResponse(Sock& sock)
             return reply;
         }
 
-        std::byte recv_buf[4096];
+        char recv_buf[4096];
         ssize_t nrecv = sock.Recv(recv_buf, sizeof(recv_buf), /*flags=*/0);
 
         if (nrecv < 0) {
@@ -967,21 +966,19 @@ HTTPReply HTTPClient::ReadResponse(Sock& sock)
         buffer.insert(buffer.end(), recv_buf, recv_buf + nrecv);
 
         // Check for header terminator
-        std::string_view buf_view(reinterpret_cast<const char*>(buffer.data()), buffer.size());
-        size_t pos = buf_view.find("\r\n\r\n");
+        size_t pos = buffer.find("\r\n\r\n");
         if (pos != std::string::npos) {
-            headers_complete = true;
             headers_end = pos + 4;
         }
 
         // Sanity check on header size
-        if (buffer.size() > bitcoin_http::MAX_HEADERS_SIZE && !headers_complete) {
+        if (buffer.size() > bitcoin_http::MAX_HEADERS_SIZE && headers_end == 0) {
             throw std::runtime_error("HTTP response headers too large");
         }
     }
 
     // Parse http status
-    util::LineReader reader(std::span<const std::byte>(buffer.data(), headers_end), bitcoin_http::MAX_HEADERS_SIZE);
+    util::LineReader reader(std::string_view{buffer.data(), headers_end}, bitcoin_http::MAX_HEADERS_SIZE);
     auto status_line = reader.ReadLine();
     if (!status_line) {
         throw std::runtime_error("Failed to read HTTP status line");
@@ -1014,8 +1011,7 @@ HTTPReply HTTPClient::ReadResponse(Sock& sock)
     if (transfer_encoding && ToLower(*transfer_encoding).find("chunked") != std::string::npos) {
         chunked = true;
     } else {
-        auto content_length_header = bitcoin_http::FindFirst(headers, "content-length");
-        if (content_length_header) {
+        if (auto content_length_header = bitcoin_http::FindFirst(headers, "content-length")) {
             auto len = ToIntegral<size_t>(*content_length_header);
             if (!len) {
                 throw std::runtime_error("Invalid Content-Length");
@@ -1029,19 +1025,14 @@ HTTPReply HTTPClient::ReadResponse(Sock& sock)
         throw std::runtime_error("HTTP response body too large");
     }
 
-    // Extract any body data already received
-    std::vector<std::byte> body_buffer;
-    if (buffer.size() > headers_end) {
-        body_buffer.insert(body_buffer.end(),
-                          buffer.begin() + headers_end,
-                          buffer.end());
-    }
+    // Remove headers data from buffer, so only initial body data remains
+    buffer.erase(buffer.begin(), buffer.begin() + headers_end);
 
     // Read remaining body
     if (chunked) {
         // Handle chunked transfer encoding
         std::string body;
-        std::vector<std::byte> chunk_buffer = body_buffer;
+        std::string chunk_buffer = buffer;
 
         while (true) {
             if (std::chrono::steady_clock::now() >= deadline) {
@@ -1050,12 +1041,12 @@ HTTPReply HTTPClient::ReadResponse(Sock& sock)
             }
 
             // Try to parse a chunk from current buffer
-            std::string chunk_data(reinterpret_cast<const char*>(chunk_buffer.data()), chunk_buffer.size());
+            std::string_view chunk_data(chunk_buffer);
             size_t line_end = chunk_data.find("\r\n");
 
             if (line_end != std::string::npos) {
                 // Parse chunk size
-                std::string size_str = chunk_data.substr(0, line_end);
+                std::string_view size_str = chunk_data.substr(0, line_end);
                 // Ignore chunk extensions
                 size_t semi = size_str.find(';');
                 if (semi != std::string::npos) {
@@ -1079,7 +1070,7 @@ HTTPReply HTTPClient::ReadResponse(Sock& sock)
 
                 if (chunk_buffer.size() >= chunk_end) {
                     // Extract chunk data
-                    body.append(reinterpret_cast<const char*>(chunk_buffer.data() + chunk_start), chunk_size);
+                    body.append(chunk_buffer.data() + chunk_start, chunk_size);
 
                     // Remove processed data
                     chunk_buffer.erase(chunk_buffer.begin(), chunk_buffer.begin() + chunk_end);
@@ -1095,7 +1086,7 @@ HTTPReply HTTPClient::ReadResponse(Sock& sock)
                 return reply;
             }
 
-            std::byte recv_buf[4096];
+            char recv_buf[4096];
             ssize_t nrecv = sock.Recv(recv_buf, sizeof(recv_buf), /*flags=*/0);
 
             if (nrecv < 0) {
@@ -1123,7 +1114,7 @@ HTTPReply HTTPClient::ReadResponse(Sock& sock)
         reply.body = std::move(body);
     } else if (content_length > 0) {
         // Fixed content length
-        while (body_buffer.size() < content_length) {
+        while (buffer.size() < content_length) {
             if (std::chrono::steady_clock::now() >= deadline) {
                 reply.error = Timeout;
                 return reply;
@@ -1136,7 +1127,7 @@ HTTPReply HTTPClient::ReadResponse(Sock& sock)
                 return reply;
             }
 
-            std::byte recv_buf[4096];
+            char recv_buf[4096];
             ssize_t nrecv = sock.Recv(recv_buf, sizeof(recv_buf), /*flags=*/0);
 
             if (nrecv < 0) {
@@ -1153,13 +1144,13 @@ HTTPReply HTTPClient::ReadResponse(Sock& sock)
                 return reply;
             }
 
-            body_buffer.insert(body_buffer.end(), recv_buf, recv_buf + nrecv);
+            buffer.insert(buffer.end(), recv_buf, recv_buf + nrecv);
         }
 
-        reply.body = std::string(reinterpret_cast<const char*>(body_buffer.data()), content_length);
+        reply.body = std::string(buffer.data(), content_length);
     } else {
         // No body or read until connection close
-        reply.body = std::string(reinterpret_cast<const char*>(body_buffer.data()), body_buffer.size());
+        reply.body = std::move(buffer);
     }
 
     reply.error = Ok;
