@@ -40,6 +40,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <tuple>
 
 #ifndef WIN32
@@ -854,7 +855,7 @@ private:
     std::chrono::seconds m_timeout;
 
     std::unique_ptr<Sock> Connect();
-    bool SendRequest(Sock& sock, const std::string& request);
+    bool SendRequest(Sock& sock, std::string_view request);
     HTTPReply ReadResponse(Sock& sock);
     bool WaitForReadable(Sock& sock, std::chrono::milliseconds timeout);
 };
@@ -874,14 +875,11 @@ std::unique_ptr<Sock> HTTPClient::Connect()
     throw CConnectionFailed(strprintf("Could not connect to the server %s:%d", m_host, m_port));
 }
 
-bool HTTPClient::SendRequest(Sock& sock, const std::string& request)
+bool HTTPClient::SendRequest(Sock& sock, std::string_view request)
 {
-    size_t total_sent = 0;
-    const char* data = request.data();
-    size_t remaining = request.size();
     auto deadline = std::chrono::steady_clock::now() + m_timeout;
 
-    while (remaining > 0) {
+    while (!request.empty()) {
         if (std::chrono::steady_clock::now() >= deadline) {
             return false;
         }
@@ -898,7 +896,7 @@ bool HTTPClient::SendRequest(Sock& sock, const std::string& request)
             continue;
         }
 
-        ssize_t sent = sock.Send(data + total_sent, remaining, MSG_NOSIGNAL);
+        ssize_t sent = sock.Send(request.data(), request.size(), MSG_NOSIGNAL);
         if (sent < 0) {
             int err = WSAGetLastError();
             if (err == WSAEWOULDBLOCK || err == WSAEINTR) {
@@ -906,8 +904,7 @@ bool HTTPClient::SendRequest(Sock& sock, const std::string& request)
             }
             return false;
         }
-        total_sent += sent;
-        remaining -= sent;
+        request.remove_prefix(sent);
     }
     return true;
 }
