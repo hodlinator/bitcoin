@@ -64,11 +64,14 @@ class BitcoinHTTPConnection:
         return self._request('GET', path, '', connection_header)
 
     def post_raw(self, path, data):
-        req = f"POST {path} HTTP/1.1\r\n"
-        req += f'Authorization: Basic {str_to_b64str(self.authpair)}\r\n'
-        req += f'Content-Length: {len(data)}\r\n\r\n'
+        if isinstance(data, str):
+            data = data.encode("utf-8")
+        assert isinstance(data, bytes), f"Expected data as bytes but got: {type(data)}"
+        req = (f"POST {path} HTTP/1.1\r\n" +
+               f"Authorization: Basic {str_to_b64str(self.authpair)}\r\n" +
+               f"Content-Length: {len(data)}\r\n\r\n").encode("utf-8")
         req += data
-        self.conn.sock.sendall(req.encode("ascii"))
+        self.conn.sock.sendall(req)
 
     def recv_raw(self):
         '''
@@ -340,14 +343,14 @@ class HTTPBasicsTest (BitcoinTestFramework):
         # A complete request would have an additional "\r\n" at the end.
         bad_http_request = "GET /test1 HTTP/1.1\r\nHost: somehost\r\n"
         conn = BitcoinHTTPConnection(self.nodes[0])
-        conn.conn.sock.sendall(bad_http_request.encode("ascii"))
+        conn.conn.sock.sendall(bad_http_request.encode("utf-8"))
 
         conn.expect_timeout(RPCSERVERTIMEOUT)
 
         # Sanity check -- complete requests don't timeout waiting for completion
         good_http_request = "GET /test2 HTTP/1.1\r\nHost: somehost\r\n\r\n"
         conn.reset_conn()
-        conn.conn.sock.sendall(good_http_request.encode("ascii"))
+        conn.conn.sock.sendall(good_http_request.encode("utf-8"))
         response = conn.recv_raw()
         assert response.startswith(b"HTTP/1.1 404 Not Found")
 
