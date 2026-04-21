@@ -152,10 +152,10 @@ QString BitcoinUnits::formatWithPrivacy(Unit unit, const CAmount& amount, Separa
     return value + QString(" ") + shortName(unit);
 }
 
-bool BitcoinUnits::parse(Unit unit, const QString& value, CAmount* val_out)
+std::optional<CAmount> BitcoinUnits::parse(Unit unit, const QString& value)
 {
     if (value.isEmpty()) {
-        return false; // Refuse to parse invalid unit or empty string
+        return std::nullopt; // Refuse to parse invalid unit or empty string
     }
     int num_decimals = decimals(unit);
 
@@ -164,7 +164,7 @@ bool BitcoinUnits::parse(Unit unit, const QString& value, CAmount* val_out)
 
     if(parts.size() > 2)
     {
-        return false; // More than one dot
+        return std::nullopt; // More than one dot
     }
     const QString& whole = parts[0];
     QString decimals;
@@ -175,21 +175,17 @@ bool BitcoinUnits::parse(Unit unit, const QString& value, CAmount* val_out)
     }
     if(decimals.size() > num_decimals)
     {
-        return false; // Exceeds max precision
+        return std::nullopt; // Exceeds max precision
     }
     bool ok = false;
     QString str = whole + decimals.leftJustified(num_decimals, '0');
 
     if(str.size() > 18)
     {
-        return false; // Longer numbers will exceed 63 bits
+        return std::nullopt; // Longer numbers will exceed 63 bits
     }
     CAmount retvalue(str.toLongLong(&ok));
-    if(val_out)
-    {
-        *val_out = retvalue;
-    }
-    return ok;
+    return ok ? std::optional{retvalue} : std::nullopt;
 }
 
 QString BitcoinUnits::getAmountColumnTitle(Unit unit)

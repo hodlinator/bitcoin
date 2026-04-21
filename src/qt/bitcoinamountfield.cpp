@@ -164,8 +164,8 @@ private:
      */
     CAmount parse(const QString &text, bool *valid_out=nullptr) const
     {
-        CAmount val = 0;
-        bool valid = BitcoinUnits::parse(currentUnit, text, &val);
+        std::optional<CAmount> val{BitcoinUnits::parse(currentUnit, text)};
+        bool valid = val.has_value();
         if(valid)
         {
             if(val < 0 || val > BitcoinUnits::maxMoney())
@@ -173,7 +173,7 @@ private:
         }
         if(valid_out)
             *valid_out = valid;
-        return valid ? val : 0;
+        return valid ? *val : 0;
     }
 
 protected:

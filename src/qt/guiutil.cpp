@@ -185,7 +185,9 @@ bool parseBitcoinURI(const QUrl &uri, SendCoinsRecipient *out)
         {
             if(!i->second.isEmpty())
             {
-                if (!BitcoinUnits::parse(BitcoinUnit::BTC, i->second, &rv.amount)) {
+                if (std::optional<CAmount> parsed{BitcoinUnits::parse(BitcoinUnit::BTC, i->second)}) {
+                    rv.amount = *parsed;
+                } else {
                     return false;
                 }
             }

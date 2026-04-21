@@ -306,9 +306,8 @@ void TransactionView::changedAmount()
 {
     if(!transactionProxyModel)
         return;
-    CAmount amount_parsed = 0;
-    if (BitcoinUnits::parse(model->getOptionsModel()->getDisplayUnit(), amountWidget->text(), &amount_parsed)) {
-        transactionProxyModel->setMinAmount(amount_parsed);
+    if (std::optional<CAmount> amount_parsed{BitcoinUnits::parse(model->getOptionsModel()->getDisplayUnit(), amountWidget->text())}) {
+        transactionProxyModel->setMinAmount(*amount_parsed);
     }
     else
     {

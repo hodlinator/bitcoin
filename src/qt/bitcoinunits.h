@@ -79,7 +79,7 @@ public:
     //! Format as string (with unit) of fixed length to preserve privacy, if it is set.
     static QString formatWithPrivacy(Unit unit, const CAmount& amount, SeparatorStyle separators, bool privacy);
     //! Parse string to coin amount
-    static bool parse(Unit unit, const QString& value, CAmount* val_out);
+    static std::optional<CAmount> parse(Unit unit, const QString& value);
     //! Gets title for amount column including current display unit if optionsModel reference available */
     static QString getAmountColumnTitle(Unit unit);
     ///@}
