@@ -27,6 +27,7 @@
 #include <util/byte_units.h>
 #include <util/chaintype.h>
 #include <util/exception.h>
+#include <util/expected.h>
 #include <util/sock.h>
 #include <util/strencodings.h>
 #include <util/string.h>
@@ -253,7 +254,6 @@ static int AppInitRPC(int argc, char* argv[])
 }
 
 enum class HTTPReplyError {
-    Ok,
     Timeout,
     ReadError,
     Eof,
@@ -264,8 +264,7 @@ struct HTTPReply
 {
     HTTPReply() = default;
 
-    int status{0};
-    HTTPReplyError error{HTTPReplyError::Ok};
+    util::Expected<int, HTTPReplyError> status{0};
     std::string body;
 };
 
@@ -951,7 +950,7 @@ HTTPReply HTTPClient::ReadResponse(Sock& sock)
         auto time_left = std::chrono::duration_cast<std::chrono::milliseconds>(
             deadline - std::chrono::steady_clock::now());
         if (time_left.count() <= 0 || !WaitForReadable(sock, time_left)) {
-            reply.error = HTTPReplyError::Timeout;
+            reply.status = util::Unexpected{HTTPReplyError::Timeout};
             return reply;
         }
 
@@ -963,13 +962,13 @@ HTTPReply HTTPClient::ReadResponse(Sock& sock)
             if (err == WSAEWOULDBLOCK || err == WSAEINTR) {
                 continue;
             }
-            reply.error = HTTPReplyError::ReadError;
+            reply.status = util::Unexpected{HTTPReplyError::ReadError};
             return reply;
         }
 
         if (nrecv == 0) {
             // Connection closed before headers complete
-            reply.error = HTTPReplyError::Eof;
+            reply.status = util::Unexpected{HTTPReplyError::Eof};
             return reply;
         }
 
@@ -1087,7 +1086,7 @@ HTTPReply HTTPClient::ReadResponse(Sock& sock)
             auto time_left = std::chrono::duration_cast<std::chrono::milliseconds>(
                 deadline - std::chrono::steady_clock::now());
             if (time_left.count() <= 0 || !WaitForReadable(sock, time_left)) {
-                reply.error = HTTPReplyError::Timeout;
+                reply.status = util::Unexpected{HTTPReplyError::Timeout};
                 return reply;
             }
 
@@ -1099,12 +1098,12 @@ HTTPReply HTTPClient::ReadResponse(Sock& sock)
                 if (err == WSAEWOULDBLOCK || err == WSAEINTR) {
                     continue;
                 }
-                reply.error = HTTPReplyError::ReadError;
+                reply.status = util::Unexpected{HTTPReplyError::ReadError};
                 return reply;
             }
 
             if (nrecv == 0) {
-                reply.error = HTTPReplyError::Eof;
+                reply.status = util::Unexpected{HTTPReplyError::Eof};
                 return reply;
             }
 
@@ -1123,7 +1122,7 @@ HTTPReply HTTPClient::ReadResponse(Sock& sock)
             auto time_left = std::chrono::duration_cast<std::chrono::milliseconds>(
                 deadline - std::chrono::steady_clock::now());
             if (time_left.count() <= 0 || !WaitForReadable(sock, time_left)) {
-                reply.error = HTTPReplyError::Timeout;
+                reply.status = util::Unexpected{HTTPReplyError::Timeout};
                 return reply;
             }
 
@@ -1135,12 +1134,12 @@ HTTPReply HTTPClient::ReadResponse(Sock& sock)
                 if (err == WSAEWOULDBLOCK || err == WSAEINTR) {
                     continue;
                 }
-                reply.error = HTTPReplyError::ReadError;
+                reply.status = util::Unexpected{HTTPReplyError::ReadError};
                 return reply;
             }
 
             if (nrecv == 0) {
-                reply.error = HTTPReplyError::Eof;
+                reply.status = util::Unexpected{HTTPReplyError::Eof};
                 return reply;
             }
 
@@ -1154,7 +1153,7 @@ HTTPReply HTTPClient::ReadResponse(Sock& sock)
         reply.body = std::move(buffer);
     }
 
-    assert(reply.error == HTTPReplyError::Ok);
+    assert(reply.status.has_value());
     return reply;
 }
 
@@ -1246,10 +1245,9 @@ static UniValue CallRPC(BaseRequestHandler* rh, const std::string& strMethod, co
         response.status = 0;
     }
 
-    if (response.status == 0) {
+    if (!response.status.has_value()) {
         std::string responseErrorMessage;
-        switch (response.error) {
-        case HTTPReplyError::Ok:                                                break;
+        switch (response.status.error()) {
         case HTTPReplyError::Timeout:   responseErrorMessage = " (timeout)";    break;
         case HTTPReplyError::ReadError: responseErrorMessage = " (read error)"; break;
         case HTTPReplyError::Eof:       responseErrorMessage = " (EOF)";        break;
@@ -1258,7 +1256,7 @@ static UniValue CallRPC(BaseRequestHandler* rh, const std::string& strMethod, co
                     "Make sure the bitcoind server is running and that you are connecting to the correct RPC port.\n"
                     "Use \"bitcoin-cli -help\" for more info.",
                     host, port, responseErrorMessage));
-    } else if (response.status == HTTP_UNAUTHORIZED) {
+    } else if (*response.status == HTTP_UNAUTHORIZED) {
         std::string error{"Authorization failed: "};
         if (auth_cookie_result.has_value()) {
             switch (*auth_cookie_result) {
@@ -1277,10 +1275,10 @@ static UniValue CallRPC(BaseRequestHandler* rh, const std::string& strMethod, co
         }
         error += strprintf(" Configuration file: (%s)", fs::PathToString(gArgs.GetConfigFilePath()));
         throw std::runtime_error(error);
-    } else if (response.status == HTTP_SERVICE_UNAVAILABLE) {
+    } else if (*response.status == HTTP_SERVICE_UNAVAILABLE) {
         throw std::runtime_error(strprintf("Server response: %s", response.body));
-    } else if (response.status >= 400 && response.status != HTTP_BAD_REQUEST && response.status != HTTP_NOT_FOUND && response.status != HTTP_INTERNAL_SERVER_ERROR)
-        throw std::runtime_error(strprintf("server returned HTTP error %d", response.status));
+    } else if (*response.status >= 400 && *response.status != HTTP_BAD_REQUEST && *response.status != HTTP_NOT_FOUND && *response.status != HTTP_INTERNAL_SERVER_ERROR)
+        throw std::runtime_error(strprintf("server returned HTTP error %d", *response.status));
     else if (response.body.empty())
         throw std::runtime_error("no response from server");
 
