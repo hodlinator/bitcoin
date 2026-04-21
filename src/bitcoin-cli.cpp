@@ -866,8 +866,6 @@ HTTPReply HTTPClient::Post(const std::string& endpoint,
                            const std::vector<std::pair<std::string, std::string>>& headers,
                            const std::string& body)
 {
-    HTTPReply reply;
-
     try {
         auto sock = Connect();
 
@@ -888,15 +886,12 @@ HTTPReply HTTPClient::Post(const std::string& endpoint,
             throw CConnectionFailed("Failed to send HTTP request");
         }
 
-        reply = ReadResponse(*sock);
-
+        return ReadResponse(*sock);
     } catch (const CConnectionFailed&) {
         throw;
     } catch (const std::exception& e) {
         throw CConnectionFailed(strprintf("HTTP error: %s", e.what()));
     }
-
-    return reply;
 }
 
 std::unique_ptr<Sock> HTTPClient::Connect()
@@ -916,7 +911,7 @@ std::unique_ptr<Sock> HTTPClient::Connect()
 
 bool HTTPClient::SendRequest(Sock& sock, std::string_view request)
 {
-    auto deadline = std::chrono::steady_clock::now() + m_timeout;
+    const auto deadline{std::chrono::steady_clock::now() + m_timeout};
 
     while (!request.empty()) {
         Sock::Event event{0};
@@ -947,7 +942,7 @@ HTTPReply HTTPClient::ReadResponse(Sock& sock)
 {
     HTTPReply reply;
     std::string buffer;
-    auto deadline = std::chrono::steady_clock::now() + m_timeout;
+    const auto deadline{std::chrono::steady_clock::now() + m_timeout};
 
     // Read data until we have complete headers
     size_t headers_end = 0;
@@ -1159,7 +1154,7 @@ HTTPReply HTTPClient::ReadResponse(Sock& sock)
         reply.body = std::move(buffer);
     }
 
-    reply.error = HTTPReplyError::Ok;
+    assert(reply.error == HTTPReplyError::Ok);
     return reply;
 }
 
