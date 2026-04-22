@@ -101,7 +101,7 @@ static Headers ReadHeaders(util::LineReader& reader)
     while (auto maybe_line = reader.ReadLine()) {
         if (reader.Consumed() > MAX_HEADERS_SIZE) throw std::runtime_error("HTTP headers exceed size limit");
 
-        const std::string& line = *maybe_line;
+        const std::string_view& line = *maybe_line;
 
         // An empty line indicates end of the headers section https://www.rfc-editor.org/rfc/rfc2616#section-4
         if (line.empty()) return headers;
@@ -993,17 +993,17 @@ HTTPReply HTTPClient::ReadResponse(Sock& sock)
         throw std::runtime_error("Failed to read HTTP status line");
     }
 
-    const std::string& status_str = *status_line;
+    const std::string_view& status_str = *status_line;
     if (status_str.size() < 12 || !status_str.starts_with("HTTP/")) {
         throw std::runtime_error("Invalid HTTP status line");
     }
 
     size_t space1 = status_str.find(' ');
-    if (space1 == std::string::npos || space1 + 4 > status_str.size()) {
+    if (space1 == std::string_view::npos || space1 + 4 > status_str.size()) {
         throw std::runtime_error("Invalid HTTP status line format");
     }
 
-    std::string status_code_str = status_str.substr(space1 + 1, 3);
+    std::string_view status_code_str = status_str.substr(space1 + 1, 3);
     auto status_code = ToIntegral<int>(status_code_str);
     if (!status_code) {
         throw std::runtime_error("Invalid HTTP status code");
