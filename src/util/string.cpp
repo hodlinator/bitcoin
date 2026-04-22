@@ -5,9 +5,7 @@
 #include <util/string.h>
 
 #include <iterator>
-#include <memory>
 #include <regex>
-#include <stdexcept>
 #include <string>
 
 namespace util {
@@ -20,10 +18,10 @@ void ReplaceAll(std::string& in_out, const std::string& search, const std::strin
 LineReader::LineReader(std::string_view str, size_t max_line_length)
     : m_str{str}, m_max_line_length{max_line_length}, m_it{str.begin()} {}
 
-std::optional<std::string_view> LineReader::ReadLine()
+util::Expected<std::string_view, LineReader::Error> LineReader::ReadLine() noexcept
 {
     if (m_it == m_str.end()) {
-        return std::nullopt;
+        return util::Unexpected{Error::EndOfBuffer};
     }
 
     const auto line_start = m_it;
@@ -43,21 +41,21 @@ std::optional<std::string_view> LineReader::ReadLine()
         if (std::distance(line_start, m_it) > static_cast<int64_t>(m_max_line_length)) {
             // Reset iterator
             m_it = line_start;
-            throw std::runtime_error("max_line_length exceeded by LineReader");
+            return util::Unexpected{Error::LineLengthExceeded};
         }
     }
     // End of buffer reached without finding a \n or exceeding max_line_length.
     // Reset the iterator so the rest of the buffer can be read granularly
     // with ReadLength() and return null to indicate a line was not found.
     m_it = line_start;
-    return std::nullopt;
+    return util::Unexpected{Error::EndOfBuffer};
 }
 
 // Ignores max_line_length but won't overflow
-std::string_view LineReader::ReadLength(size_t len)
+util::Expected<std::string_view, LineReader::Error> LineReader::ReadLength(size_t len) noexcept
 {
     if (len == 0) return {};
-    if (Remaining() < len) throw std::runtime_error("Not enough data in buffer");
+    if (Remaining() < len) return util::Unexpected{Error::EndOfBuffer};
     std::string_view out{m_it, m_it + len};
     m_it += len;
     return out;
