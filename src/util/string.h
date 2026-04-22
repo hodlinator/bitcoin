@@ -263,14 +263,14 @@ template <typename T1, size_t PREFIX_LEN>
            std::equal(std::begin(prefix), std::end(prefix), std::begin(obj));
 }
 
-struct LineReader {
-    const std::span<const std::byte>::iterator start;
-    const std::span<const std::byte>::iterator end;
-    const size_t max_line_length;
-    std::span<const std::byte>::iterator it;
+class LineReader
+{
+    const std::string_view m_str;
+    const size_t m_max_line_length;
+    std::string_view::iterator m_it;
 
-    explicit LineReader(std::span<const std::byte> buffer, size_t max_line_length);
-    explicit LineReader(std::string_view str, size_t max_line_length) : LineReader{std::as_bytes(std::span{str}), max_line_length} {}
+public:
+    explicit LineReader(std::string_view str, size_t max_line_length);
 
     /**
      * Returns a string from current iterator position up to (but not including) next \n
@@ -280,7 +280,7 @@ struct LineReader {
      *          std::nullopt if end of buffer is reached without finding a \n.
      * @throws a std::runtime_error if max_line_length + 1 bytes are read without finding \n.
      */
-    std::optional<std::string> ReadLine();
+    std::optional<std::string_view> ReadLine();
 
     /**
      * Returns string from current iterator position of specified length
@@ -290,7 +290,7 @@ struct LineReader {
      * @returns a string of the expected length.
      * @throws a std::runtime_error if there is not enough data in the buffer.
      */
-    std::string ReadLength(size_t len);
+    std::string_view ReadLength(size_t len);
 
     /**
      * Returns remaining size of bytes in buffer
