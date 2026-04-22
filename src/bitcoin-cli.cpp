@@ -262,18 +262,21 @@ static int AppInitRPC(int argc, char* argv[])
 }
 
 enum class HTTPReplyError {
+    ResolveError,
+    ConnectError,
+    FailedSendingRequest,
+    TooLargeResponse,
+    InvalidStatusLine,
+    InvalidStatusCode,
     Timeout,
     ReadError,
     Eof,
 };
 
 /** Reply structure for HTTP response */
-struct HTTPReply
-{
-    HTTPReply() = default;
-
-    util::Expected<int, HTTPReplyError> status{0};
-    std::string body;
+struct HTTPReply {
+    const int status;
+    const std::string body;
 };
 
 static int8_t NetworkStringToId(const std::string& str)
@@ -854,58 +857,55 @@ public:
     HTTPClient(const std::string& host, uint16_t port, std::chrono::seconds timeout)
         : m_host(host), m_port(port), m_timeout(timeout) {}
 
-    HTTPReply Post(const std::string& endpoint,
-                   const std::vector<std::pair<std::string, std::string>>& headers,
-                   const std::string& body);
+    util::Expected<HTTPReply, HTTPReplyError> Post(
+        const std::string& endpoint,
+        const std::vector<std::pair<std::string, std::string>>& headers,
+        const std::string& body);
 
 private:
     std::string m_host;
     uint16_t m_port;
     std::chrono::seconds m_timeout;
 
-    std::unique_ptr<Sock> Connect();
+    util::Expected<std::unique_ptr<Sock>, HTTPReplyError> Connect();
     bool SendRequest(Sock& sock, std::string_view request);
-    HTTPReply ReadResponse(Sock& sock);
+    util::Expected<HTTPReply, HTTPReplyError> ReadResponse(Sock& sock);
     bool WaitForReadable(Sock& sock, std::chrono::milliseconds timeout);
 };
 
-HTTPReply HTTPClient::Post(const std::string& endpoint,
-                           const std::vector<std::pair<std::string, std::string>>& headers,
-                           const std::string& body)
+util::Expected<HTTPReply, HTTPReplyError> HTTPClient::Post(
+    const std::string& endpoint,
+    const std::vector<std::pair<std::string, std::string>>& headers,
+    const std::string& body)
 {
-    try {
-        auto sock = Connect();
+    auto sock = Connect();
+    if (!sock) return util::Unexpected{sock.error()};
 
-        // Build HTTP request
-        std::string request = strprintf("POST %s HTTP/1.1\r\n"
-                                        "Host: %s\r\n"
-                                        "Connection: close\r\n"
-                                        "Content-Length: %d\r\n",
-                                        endpoint, m_host, body.size());
+    // Build HTTP request
+    std::string request = strprintf("POST %s HTTP/1.1\r\n"
+                                    "Host: %s\r\n"
+                                    "Connection: close\r\n"
+                                    "Content-Length: %d\r\n",
+                                    endpoint, m_host, body.size());
 
-        for (const auto& [name, value] : headers) {
-            request += strprintf("%s: %s\r\n", name, value);
-        }
-        request += "\r\n";
-        request += body;
-
-        if (!SendRequest(*sock, request)) {
-            throw CConnectionFailed("Failed to send HTTP request");
-        }
-
-        return ReadResponse(*sock);
-    } catch (const CConnectionFailed&) {
-        throw;
-    } catch (const std::exception& e) {
-        throw CConnectionFailed(strprintf("HTTP error: %s", e.what()));
+    for (const auto& [name, value] : headers) {
+        request += strprintf("%s: %s\r\n", name, value);
     }
+    request += "\r\n";
+    request += body;
+
+    if (!SendRequest(**sock, request)) {
+        return util::Unexpected{HTTPReplyError::FailedSendingRequest};
+    }
+
+    return ReadResponse(**sock);
 }
 
-std::unique_ptr<Sock> HTTPClient::Connect()
+util::Expected<std::unique_ptr<Sock>, HTTPReplyError> HTTPClient::Connect()
 {
     std::vector<CService> services = Lookup(m_host, m_port, /*fAllowLookup=*/true, /*nMaxSolutions=*/256);
     if (services.empty()) {
-        throw CConnectionFailed(strprintf("Could not resolve host: %s", m_host));
+        return util::Unexpected{HTTPReplyError::ResolveError};
     }
 
     for (const CService& service : services) {
@@ -913,7 +913,7 @@ std::unique_ptr<Sock> HTTPClient::Connect()
         if (sock) return sock;
     }
 
-    throw CConnectionFailed(strprintf("Could not connect to the server %s:%d", m_host, m_port));
+    return util::Unexpected{HTTPReplyError::ConnectError};
 }
 
 bool HTTPClient::SendRequest(Sock& sock, std::string_view request)
@@ -945,9 +945,8 @@ bool HTTPClient::SendRequest(Sock& sock, std::string_view request)
     return true;
 }
 
-HTTPReply HTTPClient::ReadResponse(Sock& sock)
+util::Expected<HTTPReply, HTTPReplyError> HTTPClient::ReadResponse(Sock& sock)
 {
-    HTTPReply reply;
     std::string buffer;
     const auto deadline{std::chrono::steady_clock::now() + m_timeout};
 
@@ -958,8 +957,7 @@ HTTPReply HTTPClient::ReadResponse(Sock& sock)
         auto time_left = std::chrono::duration_cast<std::chrono::milliseconds>(
             deadline - std::chrono::steady_clock::now());
         if (time_left.count() <= 0 || !WaitForReadable(sock, time_left)) {
-            reply.status = util::Unexpected{HTTPReplyError::Timeout};
-            return reply;
+            return util::Unexpected{HTTPReplyError::Timeout};
         }
 
         char recv_buf[4096];
@@ -970,14 +968,12 @@ HTTPReply HTTPClient::ReadResponse(Sock& sock)
             if (err == WSAEWOULDBLOCK || err == WSAEINTR) {
                 continue;
             }
-            reply.status = util::Unexpected{HTTPReplyError::ReadError};
-            return reply;
+            return util::Unexpected{HTTPReplyError::ReadError};
         }
 
         if (nrecv == 0) {
             // Connection closed before headers complete
-            reply.status = util::Unexpected{HTTPReplyError::Eof};
-            return reply;
+            return util::Unexpected{HTTPReplyError::Eof};
         }
 
         buffer.append(recv_buf, nrecv);
@@ -990,7 +986,7 @@ HTTPReply HTTPClient::ReadResponse(Sock& sock)
 
         // Sanity check on header size
         if (buffer.size() > bitcoin_http::MAX_HEADERS_SIZE && headers_end == 0) {
-            throw std::runtime_error("HTTP response headers too large");
+            return util::Unexpected{HTTPReplyError::TooLargeResponse};
         }
     }
 
@@ -998,25 +994,24 @@ HTTPReply HTTPClient::ReadResponse(Sock& sock)
     util::LineReader reader(std::string_view{buffer.data(), headers_end}, bitcoin_http::MAX_HEADERS_SIZE);
     auto status_line = reader.ReadLine();
     if (!status_line) {
-        throw std::runtime_error("Failed to read HTTP status line");
+        return util::Unexpected{HTTPReplyError::InvalidStatusLine};
     }
 
     const std::string_view& status_str = *status_line;
     if (status_str.size() < 12 || !status_str.starts_with("HTTP/")) {
-        throw std::runtime_error("Invalid HTTP status line");
+        return util::Unexpected{HTTPReplyError::InvalidStatusLine};
     }
 
     size_t space1 = status_str.find(' ');
     if (space1 == std::string_view::npos || space1 + 4 > status_str.size()) {
-        throw std::runtime_error("Invalid HTTP status line format");
+        return util::Unexpected{HTTPReplyError::InvalidStatusLine};
     }
 
     std::string_view status_code_str = status_str.substr(space1 + 1, 3);
-    auto status_code = ToIntegral<int>(status_code_str);
+    const auto status_code = ToIntegral<int>(status_code_str);
     if (!status_code) {
-        throw std::runtime_error("Invalid HTTP status code");
+        return util::Unexpected{HTTPReplyError::InvalidStatusCode};
     }
-    reply.status = *status_code;
 
     auto headers = bitcoin_http::ReadHeaders(reader);
     if (!headers) {
@@ -1097,8 +1092,7 @@ HTTPReply HTTPClient::ReadResponse(Sock& sock)
             auto time_left = std::chrono::duration_cast<std::chrono::milliseconds>(
                 deadline - std::chrono::steady_clock::now());
             if (time_left.count() <= 0 || !WaitForReadable(sock, time_left)) {
-                reply.status = util::Unexpected{HTTPReplyError::Timeout};
-                return reply;
+                return util::Unexpected{HTTPReplyError::Timeout};
             }
 
             char recv_buf[4096];
@@ -1109,13 +1103,11 @@ HTTPReply HTTPClient::ReadResponse(Sock& sock)
                 if (err == WSAEWOULDBLOCK || err == WSAEINTR) {
                     continue;
                 }
-                reply.status = util::Unexpected{HTTPReplyError::ReadError};
-                return reply;
+                return util::Unexpected{HTTPReplyError::ReadError};
             }
 
             if (nrecv == 0) {
-                reply.status = util::Unexpected{HTTPReplyError::Eof};
-                return reply;
+                return util::Unexpected{HTTPReplyError::Eof};
             }
 
             buffer.append(recv_buf, nrecv);
@@ -1126,15 +1118,14 @@ HTTPReply HTTPClient::ReadResponse(Sock& sock)
             }
         }
 
-        reply.body = std::move(body);
+        return HTTPReply{.status = *status_code, .body = std::move(body)};
     } else if (content_length > 0) {
         // Fixed content length
         while (buffer.size() < content_length) {
             auto time_left = std::chrono::duration_cast<std::chrono::milliseconds>(
                 deadline - std::chrono::steady_clock::now());
             if (time_left.count() <= 0 || !WaitForReadable(sock, time_left)) {
-                reply.status = util::Unexpected{HTTPReplyError::Timeout};
-                return reply;
+                return util::Unexpected{HTTPReplyError::Timeout};
             }
 
             char recv_buf[4096];
@@ -1145,27 +1136,22 @@ HTTPReply HTTPClient::ReadResponse(Sock& sock)
                 if (err == WSAEWOULDBLOCK || err == WSAEINTR) {
                     continue;
                 }
-                reply.status = util::Unexpected{HTTPReplyError::ReadError};
-                return reply;
+                return util::Unexpected{HTTPReplyError::ReadError};
             }
 
             if (nrecv == 0) {
-                reply.status = util::Unexpected{HTTPReplyError::Eof};
-                return reply;
+                return util::Unexpected{HTTPReplyError::Eof};
             }
 
             buffer.append(recv_buf, nrecv);
         }
 
         buffer.resize(content_length);
-        reply.body = std::move(buffer);
+        return HTTPReply{.status = *status_code, .body = std::move(buffer)};
     } else {
         // No body or read until connection close
-        reply.body = std::move(buffer);
+        return HTTPReply{.status = *status_code, .body = std::move(buffer)};
     }
-
-    assert(reply.status.has_value());
-    return reply;
 }
 
 bool HTTPClient::WaitForReadable(Sock& sock, std::chrono::milliseconds timeout)
@@ -1249,25 +1235,26 @@ static UniValue CallRPC(BaseRequestHandler* rh, const std::string& strMethod, co
 
     std::string strRequest = rh->PrepareRequest(strMethod, args).write() + "\n";
 
-    HTTPReply response;
-    try {
-        response = client.Post(endpoint, headers, strRequest);
-    } catch (const CConnectionFailed&) {
-        response.status = 0;
-    }
+    auto response{client.Post(endpoint, headers, strRequest)};
 
-    if (!response.status.has_value()) {
-        std::string responseErrorMessage;
-        switch (response.status.error()) {
-        case HTTPReplyError::Timeout:   responseErrorMessage = " (timeout)";    break;
-        case HTTPReplyError::ReadError: responseErrorMessage = " (read error)"; break;
-        case HTTPReplyError::Eof:       responseErrorMessage = " (EOF)";        break;
+    if (!response.has_value()) {
+        std::string_view responseErrorMessage;
+        switch (response.error()) {
+        case HTTPReplyError::ResolveError:         responseErrorMessage = " (resolve error)"; break;
+        case HTTPReplyError::ConnectError:         responseErrorMessage = " (connect error)"; break;
+        case HTTPReplyError::FailedSendingRequest: responseErrorMessage = " (failed sending request)"; break;
+        case HTTPReplyError::TooLargeResponse:     responseErrorMessage = " (too large response)"; break;
+        case HTTPReplyError::InvalidStatusLine:    responseErrorMessage = " (invalid status line)"; break;
+        case HTTPReplyError::InvalidStatusCode:    responseErrorMessage = " (invalid status code)"; break;
+        case HTTPReplyError::Timeout:              responseErrorMessage = " (timeout)";    break;
+        case HTTPReplyError::ReadError:            responseErrorMessage = " (read error)"; break;
+        case HTTPReplyError::Eof:                  responseErrorMessage = " (EOF)";        break;
         }
         throw CConnectionFailed(strprintf("Could not connect to the server %s:%d%s\n\n"
                     "Make sure the bitcoind server is running and that you are connecting to the correct RPC port.\n"
                     "Use \"bitcoin-cli -help\" for more info.",
                     host, port, responseErrorMessage));
-    } else if (*response.status == HTTP_UNAUTHORIZED) {
+    } else if (response->status == HTTP_UNAUTHORIZED) {
         std::string error{"Authorization failed: "};
         if (auth_cookie_result.has_value()) {
             switch (*auth_cookie_result) {
@@ -1286,16 +1273,16 @@ static UniValue CallRPC(BaseRequestHandler* rh, const std::string& strMethod, co
         }
         error += strprintf(" Configuration file: (%s)", fs::PathToString(gArgs.GetConfigFilePath()));
         throw std::runtime_error(error);
-    } else if (*response.status == HTTP_SERVICE_UNAVAILABLE) {
-        throw std::runtime_error(strprintf("Server response: %s", response.body));
-    } else if (*response.status >= 400 && *response.status != HTTP_BAD_REQUEST && *response.status != HTTP_NOT_FOUND && *response.status != HTTP_INTERNAL_SERVER_ERROR)
-        throw std::runtime_error(strprintf("server returned HTTP error %d", *response.status));
-    else if (response.body.empty())
+    } else if (response->status == HTTP_SERVICE_UNAVAILABLE) {
+        throw std::runtime_error(strprintf("Server response: %s", response->body));
+    } else if (response->status >= 400 && response->status != HTTP_BAD_REQUEST && response->status != HTTP_NOT_FOUND && response->status != HTTP_INTERNAL_SERVER_ERROR)
+        throw std::runtime_error(strprintf("server returned HTTP error %d", response->status));
+    else if (response->body.empty())
         throw std::runtime_error("no response from server");
 
     // Parse reply
     UniValue valReply(UniValue::VSTR);
-    if (!valReply.read(response.body))
+    if (!valReply.read(response->body))
         throw std::runtime_error("couldn't parse reply from server");
     UniValue reply = rh->ProcessReply(valReply);
     if (reply.empty())
