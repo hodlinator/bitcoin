@@ -93,13 +93,22 @@ constexpr size_t MAX_HEADERS_SIZE{8192};
 using Headers = std::vector<std::pair<std::string, std::string>>;
 
 // Named Read() in HTTPHeaders (see PR #32061).
-static Headers ReadHeaders(util::LineReader& reader)
+static util::Expected<Headers, std::string> ReadHeaders(util::LineReader& reader)
 {
     // Headers https://httpwg.org/specs/rfc9110.html#rfc.section.6.3
     // A sequence of Field Lines https://httpwg.org/specs/rfc9110.html#rfc.section.5.2
     Headers headers;
-    while (auto maybe_line = reader.ReadLine()) {
-        if (reader.Consumed() > MAX_HEADERS_SIZE) throw std::runtime_error("HTTP headers exceed size limit");
+    while (true) {
+        auto maybe_line = reader.ReadLine();
+        if (!maybe_line) {
+            using Error = util::LineReader::Error;
+            switch (maybe_line.error()) {
+            case Error::EndOfBuffer: return headers;
+            case Error::LineLengthExceeded: return util::Unexpected{"Line length exceeded"};
+            }
+        }
+
+        if (reader.Consumed() > MAX_HEADERS_SIZE) return util::Unexpected{"HTTP headers exceed size limit"};
 
         const std::string_view& line = *maybe_line;
 
@@ -110,7 +119,7 @@ static Headers ReadHeaders(util::LineReader& reader)
         // keys are not allowed to have delimiters like ":" but values are
         // https://httpwg.org/specs/rfc9110.html#rfc.section.5.6.2
         const size_t pos{line.find(':')};
-        if (pos == std::string::npos) throw std::runtime_error("HTTP header missing colon (:)");
+        if (pos == std::string::npos) return util::Unexpected{"HTTP header missing colon (:)"};
 
         // Whitespace is optional
         std::string key = util::TrimString(std::string_view(line).substr(0, pos));
@@ -119,11 +128,10 @@ static Headers ReadHeaders(util::LineReader& reader)
         // Header keys are Field Names: https://httpwg.org/specs/rfc9110.html#fields.names
         // which consist of "tokens": https://httpwg.org/specs/rfc9110.html#rfc.section.5.6.2
         // that can not be empty.
-        if (key.empty()) throw std::runtime_error("Empty HTTP header name");
+        if (key.empty()) return util::Unexpected{"Empty HTTP header name"};
 
         headers.emplace_back(std::move(key), std::move(value));
     }
-    return headers;
 }
 
 static std::optional<std::string> FindFirst(const Headers& headers, std::string_view key)
@@ -1011,16 +1019,19 @@ HTTPReply HTTPClient::ReadResponse(Sock& sock)
     reply.status = *status_code;
 
     auto headers = bitcoin_http::ReadHeaders(reader);
+    if (!headers) {
+        throw std::runtime_error(strprintf("Failed reading headers: %s", headers.error()));
+    }
 
     // Determine body length
     size_t content_length = 0;
     bool chunked = false;
 
-    auto transfer_encoding = bitcoin_http::FindFirst(headers, "transfer-encoding");
+    auto transfer_encoding = bitcoin_http::FindFirst(*headers, "transfer-encoding");
     if (transfer_encoding && ToLower(*transfer_encoding).find("chunked") != std::string::npos) {
         chunked = true;
     } else {
-        auto content_length_header = bitcoin_http::FindFirst(headers, "content-length");
+        auto content_length_header = bitcoin_http::FindFirst(*headers, "content-length");
         if (content_length_header) {
             auto len = ToIntegral<size_t>(*content_length_header);
             if (!len) {

@@ -5,13 +5,14 @@
 #ifndef BITCOIN_UTIL_STRING_H
 #define BITCOIN_UTIL_STRING_H
 
+#include <util/expected.h>
+
 #include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <initializer_list>
 #include <locale>
-#include <optional>
 #include <span>
 #include <sstream>
 #include <string>
@@ -270,17 +271,22 @@ class LineReader
     std::string_view::iterator m_it;
 
 public:
+    enum class Error {
+        EndOfBuffer,
+        LineLengthExceeded,
+    };
+
     explicit LineReader(std::string_view str, size_t max_line_length);
 
     /**
      * Returns a string from current iterator position up to (but not including) next \n
      * and advances iterator to the character following the \n on success.
      * Will not return a line longer than max_line_length.
-     * @returns the next string from the buffer.
-     *          std::nullopt if end of buffer is reached without finding a \n.
-     * @throws a std::runtime_error if max_line_length + 1 bytes are read without finding \n.
+     * @returns the next line from the buffer.
+     * @retval  Error::EndOfBuffer        if end of buffer is reached without finding a \n.
+     * @retval  Error::LineLengthExceeded if max_line_length + 1 bytes are read without finding \n.
      */
-    std::optional<std::string_view> ReadLine();
+    util::Expected<std::string_view, Error> ReadLine() noexcept;
 
     /**
      * Returns string from current iterator position of specified length
@@ -288,9 +294,9 @@ public:
      * May exceed max_line_length but will not read past end of buffer.
      * @param[in]   len     The number of bytes to read from the buffer
      * @returns a string of the expected length.
-     * @throws a std::runtime_error if there is not enough data in the buffer.
+     * @retval  Error::EndOfBuffer if there is not enough data in the buffer.
      */
-    std::string_view ReadLength(size_t len);
+    util::Expected<std::string_view, Error> ReadLength(size_t len) noexcept;
 
     /**
      * Returns remaining size of bytes in buffer

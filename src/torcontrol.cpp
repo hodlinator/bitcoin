@@ -163,19 +163,28 @@ bool TorControlConnection::ReceiveAndProcess()
     }
 
     m_recv_buffer.append(buf, buf + nread);
-    try {
-        return ProcessBuffer();
-    } catch (const std::runtime_error& e) {
-        LogWarning("tor: Error processing receive buffer: %s", e.what());
+    if (auto result{ProcessBuffer()}) {
+        return true;
+    } else {
+        LogWarning("tor: Error processing receive buffer: %s", result.error());
         return false;
     }
 }
 
-bool TorControlConnection::ProcessBuffer()
+util::Expected<void, std::string> TorControlConnection::ProcessBuffer()
 {
     util::LineReader reader(m_recv_buffer, MAX_LINE_LENGTH);
 
-    while (auto line = reader.ReadLine()) {
+    bool end_reached{false};
+    while (!end_reached) {
+        auto line = reader.ReadLine();
+        if (!line) {
+            using Error = util::LineReader::Error;
+            switch (line.error()) {
+            case Error::EndOfBuffer: end_reached = true; continue;
+            case Error::LineLengthExceeded: return util::Unexpected{"Line length exceeded"};
+            }
+        }
         // Skip short lines
         if (line->size() < 4) continue;
 
@@ -202,7 +211,7 @@ bool TorControlConnection::ProcessBuffer()
     }
 
     m_recv_buffer.erase(m_recv_buffer.begin(), m_recv_buffer.begin() + reader.Consumed());
-    return true;
+    return {};
 }
 
 bool TorControlConnection::Command(const std::string &cmd, const ReplyHandlerCB& reply_handler)
