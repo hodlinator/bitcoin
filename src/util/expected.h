@@ -6,8 +6,8 @@
 #define BITCOIN_UTIL_EXPECTED_H
 
 #include <attributes.h>
-#include <util/check.h>
 
+#include <cassert>
 #include <exception>
 #include <utility>
 #include <variant>
@@ -83,8 +83,18 @@ public:
         return has_value() ? std::move(value()) : std::forward<U>(default_value);
     }
 
-    constexpr const E& error() const& noexcept LIFETIMEBOUND { return *Assert(std::get_if<1>(&m_data)); }
-    constexpr E& error() & noexcept LIFETIMEBOUND { return *Assert(std::get_if<1>(&m_data)); }
+    constexpr const E& error() const& noexcept LIFETIMEBOUND
+    {
+        const E* e{std::get_if<1>(&m_data)};
+        assert(e);
+        return *e;
+    }
+    constexpr E& error() & noexcept LIFETIMEBOUND
+    {
+        E* e{std::get_if<1>(&m_data)};
+        assert(e);
+        return *e;
+    }
     constexpr E&& error() && noexcept LIFETIMEBOUND { return std::move(error()); }
 
     constexpr void swap(Expected& other) noexcept { m_data.swap(other.m_data); }
@@ -121,8 +131,18 @@ public:
         }
     }
 
-    constexpr const E& error() const& noexcept LIFETIMEBOUND { return *Assert(std::get_if<1>(&m_data)); }
-    constexpr E& error() & noexcept LIFETIMEBOUND { return *Assert(std::get_if<1>(&m_data)); }
+    constexpr const E& error() const& noexcept LIFETIMEBOUND
+    {
+        const E* e{std::get_if<1>(&m_data)};
+        assert(e);
+        return *e;
+    }
+    constexpr E& error() & noexcept LIFETIMEBOUND
+    {
+        E* e{std::get_if<1>(&m_data)};
+        assert(e);
+        return *e;
+    }
     constexpr E&& error() && noexcept LIFETIMEBOUND { return std::move(error()); }
 };
 
