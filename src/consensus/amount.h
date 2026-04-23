@@ -11,6 +11,11 @@
 /** Amount in satoshis (Can be negative) */
 typedef int64_t Amount;
 
+consteval Amount operator""_sats(unsigned long long amount) noexcept
+{
+    return Amount(amount);
+}
+
 /** The amount of satoshis in one BTC. */
 constexpr Amount COIN{100000000};
 
