@@ -85,7 +85,7 @@ bool CheckMapFlagNames()
 * Check that the input scripts of a transaction are valid/invalid as expected.
 */
 bool CheckTxScripts(const CTransaction& tx, const std::map<COutPoint, CScript>& map_prevout_scriptPubKeys,
-    const std::map<COutPoint, int64_t>& map_prevout_values, script_verify_flags flags,
+    const std::map<COutPoint, Amount>& map_prevout_values, script_verify_flags flags,
     const PrecomputedTransactionData& txdata, const std::string& strTest, bool expect_valid)
 {
     bool tx_valid = true;
@@ -177,7 +177,7 @@ BOOST_AUTO_TEST_CASE(tx_valid)
             }
 
             std::map<COutPoint, CScript> mapprevOutScriptPubKeys;
-            std::map<COutPoint, int64_t> mapprevOutValues;
+            std::map<COutPoint, Amount> mapprevOutValues;
             UniValue inputs = test[0].get_array();
             bool fValid = true;
             for (unsigned int inpIdx = 0; inpIdx < inputs.size(); inpIdx++) {
@@ -265,7 +265,7 @@ BOOST_AUTO_TEST_CASE(tx_invalid)
             }
 
             std::map<COutPoint, CScript> mapprevOutScriptPubKeys;
-            std::map<COutPoint, int64_t> mapprevOutValues;
+            std::map<COutPoint, Amount> mapprevOutValues;
             UniValue inputs = test[0].get_array();
             bool fValid = true;
             for (unsigned int inpIdx = 0; inpIdx < inputs.size(); inpIdx++) {

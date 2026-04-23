@@ -31,7 +31,7 @@ static const int P2WPKH_OUTPUT_VSIZE = 31;
  * 10'292 s/kvB
  * - a high feerate that has been exceeded occasionally: 59'764 s/kvB
  * - a huge feerate that is extremely uncommon: 1'500'000 s/kvB */
-static const std::vector<int> FEERATES = {0, 1, 99, 100, 315, 1'000, 2'345, 10'292, 59'764, 1'500'000};
+static const std::vector<Amount> FEERATES = {0, 1, 99, 100, 315, 1'000, 2'345, 10'292, 59'764, 1'500'000};
 
 /** Default coin selection parameters allow us to only explicitly set
  * parameters when a diverging value is relevant in the context of a test,
@@ -82,7 +82,7 @@ static void AddCoins(std::vector<OutputGroup>& utxo_pool, std::vector<Amount> co
 }
 
 /** Make multiple coins that share the same effective value */
-static void AddDuplicateCoins(std::vector<OutputGroup>& utxo_pool, int count, int amount, CoinSelectionParams cs_params = default_cs_params) {
+static void AddDuplicateCoins(std::vector<OutputGroup>& utxo_pool, int count, Amount amount, CoinSelectionParams cs_params = default_cs_params) {
     for (int i = 0 ; i < count; ++i) {
         utxo_pool.push_back(MakeCoin(amount, true, cs_params));
     }
@@ -140,7 +140,7 @@ static void TestBnBFail(std::string test_title, std::vector<OutputGroup>& utxo_p
 
 BOOST_AUTO_TEST_CASE(bnb_test)
 {
-    for (int feerate : FEERATES) {
+    for (Amount feerate : FEERATES) {
         std::vector<OutputGroup> utxo_pool;
 
         const CoinSelectionParams cs_params = init_cs_params(feerate);
@@ -263,7 +263,7 @@ static void TestSRDFail(std::string test_title, std::vector<OutputGroup>& utxo_p
 
 BOOST_AUTO_TEST_CASE(srd_test)
 {
-    for (int feerate : FEERATES) {
+    for (Amount feerate : FEERATES) {
         std::vector<OutputGroup> utxo_pool;
 
         const CoinSelectionParams cs_params = init_cs_params(feerate);
