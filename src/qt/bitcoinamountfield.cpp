@@ -291,9 +291,9 @@ QWidget *BitcoinAmountField::setupTabChain(QWidget *prev)
     return unit;
 }
 
-Amount BitcoinAmountField::value(bool *valid_out) const
+QAmount BitcoinAmountField::value(bool *valid_out) const
 {
-    return amount->value(valid_out);
+    return QAmount{amount->value(valid_out)};
 }
 
 void BitcoinAmountField::setValue(const Amount& value)

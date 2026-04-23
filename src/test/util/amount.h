@@ -7,11 +7,26 @@
 
 #include <consensus/amount.h>
 
-/** Potentially imprecise calculations only allowed for tests.
+template <typename T>
+constexpr Amount& operator*=(Amount& a, const T b) noexcept
+    requires(std::is_integral_v<T> && sizeof(T) <= sizeof(Amount::inner_type))
+{
+    a = a.Int() * b;
+    return a;
+}
+
+template <typename T>
+constexpr Amount operator<<(const Amount a, const T b) noexcept
+    requires(std::is_integral_v<T> && sizeof(T) <= sizeof(Amount::inner_type))
+{
+    return {a.Int() << b};
+}
+
+/** Imprecise fractional expressions only allowed for tests.
   * @{*/
 consteval Amount operator""_BTC(long double coins) noexcept
 {
-    return static_cast<Amount>(coins * COIN);
+    return {static_cast<Amount::inner_type>(coins * COIN.Int())};
 }
 /** @}*/
 

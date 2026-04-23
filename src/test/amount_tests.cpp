@@ -35,8 +35,8 @@ BOOST_AUTO_TEST_CASE(GetFeeTest)
     BOOST_CHECK_EQUAL(feeRate.GetFee(1), Amount(1));
     BOOST_CHECK_EQUAL(feeRate.GetFee(121), Amount(121));
     BOOST_CHECK_EQUAL(feeRate.GetFee(999), Amount(999));
-    BOOST_CHECK_EQUAL(feeRate.GetFee(1e3), Amount(1e3));
-    BOOST_CHECK_EQUAL(feeRate.GetFee(9e3), Amount(9e3));
+    BOOST_CHECK_EQUAL(feeRate.GetFee(1e3), Amount{int64_t(1e3)});
+    BOOST_CHECK_EQUAL(feeRate.GetFee(9e3), Amount{int64_t(9e3)});
 
     feeRate = CFeeRate(-1000_sats);
     // Must always just return -1 * arg
@@ -44,8 +44,8 @@ BOOST_AUTO_TEST_CASE(GetFeeTest)
     BOOST_CHECK_EQUAL(feeRate.GetFee(1), Amount(-1));
     BOOST_CHECK_EQUAL(feeRate.GetFee(121), Amount(-121));
     BOOST_CHECK_EQUAL(feeRate.GetFee(999), Amount(-999));
-    BOOST_CHECK_EQUAL(feeRate.GetFee(1e3), Amount(-1e3));
-    BOOST_CHECK_EQUAL(feeRate.GetFee(9e3), Amount(-9e3));
+    BOOST_CHECK_EQUAL(feeRate.GetFee(1e3), Amount{int64_t(-1e3)});
+    BOOST_CHECK_EQUAL(feeRate.GetFee(9e3), Amount{int64_t(-9e3)});
 
     feeRate = CFeeRate(123_sats);
     // Rounds up the result, if not integer
@@ -131,6 +131,11 @@ BOOST_AUTO_TEST_CASE(BinaryOperatorTest)
     // a should be 0.00000002 BTC/kvB now
     a += a;
     BOOST_CHECK(a == b);
+
+    BOOST_CHECK_GT(0_sats, Amount{-1});
+    BOOST_CHECK_LT(0_sats, Amount{1});
+    BOOST_CHECK_GT(Amount{0_sats}, -1_sats);
+    BOOST_CHECK_LT(Amount{0_sats}, 1_sats);
 }
 
 BOOST_AUTO_TEST_CASE(ToStringTest)

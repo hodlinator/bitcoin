@@ -7,13 +7,108 @@
 #define BITCOIN_CONSENSUS_AMOUNT_H
 
 #include <cstdint>
+#include <limits>
+#include <ostream>
+#ifndef Q_MOC_RUN
+#include <compare>
+#include <type_traits>
+#endif
 
 /** Amount in satoshis (Can be negative) */
-typedef int64_t Amount;
+class Amount
+{
+public:
+    using inner_type = int64_t;
+
+    // TODO in upcoming commit: Delete the default constructor.
+    Amount() = default;
+
+    template <typename T>
+    constexpr Amount(T v)
+        requires(std::is_integral_v<T> && sizeof(T) <= sizeof(inner_type))
+        : m_sats(v)
+    {
+    }
+
+    constexpr auto operator<=>(const Amount& other) const noexcept = default;
+
+    constexpr Amount operator-() const noexcept { return {-m_sats}; }
+
+    constexpr Amount operator+(const Amount other) const noexcept
+    {
+        return {m_sats + other.m_sats};
+    }
+
+    constexpr Amount operator-(const Amount other) const noexcept
+    {
+        return {m_sats - other.m_sats};
+    }
+
+    constexpr inner_type operator/(const Amount other) const noexcept
+    {
+        return m_sats / other.m_sats;
+    }
+
+    constexpr inner_type operator%(const Amount other) const noexcept
+    {
+        return m_sats % other.m_sats;
+    }
+
+    constexpr Amount& operator+=(const Amount other) noexcept
+    {
+        m_sats += other.m_sats;
+        return *this;
+    }
+
+    constexpr Amount& operator-=(const Amount other) noexcept
+    {
+        m_sats -= other.m_sats;
+        return *this;
+    }
+
+    constexpr Amount& operator >>=(const int other) noexcept
+    {
+        m_sats >>= other;
+        return *this;
+    }
+
+    template <typename T>
+    constexpr Amount operator%(const T other) const noexcept
+        requires(std::is_integral_v<T> && sizeof(T) <= sizeof(inner_type))
+    {
+        return {m_sats % other};
+    }
+
+    template <typename T>
+    constexpr Amount operator*(const T other) const noexcept
+        requires(std::is_integral_v<T> && sizeof(T) <= sizeof(inner_type))
+    {
+        return {m_sats * other};
+    }
+
+    template <typename T>
+    friend constexpr Amount operator*(const T a, const Amount b) noexcept
+        requires(std::is_integral_v<T> && sizeof(T) <= sizeof(inner_type))
+    {
+        return {a * b.Int()};
+    }
+
+    template <typename T>
+    friend constexpr Amount operator/(const Amount a, const T b) noexcept
+        requires(std::is_integral_v<T> && sizeof(T) <= sizeof(inner_type))
+    {
+        return {a.Int() / b};
+    }
+
+    constexpr const inner_type& Int() const noexcept { return m_sats; }
+
+private:
+    inner_type m_sats;
+};
 
 consteval Amount operator""_sats(unsigned long long amount) noexcept
 {
-    return Amount(amount);
+    return Amount{amount};
 }
 
 /** The amount of satoshis in one BTC. */
@@ -30,5 +125,20 @@ constexpr Amount COIN{100000000};
  * */
 constexpr Amount MAX_MONEY{21000000 * COIN};
 inline bool MoneyRange(const Amount& nValue) { return (nValue >= 0_sats && nValue <= MAX_MONEY); }
+
+// Disable accidental use
+template <>
+struct std::numeric_limits<Amount> {
+    static constexpr bool is_specialized{false};
+    static constexpr int radix{0};
+    static constexpr int digits{0};
+    static constexpr int max_digits10{0};
+};
+
+inline std::ostream& operator<<(std::ostream& o, const Amount a)
+{
+    o << a.Int();
+    return o;
+}
 
 #endif // BITCOIN_CONSENSUS_AMOUNT_H

@@ -163,9 +163,7 @@ bool DumpMempool(const CTxMemPool& pool, const fs::path& dump_path, FopenFn mock
 
     {
         LOCK(pool.cs);
-        for (const auto &i : pool.mapDeltas) {
-            mapDeltas[i.first] = i.second;
-        }
+        mapDeltas = pool.mapDeltas;
         vinfo = pool.infoAll();
         unbroadcast_txids = pool.GetUnbroadcastTxs();
     }
@@ -196,7 +194,7 @@ bool DumpMempool(const CTxMemPool& pool, const fs::path& dump_path, FopenFn mock
         for (const auto& i : vinfo) {
             file << TX_WITH_WITNESS(*(i.tx));
             file << int64_t{count_seconds(i.m_time)};
-            file << int64_t{i.nFeeDelta};
+            file << int64_t{i.nFeeDelta.Int()};
             mapDeltas.erase(i.tx->GetHash());
         }
 

@@ -427,15 +427,15 @@ BOOST_AUTO_TEST_CASE(util_FormatMoney)
     BOOST_CHECK_EQUAL(FormatMoney(COIN/10000000), "0.0000001");
     BOOST_CHECK_EQUAL(FormatMoney(COIN/100000000), "0.00000001");
 
-    BOOST_CHECK_EQUAL(FormatMoney(std::numeric_limits<Amount>::max()), "92233720368.54775807");
-    BOOST_CHECK_EQUAL(FormatMoney(std::numeric_limits<Amount>::max() - 1), "92233720368.54775806");
-    BOOST_CHECK_EQUAL(FormatMoney(std::numeric_limits<Amount>::max() - 2), "92233720368.54775805");
-    BOOST_CHECK_EQUAL(FormatMoney(std::numeric_limits<Amount>::max() - 3), "92233720368.54775804");
+    BOOST_CHECK_EQUAL(FormatMoney(std::numeric_limits<Amount::inner_type>::max()), "92233720368.54775807");
+    BOOST_CHECK_EQUAL(FormatMoney(std::numeric_limits<Amount::inner_type>::max() - 1), "92233720368.54775806");
+    BOOST_CHECK_EQUAL(FormatMoney(std::numeric_limits<Amount::inner_type>::max() - 2), "92233720368.54775805");
+    BOOST_CHECK_EQUAL(FormatMoney(std::numeric_limits<Amount::inner_type>::max() - 3), "92233720368.54775804");
     // ...
-    BOOST_CHECK_EQUAL(FormatMoney(std::numeric_limits<Amount>::min() + 3), "-92233720368.54775805");
-    BOOST_CHECK_EQUAL(FormatMoney(std::numeric_limits<Amount>::min() + 2), "-92233720368.54775806");
-    BOOST_CHECK_EQUAL(FormatMoney(std::numeric_limits<Amount>::min() + 1), "-92233720368.54775807");
-    BOOST_CHECK_EQUAL(FormatMoney(std::numeric_limits<Amount>::min()), "-92233720368.54775808");
+    BOOST_CHECK_EQUAL(FormatMoney(std::numeric_limits<Amount::inner_type>::min() + 3), "-92233720368.54775805");
+    BOOST_CHECK_EQUAL(FormatMoney(std::numeric_limits<Amount::inner_type>::min() + 2), "-92233720368.54775806");
+    BOOST_CHECK_EQUAL(FormatMoney(std::numeric_limits<Amount::inner_type>::min() + 1), "-92233720368.54775807");
+    BOOST_CHECK_EQUAL(FormatMoney(std::numeric_limits<Amount::inner_type>::min()), "-92233720368.54775808");
 }
 
 BOOST_AUTO_TEST_CASE(util_ParseMoney)
@@ -981,7 +981,7 @@ BOOST_AUTO_TEST_CASE(test_ParseFixedPoint)
     BOOST_CHECK(!ParseFixedPoint("1.", 8));
 
     // Test with 3 decimal places for fee rates in sat/vB.
-    BOOST_CHECK_EQUAL(ParseFixedPoint("0.001", 3), Amount{1});
+    BOOST_CHECK_EQUAL(ParseFixedPoint("0.001", 3), 1);
     BOOST_CHECK(!ParseFixedPoint("0.0009", 3));
     BOOST_CHECK(!ParseFixedPoint("31.00100001", 3));
     BOOST_CHECK(!ParseFixedPoint("31.0011", 3));

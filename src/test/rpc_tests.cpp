@@ -261,15 +261,15 @@ BOOST_AUTO_TEST_CASE(rpc_format_monetary_values)
     BOOST_CHECK_EQUAL(ValueFromAmount(COIN/10000000).write(), "0.00000010");
     BOOST_CHECK_EQUAL(ValueFromAmount(COIN/100000000).write(), "0.00000001");
 
-    BOOST_CHECK_EQUAL(ValueFromAmount(std::numeric_limits<Amount>::max()).write(), "92233720368.54775807");
-    BOOST_CHECK_EQUAL(ValueFromAmount(std::numeric_limits<Amount>::max() - 1).write(), "92233720368.54775806");
-    BOOST_CHECK_EQUAL(ValueFromAmount(std::numeric_limits<Amount>::max() - 2).write(), "92233720368.54775805");
-    BOOST_CHECK_EQUAL(ValueFromAmount(std::numeric_limits<Amount>::max() - 3).write(), "92233720368.54775804");
+    BOOST_CHECK_EQUAL(ValueFromAmount(std::numeric_limits<Amount::inner_type>::max()).write(), "92233720368.54775807");
+    BOOST_CHECK_EQUAL(ValueFromAmount(std::numeric_limits<Amount::inner_type>::max() - 1).write(), "92233720368.54775806");
+    BOOST_CHECK_EQUAL(ValueFromAmount(std::numeric_limits<Amount::inner_type>::max() - 2).write(), "92233720368.54775805");
+    BOOST_CHECK_EQUAL(ValueFromAmount(std::numeric_limits<Amount::inner_type>::max() - 3).write(), "92233720368.54775804");
     // ...
-    BOOST_CHECK_EQUAL(ValueFromAmount(std::numeric_limits<Amount>::min() + 3).write(), "-92233720368.54775805");
-    BOOST_CHECK_EQUAL(ValueFromAmount(std::numeric_limits<Amount>::min() + 2).write(), "-92233720368.54775806");
-    BOOST_CHECK_EQUAL(ValueFromAmount(std::numeric_limits<Amount>::min() + 1).write(), "-92233720368.54775807");
-    BOOST_CHECK_EQUAL(ValueFromAmount(std::numeric_limits<Amount>::min()).write(), "-92233720368.54775808");
+    BOOST_CHECK_EQUAL(ValueFromAmount(std::numeric_limits<Amount::inner_type>::min() + 3).write(), "-92233720368.54775805");
+    BOOST_CHECK_EQUAL(ValueFromAmount(std::numeric_limits<Amount::inner_type>::min() + 2).write(), "-92233720368.54775806");
+    BOOST_CHECK_EQUAL(ValueFromAmount(std::numeric_limits<Amount::inner_type>::min() + 1).write(), "-92233720368.54775807");
+    BOOST_CHECK_EQUAL(ValueFromAmount(std::numeric_limits<Amount::inner_type>::min()).write(), "-92233720368.54775808");
 }
 
 static UniValue ValueFromString(const std::string& str) noexcept
@@ -431,7 +431,7 @@ BOOST_AUTO_TEST_CASE(rpc_getblockstats_calculate_percentiles_by_weight)
     int64_t total_weight = 200;
     std::vector<std::pair<Amount, int64_t>> feerates;
     feerates.reserve(200);
-    Amount result[NUM_GETBLOCKSTATS_PERCENTILES] = { 0_sats };
+    Amount result[NUM_GETBLOCKSTATS_PERCENTILES] = { 0_sats, 0_sats, 0_sats, 0_sats, 0_sats };
 
     for (int64_t i = 0; i < 100; i++) {
         feerates.emplace_back(1_sats, 1);
@@ -450,7 +450,7 @@ BOOST_AUTO_TEST_CASE(rpc_getblockstats_calculate_percentiles_by_weight)
 
     // Test with more pairs, and two pairs overlapping 2 percentiles.
     total_weight = 100;
-    Amount result2[NUM_GETBLOCKSTATS_PERCENTILES] = { 0_sats };
+    Amount result2[NUM_GETBLOCKSTATS_PERCENTILES] = { 0_sats, 0_sats, 0_sats, 0_sats, 0_sats };
     feerates.clear();
 
     feerates.emplace_back(1_sats,  9);
@@ -469,7 +469,7 @@ BOOST_AUTO_TEST_CASE(rpc_getblockstats_calculate_percentiles_by_weight)
 
     // Same test as above, but one of the percentile-overlapping pairs is split in 2.
     total_weight = 100;
-    Amount result3[NUM_GETBLOCKSTATS_PERCENTILES] = { 0_sats };
+    Amount result3[NUM_GETBLOCKSTATS_PERCENTILES] = { 0_sats, 0_sats, 0_sats, 0_sats, 0_sats };
     feerates.clear();
 
     feerates.emplace_back(1_sats,  9);
@@ -489,7 +489,7 @@ BOOST_AUTO_TEST_CASE(rpc_getblockstats_calculate_percentiles_by_weight)
 
     // Test with one transaction spanning all percentiles.
     total_weight = 104;
-    Amount result4[NUM_GETBLOCKSTATS_PERCENTILES] = { 0_sats };
+    Amount result4[NUM_GETBLOCKSTATS_PERCENTILES] = { 0_sats, 0_sats, 0_sats, 0_sats, 0_sats };
     feerates.clear();
 
     feerates.emplace_back(1_sats, 100);

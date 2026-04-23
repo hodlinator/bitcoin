@@ -578,7 +578,7 @@ BOOST_AUTO_TEST_CASE(knapsack_solver_test)
 
             if (amt - 2000_sats < CENT) {
                 // needs more than one input:
-                uint16_t returnSize = std::ceil((2000.0 + CENT)/amt);
+                uint16_t returnSize = std::ceil((2000.0 + CENT.Int())/amt.Int());
                 Amount returnValue = amt * returnSize;
                 BOOST_CHECK_EQUAL(result24->GetSelectedValue(), returnValue);
                 BOOST_CHECK_EQUAL(result24->GetInputSet().size(), returnSize);
@@ -686,7 +686,7 @@ BOOST_AUTO_TEST_CASE(SelectCoins_test)
         // Make a wallet with 1000 exponentially distributed random inputs
         for (int j = 0; j < 1000; ++j)
         {
-            Amount val = distribution(generator)*10000000;
+            Amount val{static_cast<Amount::inner_type>(distribution(generator)*10000000)};
             add_coin(available_coins, *wallet, val);
             balance += val;
         }
@@ -695,7 +695,7 @@ BOOST_AUTO_TEST_CASE(SelectCoins_test)
         CFeeRate rate(rand.randrange(300) + 100);
 
         // Generate a random target value between 1000 and wallet balance
-        Amount target = rand.randrange(balance - 1000) + 1000;
+        Amount target{rand.randrange(balance.Int() - 1000) + 1000};
 
         // Perform selection
         CoinSelectionParams cs_params{

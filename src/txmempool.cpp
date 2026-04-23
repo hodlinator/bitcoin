@@ -632,7 +632,7 @@ void CTxMemPool::PrioritiseTransaction(const Txid& hash, const Amount& nFeeDelta
     {
         LOCK(cs);
         Amount& delta = mapDeltas[hash];
-        delta = SaturatingAdd(delta, nFeeDelta);
+        delta = SaturatingAdd(delta.Int(), nFeeDelta.Int());
         txiter it = mapTx.find(hash);
         if (it != mapTx.end()) {
             // PrioritiseTransaction calls stack on previous ones. Set the new
@@ -842,7 +842,7 @@ CFeeRate CTxMemPool::GetMinFee(size_t sizelimit) const {
         rollingMinimumFeeRate = rollingMinimumFeeRate / pow(2.0, (time - lastRollingFeeUpdate) / halflife);
         lastRollingFeeUpdate = time;
 
-        if (rollingMinimumFeeRate < (double)m_opts.incremental_relay_feerate.GetFeePerK() / 2) {
+        if (rollingMinimumFeeRate < (double)m_opts.incremental_relay_feerate.GetFeePerK().Int() / 2) {
             rollingMinimumFeeRate = 0;
             return CFeeRate(0_sats);
         }
@@ -852,8 +852,8 @@ CFeeRate CTxMemPool::GetMinFee(size_t sizelimit) const {
 
 void CTxMemPool::trackPackageRemoved(const CFeeRate& rate) {
     AssertLockHeld(cs);
-    if (rate.GetFeePerK() > rollingMinimumFeeRate) {
-        rollingMinimumFeeRate = rate.GetFeePerK();
+    if (rate.GetFeePerK().Int() > rollingMinimumFeeRate) {
+        rollingMinimumFeeRate = rate.GetFeePerK().Int();
         blockSinceLastRollingFeeBump = false;
     }
 }

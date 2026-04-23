@@ -16,6 +16,14 @@ QT_BEGIN_NAMESPACE
 class QValueComboBox;
 QT_END_NAMESPACE
 
+// Continuation of #5117 to support conversion to qint64
+class QAmount : public Amount
+{
+public:
+    constexpr explicit QAmount(Amount v) : Amount{v} {}
+    constexpr operator qint64() const { return Int(); }
+};
+
 /** Widget for entering bitcoin amounts.
   */
 class BitcoinAmountField: public QWidget
@@ -29,7 +37,7 @@ class BitcoinAmountField: public QWidget
 public:
     explicit BitcoinAmountField(QWidget *parent = nullptr);
 
-    Amount value(bool *value=nullptr) const;
+    QAmount value(bool *value=nullptr) const;
     void setValue(const Amount& value);
 
     /** If allow empty is set to false the field will be set to the minimum allowed value if left empty. **/

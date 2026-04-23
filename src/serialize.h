@@ -6,6 +6,7 @@
 #ifndef BITCOIN_SERIALIZE_H
 #define BITCOIN_SERIALIZE_H
 
+#include <consensus/amount.h>
 #include <attributes.h>
 #include <compat/assumptions.h> // IWYU pragma: keep
 #include <compat/endian.h>
@@ -254,6 +255,8 @@ template <typename Stream> void Serialize(Stream& s, uint32_t a)  { ser_writedat
 template <typename Stream> void Serialize(Stream& s, int64_t a)   { ser_writedata64(s, uint64_t(a)); }
 template <typename Stream> void Serialize(Stream& s, uint64_t a)  { ser_writedata64(s, a); }
 
+template <typename Stream> void Serialize(Stream& s, const Amount a) { Serialize(s, a.Int()); }
+
 template <typename Stream, BasicByte B, size_t N> void Serialize(Stream& s, const B (&a)[N])           { s.write(MakeByteSpan(a)); }
 template <typename Stream, BasicByte B, size_t N> void Serialize(Stream& s, const std::array<B, N>& a) { s.write(MakeByteSpan(a)); }
 template <typename Stream, BasicByte B, size_t N> void Serialize(Stream& s, std::span<B, N> span)      { s.write(std::as_bytes(span)); }
@@ -269,6 +272,13 @@ template <typename Stream> void Unserialize(Stream& s, int32_t& a)   { a = int32
 template <typename Stream> void Unserialize(Stream& s, uint32_t& a)  { a = ser_readdata32(s); }
 template <typename Stream> void Unserialize(Stream& s, int64_t& a)   { a = int64_t(ser_readdata64(s)); }
 template <typename Stream> void Unserialize(Stream& s, uint64_t& a)  { a = ser_readdata64(s); }
+
+template <typename Stream> void Unserialize(Stream& s, Amount& a)
+{
+    int64_t i;
+    Unserialize(s, i);
+    a = Amount{i};
+}
 
 template <typename Stream, BasicByte B, size_t N> void Unserialize(Stream& s, B (&a)[N])            { s.read(MakeWritableByteSpan(a)); }
 template <typename Stream, BasicByte B, size_t N> void Unserialize(Stream& s, std::array<B, N>& a)  { s.read(MakeWritableByteSpan(a)); }

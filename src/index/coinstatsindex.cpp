@@ -145,9 +145,9 @@ bool CoinStatsIndex::CustomAppend(const interfaces::BlockInfo& block)
                 ApplyCoinHash(m_muhash, outpoint, coin);
 
                 if (is_coinbase) {
-                    m_total_coinbase_amount += coin.out.nValue;
+                    m_total_coinbase_amount += coin.out.nValue.Int();
                 } else {
-                    m_total_new_outputs_ex_coinbase_amount += coin.out.nValue;
+                    m_total_new_outputs_ex_coinbase_amount += coin.out.nValue.Int();
                 }
 
                 ++m_transaction_output_count;
@@ -165,7 +165,7 @@ bool CoinStatsIndex::CustomAppend(const interfaces::BlockInfo& block)
 
                     RemoveCoinHash(m_muhash, outpoint, coin);
 
-                    m_total_prevout_spent_amount += coin.out.nValue;
+                    m_total_prevout_spent_amount += coin.out.nValue.Int();
 
                     --m_transaction_output_count;
                     m_total_amount -= coin.out.nValue;
@@ -183,9 +183,9 @@ bool CoinStatsIndex::CustomAppend(const interfaces::BlockInfo& block)
     // the miner did not claim the full block reward. Unclaimed block
     // rewards are also unspendable.
     const Amount temp_total_unspendable_amount{m_total_unspendables_genesis_block + m_total_unspendables_bip30 + m_total_unspendables_scripts + m_total_unspendables_unclaimed_rewards};
-    const arith_uint256 unclaimed_rewards{(m_total_prevout_spent_amount + m_total_subsidy) - (m_total_new_outputs_ex_coinbase_amount + m_total_coinbase_amount + temp_total_unspendable_amount)};
-    assert(unclaimed_rewards <= arith_uint256(std::numeric_limits<Amount>::max()));
-    m_total_unspendables_unclaimed_rewards += static_cast<Amount>(unclaimed_rewards.GetLow64());
+    const arith_uint256 unclaimed_rewards{(m_total_prevout_spent_amount + m_total_subsidy.Int()) - (m_total_new_outputs_ex_coinbase_amount + m_total_coinbase_amount + temp_total_unspendable_amount.Int())};
+    assert(unclaimed_rewards <= arith_uint256(std::numeric_limits<Amount::inner_type>::max()));
+    m_total_unspendables_unclaimed_rewards += static_cast<Amount::inner_type>(unclaimed_rewards.GetLow64());
 
     std::pair<uint256, DBVal> value;
     value.first = block.hash;

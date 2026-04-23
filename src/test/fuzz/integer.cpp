@@ -70,10 +70,10 @@ FUZZ_TARGET(integer, .init = initialize_integer)
 
     const Consensus::Params& consensus_params = Params().GetConsensus();
     (void)CheckProofOfWorkImpl(u256, u32, consensus_params);
-    if (u64 <= MAX_MONEY) {
+    if (u64 <= MAX_MONEY.Int()) {
         const uint64_t compressed_money_amount = CompressAmount(u64);
         assert(u64 == DecompressAmount(compressed_money_amount));
-        static const uint64_t compressed_money_amount_max = CompressAmount(MAX_MONEY - 1);
+        static const uint64_t compressed_money_amount_max = CompressAmount(MAX_MONEY.Int() - 1);
         assert(compressed_money_amount <= compressed_money_amount_max);
     } else {
         (void)CompressAmount(u64);
@@ -85,7 +85,7 @@ FUZZ_TARGET(integer, .init = initialize_integer)
     (void)DecompressAmount(u64);
     {
         if (std::optional<Amount> parsed = ParseMoney(FormatMoney(i64))) {
-            assert(parsed.value() == i64);
+            assert(parsed->Int() == i64);
         }
     }
     (void)GetSizeOfCompactSize(u64);
@@ -124,7 +124,7 @@ FUZZ_TARGET(integer, .init = initialize_integer)
     (void)ToUpper(ch);
     {
         if (std::optional<Amount> parsed = ParseMoney(ValueFromAmount(i64).getValStr())) {
-            assert(parsed.value() == i64);
+            assert(parsed->Int() == i64);
         }
     }
     if (i32 >= 0 && i32 <= 16) {

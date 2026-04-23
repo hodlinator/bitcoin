@@ -60,7 +60,7 @@ std::optional<Amount> ParseMoney(const std::string& money_string)
         if (*p == '.')
         {
             p++;
-            int64_t nMult = COIN / 10;
+            int64_t nMult = COIN.Int() / 10;
             while (IsDigit(*p) && (nMult > 0))
             {
                 nUnits += nMult * (*p++ - '0');
@@ -79,7 +79,7 @@ std::optional<Amount> ParseMoney(const std::string& money_string)
     }
     if (strWhole.size() > 10) // guard against 63 bit overflow
         return std::nullopt;
-    if (nUnits < 0 || nUnits > COIN)
+    if (nUnits < 0 || nUnits > COIN.Int())
         return std::nullopt;
     int64_t nWhole = LocaleIndependentAtoi<int64_t>(strWhole);
     Amount value = nWhole * COIN + nUnits;
