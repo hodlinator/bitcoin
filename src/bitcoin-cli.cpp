@@ -854,7 +854,7 @@ private:
     std::unique_ptr<Sock> Connect();
     bool SendRequest(Sock& sock, std::string_view request) const;
     HTTPResponse ReadResponse(Sock& sock);
-    bool WaitForReadable(Sock& sock, std::chrono::milliseconds timeout) const;
+    std::optional<std::string> Recv(Sock& sock, std::chrono::time_point<std::chrono::steady_clock> deadline);
 };
 
 HTTPResponse HTTPClient::Post(const std::string& endpoint,
@@ -943,29 +943,12 @@ HTTPResponse HTTPClient::ReadResponse(Sock& sock)
     size_t headers_end = 0;
 
     while (headers_end == 0) {
-        auto time_left = std::chrono::duration_cast<std::chrono::milliseconds>(
-            deadline - std::chrono::steady_clock::now());
-        if (time_left.count() <= 0 || !WaitForReadable(sock, time_left)) {
-            throw CConnectionFailed{"timeout"};
+        if (auto result{Recv(sock, deadline)}) {
+            buffer.append(*result);
+        } else {
+            std::this_thread::yield();
+            continue;
         }
-
-        char recv_buf[4096];
-        ssize_t nrecv = sock.Recv(recv_buf, sizeof(recv_buf), /*flags=*/0);
-
-        if (nrecv < 0) {
-            int err = WSAGetLastError();
-            if (err == WSAEWOULDBLOCK || err == WSAEINTR) {
-                std::this_thread::yield();
-                continue;
-            }
-            throw CConnectionFailed{"read error"};
-        }
-
-        if (nrecv == 0) {
-            throw CConnectionFailed{"EOF"};
-        }
-
-        buffer.append(recv_buf, nrecv);
 
         // Check for header terminator
         size_t pos = buffer.find("\r\n\r\n");
@@ -1081,31 +1064,14 @@ HTTPResponse HTTPClient::ReadResponse(Sock& sock)
             }
 
             // Need more data
-            auto time_left = std::chrono::duration_cast<std::chrono::milliseconds>(
-                deadline - std::chrono::steady_clock::now());
-            if (time_left.count() <= 0 || !WaitForReadable(sock, time_left)) {
-                throw CConnectionFailed{"timeout"};
-            }
-
             while (true) {
-                char recv_buf[4096];
-                ssize_t nrecv = sock.Recv(recv_buf, sizeof(recv_buf), /*flags=*/0);
-
-                if (nrecv < 0) {
-                    int err = WSAGetLastError();
-                    if (err == WSAEWOULDBLOCK || err == WSAEINTR) {
-                        std::this_thread::yield();
-                        continue;
-                    }
-                    throw CConnectionFailed{"read error"};
+                if (auto result{Recv(sock, deadline)}) {
+                    buffer.append(*result);
+                    break;
+                } else {
+                    std::this_thread::yield();
+                    continue;
                 }
-
-                if (nrecv == 0) {
-                    throw CConnectionFailed{"EOF"};
-                }
-
-                buffer.append(recv_buf, nrecv);
-                break;
             }
 
             // Sanity check
@@ -1118,29 +1084,12 @@ HTTPResponse HTTPClient::ReadResponse(Sock& sock)
     } else if (content_length > 0) {
         // Fixed content length
         while (buffer.size() < content_length) {
-            auto time_left = std::chrono::duration_cast<std::chrono::milliseconds>(
-                deadline - std::chrono::steady_clock::now());
-            if (time_left.count() <= 0 || !WaitForReadable(sock, time_left)) {
-                throw CConnectionFailed{"timeout"};
+            if (auto result{Recv(sock, deadline)}) {
+                buffer.append(*result);
+            } else {
+                std::this_thread::yield();
+                continue;
             }
-
-            char recv_buf[4096];
-            ssize_t nrecv = sock.Recv(recv_buf, sizeof(recv_buf), /*flags=*/0);
-
-            if (nrecv < 0) {
-                int err = WSAGetLastError();
-                if (err == WSAEWOULDBLOCK || err == WSAEINTR) {
-                    std::this_thread::yield();
-                    continue;
-                }
-                throw CConnectionFailed{"read error"};
-            }
-
-            if (nrecv == 0) {
-                throw CConnectionFailed{"EOF"};
-            }
-
-            buffer.append(recv_buf, nrecv);
         }
 
         buffer.resize(content_length);
@@ -1153,13 +1102,39 @@ HTTPResponse HTTPClient::ReadResponse(Sock& sock)
     return response;
 }
 
-bool HTTPClient::WaitForReadable(Sock& sock, std::chrono::milliseconds timeout) const
+std::optional<std::string> HTTPClient::Recv(Sock& sock, const std::chrono::time_point<std::chrono::steady_clock> deadline)
 {
-    Sock::Event event{0};
-    if (!sock.Wait(timeout, Sock::RECV, &event)) {
-        return false;
+    auto wait_for_readable{[] (Sock& sock, std::chrono::milliseconds timeout) -> bool
+    {
+        Sock::Event event{0};
+        if (!sock.Wait(timeout, Sock::RECV, &event)) {
+            return false;
+        }
+        return (event & Sock::RECV) != 0;
+    }};
+
+    auto time_left = std::chrono::duration_cast<std::chrono::milliseconds>(
+        deadline - std::chrono::steady_clock::now());
+    if (time_left.count() <= 0 || !wait_for_readable(sock, time_left)) {
+        throw CConnectionFailed{"timeout"};
     }
-    return (event & Sock::RECV) != 0;
+
+    char recv_buf[4096];
+    ssize_t nrecv = sock.Recv(recv_buf, sizeof(recv_buf), /*flags=*/0);
+
+    if (nrecv < 0) {
+        int err = WSAGetLastError();
+        if (err == WSAEWOULDBLOCK || err == WSAEINTR) {
+            return std::nullopt;
+        }
+        throw CConnectionFailed{"read error"};
+    }
+
+    if (nrecv == 0) {
+        throw CConnectionFailed{"EOF"};
+    }
+
+    return std::string{recv_buf, static_cast<size_t>(nrecv)};
 }
 
 static UniValue CallRPC(BaseRequestHandler* rh, const std::string& strMethod, const std::vector<std::string>& args, const std::string& endpoint, const std::string& username)
