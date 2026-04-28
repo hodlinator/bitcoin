@@ -899,8 +899,6 @@ HTTPResponse HTTPClient::Post(const std::string& endpoint,
         }
 
         return ReadResponse();
-    } catch (const CConnectionFailed&) {
-        throw;
     } catch (const HTTPError& e) {
         throw CConnectionFailed(strprintf("HTTP error: %s", e.what()));
     }
