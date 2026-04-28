@@ -1297,8 +1297,10 @@ static UniValue ConnectAndCallRPC(BaseRequestHandler* rh, const std::string& str
         } catch (const CConnectionFailed& e) {
             if (fWait && (timeout <= 0 || std::chrono::steady_clock::now() < deadline)) {
                 UninterruptibleSleep(1s);
-            } else {
+            } else if (fWait) {
                 throw CConnectionFailed(strprintf("timeout on transient error: %s", e.what()));
+            } else {
+                throw;
             }
         }
     } while (fWait);
