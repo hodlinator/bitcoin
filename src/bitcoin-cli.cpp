@@ -856,7 +856,7 @@ private:
 
     HTTPClient(std::unique_ptr<Sock>&& socket, const std::string& host, std::chrono::seconds timeout)
         : m_socket(std::move(socket)), m_host(host), m_timeout(timeout) {}
-    bool SendRequest(std::string_view request) const;
+    bool SendRequest(std::string_view request);
     HTTPResponse ReadResponse();
     std::optional<std::string> Recv(std::chrono::time_point<std::chrono::steady_clock> deadline);
 };
@@ -906,7 +906,7 @@ HTTPResponse HTTPClient::Post(const std::string& endpoint,
     }
 }
 
-bool HTTPClient::SendRequest(std::string_view request) const
+bool HTTPClient::SendRequest(std::string_view request)
 {
     const auto deadline{std::chrono::steady_clock::now() + m_timeout};
 
