@@ -1085,22 +1085,25 @@ HTTPResponse HTTPClient::ReadResponse(Sock& sock)
                 throw CConnectionFailed{"timeout"};
             }
 
-            char recv_buf[4096];
-            ssize_t nrecv = sock.Recv(recv_buf, sizeof(recv_buf), /*flags=*/0);
+            while (true) {
+                char recv_buf[4096];
+                ssize_t nrecv = sock.Recv(recv_buf, sizeof(recv_buf), /*flags=*/0);
 
-            if (nrecv < 0) {
-                int err = WSAGetLastError();
-                if (err == WSAEWOULDBLOCK || err == WSAEINTR) {
-                    continue;
+                if (nrecv < 0) {
+                    int err = WSAGetLastError();
+                    if (err == WSAEWOULDBLOCK || err == WSAEINTR) {
+                        continue;
+                    }
+                    throw CConnectionFailed{"read error"};
                 }
-                throw CConnectionFailed{"read error"};
-            }
 
-            if (nrecv == 0) {
-                throw CConnectionFailed{"EOF"};
-            }
+                if (nrecv == 0) {
+                    throw CConnectionFailed{"EOF"};
+                }
 
-            buffer.append(recv_buf, nrecv);
+                buffer.append(recv_buf, nrecv);
+                break;
+            }
 
             // Sanity check
             if (body.size() + buffer.size() > MAX_BODY_SIZE) {
