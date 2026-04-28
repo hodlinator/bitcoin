@@ -843,8 +843,8 @@ public:
         : m_host(host), m_port(port), m_timeout(timeout) {}
 
     HTTPResponse Post(const std::string& endpoint,
-                   const std::vector<std::pair<std::string, std::string>>& headers,
-                   const std::string& body);
+                      const std::vector<std::pair<std::string, std::string>>& headers,
+                      const std::string& body);
 
 private:
     std::string m_host;
@@ -858,8 +858,8 @@ private:
 };
 
 HTTPResponse HTTPClient::Post(const std::string& endpoint,
-                           const std::vector<std::pair<std::string, std::string>>& headers,
-                           const std::string& body)
+                              const std::vector<std::pair<std::string, std::string>>& headers,
+                              const std::string& body)
 {
     try {
         auto sock = Connect();
