@@ -1034,13 +1034,12 @@ HTTPResponse HTTPClient::ReadResponse()
                     size_str = size_str.substr(0, semi);
                 }
 
-                size_t chunk_size{0};
-                auto [p, ec] = std::from_chars(size_str.data(), size_str.data() + size_str.size(), chunk_size, /*base=*/16);
-                if (ec != std::errc{} || p != size_str.data() + size_str.size()) {
+                const auto chunk_size{ToIntegral<uint64_t>(util::TrimStringView(size_str), /*base=*/16)};
+                if (!chunk_size) {
                     throw HTTPError{"Invalid chunk size"};
                 }
 
-                if (chunk_size == 0) {
+                if (*chunk_size == 0) {
                     // Last chunk
                     break;
                 }
@@ -1051,11 +1050,11 @@ HTTPResponse HTTPClient::ReadResponse()
 
                 // Check if we have the full chunk
                 size_t chunk_start = line_end + 2;
-                size_t chunk_end = chunk_start + chunk_size + 2; // +2 for trailing CRLF
+                size_t chunk_end = chunk_start + *chunk_size + 2; // +2 for trailing CRLF
 
                 if (buffer.size() >= chunk_end) {
                     // Extract chunk data
-                    body.append(buffer, chunk_start, chunk_size);
+                    body.append(buffer, chunk_start, *chunk_size);
 
                     // Remove processed data
                     buffer.erase(0, chunk_end);
