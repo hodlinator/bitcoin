@@ -901,7 +901,7 @@ std::unique_ptr<Sock> HTTPClient::Connect()
         if (sock) return sock;
     }
 
-    throw CConnectionFailed{""};
+    throw CConnectionFailed{"Could not connect to the server"};
 }
 
 bool HTTPClient::SendRequest(Sock& sock, std::string_view request) const
@@ -1239,7 +1239,7 @@ static UniValue CallRPC(BaseRequestHandler* rh, const std::string& strMethod, co
         response = client.Post(endpoint, headers, strRequest);
     } catch (const CConnectionFailed& e) {
         const std::string formatted_error{*e.what() ? strprintf(" (%s)", e.what()) : ""};
-        throw CConnectionFailed(strprintf("Could not connect to the server %s:%d%s\n\n"
+        throw CConnectionFailed(strprintf("Error while attempting to communicate with server %s:%d%s\n\n"
                     "Make sure the bitcoind server is running and that you are connecting to the correct RPC port.\n"
                     "Use \"bitcoin-cli -help\" for more info.",
                     host, port, formatted_error));
