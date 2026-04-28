@@ -80,6 +80,10 @@ static const std::string DEFAULT_COLOR_SETTING{"auto"};
 /** Maximum size of http response body */
 static constexpr size_t MAX_BODY_SIZE{32_MiB};
 
+struct HTTPError : std::runtime_error {
+    explicit inline HTTPError(const std::string& msg) : std::runtime_error(msg) {}
+};
+
 /** Parses the headers of an HTTP response.
  *
  * May be replaced by the corresponding methods in HTTPHeaders from
@@ -106,7 +110,7 @@ void HTTPResponseHeaders::Read(util::LineReader& reader)
     // Headers https://httpwg.org/specs/rfc9110.html#rfc.section.6.3
     // A sequence of Field Lines https://httpwg.org/specs/rfc9110.html#rfc.section.5.2
     while (auto maybe_line = reader.ReadLine()) {
-        if (reader.Consumed() > MAX_SIZE) throw std::runtime_error("HTTP headers exceed size limit");
+        if (reader.Consumed() > MAX_SIZE) throw HTTPError{"Headers exceed size limit"};
 
         const std::string& line = *maybe_line;
 
@@ -117,7 +121,7 @@ void HTTPResponseHeaders::Read(util::LineReader& reader)
         // keys are not allowed to have delimiters like ":" but values are
         // https://httpwg.org/specs/rfc9110.html#rfc.section.5.6.2
         const size_t pos{line.find(':')};
-        if (pos == std::string::npos) throw std::runtime_error("HTTP header missing colon (:)");
+        if (pos == std::string::npos) throw HTTPError{"Header missing colon (:)"};
 
         // Whitespace is optional
         std::string key = util::TrimString(std::string_view(line).substr(0, pos));
@@ -126,7 +130,7 @@ void HTTPResponseHeaders::Read(util::LineReader& reader)
         // Header keys are Field Names: https://httpwg.org/specs/rfc9110.html#fields.names
         // which consist of "tokens": https://httpwg.org/specs/rfc9110.html#rfc.section.5.6.2
         // that can not be empty.
-        if (key.empty()) throw std::runtime_error("Empty HTTP header name");
+        if (key.empty()) throw HTTPError{"Empty header name"};
 
         m_headers.emplace_back(std::move(key), std::move(value));
     }
@@ -897,7 +901,7 @@ HTTPResponse HTTPClient::Post(const std::string& endpoint,
         return ReadResponse();
     } catch (const CConnectionFailed&) {
         throw;
-    } catch (const std::exception& e) {
+    } catch (const HTTPError& e) {
         throw CConnectionFailed(strprintf("HTTP error: %s", e.what()));
     }
 }
@@ -956,7 +960,7 @@ HTTPResponse HTTPClient::ReadResponse()
 
         // Sanity check on header size
         if (buffer.size() > HTTPResponseHeaders::MAX_SIZE && headers_end == 0) {
-            throw std::runtime_error("HTTP response headers too large");
+            throw HTTPError{"Response headers too large"};
         }
     }
 
@@ -964,23 +968,23 @@ HTTPResponse HTTPClient::ReadResponse()
     util::LineReader reader(std::string_view{buffer.data(), headers_end}, HTTPResponseHeaders::MAX_SIZE);
     auto status_line = reader.ReadLine();
     if (!status_line) {
-        throw std::runtime_error("Failed to read HTTP status line");
+        throw HTTPError{"Failed to read status line"};
     }
 
     const std::string& status_str = *status_line;
     if (status_str.size() < 12 || !status_str.starts_with("HTTP/")) {
-        throw std::runtime_error("Invalid HTTP status line");
+        throw HTTPError{"Invalid status line"};
     }
 
     size_t space1 = status_str.find(' ');
     if (space1 == std::string::npos || space1 + 4 > status_str.size()) {
-        throw std::runtime_error("Invalid HTTP status line format");
+        throw HTTPError{"Invalid status line format"};
     }
 
     std::string status_code_str = status_str.substr(space1 + 1, 3);
     auto status_code = ToIntegral<int>(status_code_str);
     if (!status_code) {
-        throw std::runtime_error("Invalid HTTP status code");
+        throw HTTPError{"Invalid status code"};
     }
     response.status = *status_code;
 
@@ -999,7 +1003,7 @@ HTTPResponse HTTPClient::ReadResponse()
         if (content_length_header) {
             auto len = ToIntegral<size_t>(*content_length_header);
             if (!len) {
-                throw std::runtime_error("Invalid Content-Length");
+                throw HTTPError{"Invalid Content-Length"};
             }
             content_length = *len;
         }
@@ -1007,7 +1011,7 @@ HTTPResponse HTTPClient::ReadResponse()
 
     // Check for reasonable body size
     if (content_length > MAX_BODY_SIZE) {
-        throw std::runtime_error("HTTP response body too large");
+        throw HTTPError{"Response body too large"};
     }
 
     // Remove headers data from buffer, so only initial body data remains
@@ -1035,7 +1039,7 @@ HTTPResponse HTTPClient::ReadResponse()
                 size_t chunk_size{0};
                 auto [p, ec] = std::from_chars(size_str.data(), size_str.data() + size_str.size(), chunk_size, /*base=*/16);
                 if (ec != std::errc{} || p != size_str.data() + size_str.size()) {
-                    throw std::runtime_error("Invalid chunk size");
+                    throw HTTPError{"Invalid chunk size"};
                 }
 
                 if (chunk_size == 0) {
@@ -1044,7 +1048,7 @@ HTTPResponse HTTPClient::ReadResponse()
                 }
 
                 if (chunk_size > MAX_BODY_SIZE - body.size()) {
-                    throw std::runtime_error("HTTP response body too large");
+                    throw HTTPError{"Response body too large"};
                 }
 
                 // Check if we have the full chunk
@@ -1074,7 +1078,7 @@ HTTPResponse HTTPClient::ReadResponse()
 
             // Sanity check
             if (body.size() + buffer.size() > MAX_BODY_SIZE) {
-                throw std::runtime_error("HTTP response body too large");
+                throw HTTPError{"Response body too large"};
             }
         }
 
