@@ -42,6 +42,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <tuple>
 
 #ifndef WIN32
@@ -954,6 +955,7 @@ HTTPResponse HTTPClient::ReadResponse(Sock& sock)
         if (nrecv < 0) {
             int err = WSAGetLastError();
             if (err == WSAEWOULDBLOCK || err == WSAEINTR) {
+                std::this_thread::yield();
                 continue;
             }
             throw CConnectionFailed{"read error"};
@@ -1092,6 +1094,7 @@ HTTPResponse HTTPClient::ReadResponse(Sock& sock)
                 if (nrecv < 0) {
                     int err = WSAGetLastError();
                     if (err == WSAEWOULDBLOCK || err == WSAEINTR) {
+                        std::this_thread::yield();
                         continue;
                     }
                     throw CConnectionFailed{"read error"};
@@ -1127,6 +1130,7 @@ HTTPResponse HTTPClient::ReadResponse(Sock& sock)
             if (nrecv < 0) {
                 int err = WSAGetLastError();
                 if (err == WSAEWOULDBLOCK || err == WSAEINTR) {
+                    std::this_thread::yield();
                     continue;
                 }
                 throw CConnectionFailed{"read error"};
