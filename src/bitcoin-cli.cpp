@@ -839,31 +839,44 @@ static std::optional<UniValue> CallIPC(BaseRequestHandler* rh, const std::string
 class HTTPClient
 {
 public:
-    HTTPClient(const std::string& host, uint16_t port, std::chrono::seconds timeout)
-        : m_host(host), m_port(port), m_timeout(timeout) {}
+    static HTTPClient Connect(const std::string& host, uint16_t port, std::chrono::seconds timeout);
 
     HTTPResponse Post(const std::string& endpoint,
                       const std::vector<std::pair<std::string, std::string>>& headers,
                       const std::string& body);
 
 private:
+    std::unique_ptr<Sock> m_socket;
     std::string m_host;
-    uint16_t m_port;
     std::chrono::seconds m_timeout;
 
-    std::unique_ptr<Sock> Connect();
-    bool SendRequest(Sock& sock, std::string_view request) const;
-    HTTPResponse ReadResponse(Sock& sock);
-    std::optional<std::string> Recv(Sock& sock, std::chrono::time_point<std::chrono::steady_clock> deadline);
+    HTTPClient(std::unique_ptr<Sock>&& socket, const std::string& host, std::chrono::seconds timeout)
+        : m_socket(std::move(socket)), m_host(host), m_timeout(timeout) {}
+    bool SendRequest(std::string_view request) const;
+    HTTPResponse ReadResponse();
+    std::optional<std::string> Recv(std::chrono::time_point<std::chrono::steady_clock> deadline);
 };
+
+HTTPClient HTTPClient::Connect(const std::string& host, uint16_t port, std::chrono::seconds timeout)
+{
+    std::vector<CService> services = Lookup(host, port, /*fAllowLookup=*/true, /*nMaxSolutions=*/256);
+    if (services.empty()) {
+        throw CConnectionFailed(strprintf("Could not resolve host: %s", host));
+    }
+
+    for (const CService& service : services) {
+        auto sock = ConnectDirectly(service, /*manual_connection=*/true);
+        if (sock) return HTTPClient{std::move(sock), host, timeout};
+    }
+
+    throw CConnectionFailed{"Could not connect to the server"};
+}
 
 HTTPResponse HTTPClient::Post(const std::string& endpoint,
                               const std::vector<std::pair<std::string, std::string>>& headers,
                               const std::string& body)
 {
     try {
-        auto sock = Connect();
-
         // Build HTTP request
         std::string request = strprintf("POST %s HTTP/1.1\r\n"
                                         "Host: %s\r\n"
@@ -877,11 +890,11 @@ HTTPResponse HTTPClient::Post(const std::string& endpoint,
         request += "\r\n";
         request += body;
 
-        if (!SendRequest(*sock, request)) {
+        if (!SendRequest(request)) {
             throw CConnectionFailed("Failed to send HTTP request");
         }
 
-        return ReadResponse(*sock);
+        return ReadResponse();
     } catch (const CConnectionFailed&) {
         throw;
     } catch (const std::exception& e) {
@@ -889,22 +902,7 @@ HTTPResponse HTTPClient::Post(const std::string& endpoint,
     }
 }
 
-std::unique_ptr<Sock> HTTPClient::Connect()
-{
-    std::vector<CService> services = Lookup(m_host, m_port, /*fAllowLookup=*/true, /*nMaxSolutions=*/256);
-    if (services.empty()) {
-        throw CConnectionFailed(strprintf("Could not resolve host: %s", m_host));
-    }
-
-    for (const CService& service : services) {
-        auto sock = ConnectDirectly(service, /*manual_connection=*/true);
-        if (sock) return sock;
-    }
-
-    throw CConnectionFailed{"Could not connect to the server"};
-}
-
-bool HTTPClient::SendRequest(Sock& sock, std::string_view request) const
+bool HTTPClient::SendRequest(std::string_view request) const
 {
     const auto deadline{std::chrono::steady_clock::now() + m_timeout};
 
@@ -912,7 +910,7 @@ bool HTTPClient::SendRequest(Sock& sock, std::string_view request) const
         Sock::Event event{0};
         auto time_left = std::chrono::duration_cast<std::chrono::milliseconds>(
             deadline - std::chrono::steady_clock::now());
-        if (time_left.count() <= 0 || !sock.Wait(time_left, Sock::SEND, &event)) {
+        if (time_left.count() <= 0 || !m_socket->Wait(time_left, Sock::SEND, &event)) {
             return false;
         }
 
@@ -920,7 +918,7 @@ bool HTTPClient::SendRequest(Sock& sock, std::string_view request) const
             continue;
         }
 
-        ssize_t sent = sock.Send(request.data(), request.size(), MSG_NOSIGNAL);
+        ssize_t sent = m_socket->Send(request.data(), request.size(), MSG_NOSIGNAL);
         if (sent < 0) {
             int err = WSAGetLastError();
             if (err == WSAEWOULDBLOCK || err == WSAEINTR) {
@@ -933,7 +931,7 @@ bool HTTPClient::SendRequest(Sock& sock, std::string_view request) const
     return true;
 }
 
-HTTPResponse HTTPClient::ReadResponse(Sock& sock)
+HTTPResponse HTTPClient::ReadResponse()
 {
     HTTPResponse response;
     std::string buffer;
@@ -943,7 +941,7 @@ HTTPResponse HTTPClient::ReadResponse(Sock& sock)
     size_t headers_end = 0;
 
     while (headers_end == 0) {
-        if (auto result{Recv(sock, deadline)}) {
+        if (auto result{Recv(deadline)}) {
             buffer.append(*result);
         } else {
             std::this_thread::yield();
@@ -1065,7 +1063,7 @@ HTTPResponse HTTPClient::ReadResponse(Sock& sock)
 
             // Need more data
             while (true) {
-                if (auto result{Recv(sock, deadline)}) {
+                if (auto result{Recv(deadline)}) {
                     buffer.append(*result);
                     break;
                 } else {
@@ -1084,7 +1082,7 @@ HTTPResponse HTTPClient::ReadResponse(Sock& sock)
     } else if (content_length > 0) {
         // Fixed content length
         while (buffer.size() < content_length) {
-            if (auto result{Recv(sock, deadline)}) {
+            if (auto result{Recv(deadline)}) {
                 buffer.append(*result);
             } else {
                 std::this_thread::yield();
@@ -1102,7 +1100,7 @@ HTTPResponse HTTPClient::ReadResponse(Sock& sock)
     return response;
 }
 
-std::optional<std::string> HTTPClient::Recv(Sock& sock, const std::chrono::time_point<std::chrono::steady_clock> deadline)
+std::optional<std::string> HTTPClient::Recv(const std::chrono::time_point<std::chrono::steady_clock> deadline)
 {
     auto wait_for_readable{[] (Sock& sock, std::chrono::milliseconds timeout) -> bool
     {
@@ -1115,12 +1113,12 @@ std::optional<std::string> HTTPClient::Recv(Sock& sock, const std::chrono::time_
 
     auto time_left = std::chrono::duration_cast<std::chrono::milliseconds>(
         deadline - std::chrono::steady_clock::now());
-    if (time_left.count() <= 0 || !wait_for_readable(sock, time_left)) {
+    if (time_left.count() <= 0 || !wait_for_readable(*m_socket, time_left)) {
         throw CConnectionFailed{"timeout"};
     }
 
     char recv_buf[4096];
-    ssize_t nrecv = sock.Recv(recv_buf, sizeof(recv_buf), /*flags=*/0);
+    ssize_t nrecv = m_socket->Recv(recv_buf, sizeof(recv_buf), /*flags=*/0);
 
     if (nrecv < 0) {
         int err = WSAGetLastError();
@@ -1191,8 +1189,6 @@ static UniValue CallRPC(BaseRequestHandler* rh, const std::string& strMethod, co
         timeout_duration = std::chrono::years(5);
     }
 
-    HTTPClient client(host, port, timeout_duration);
-
     // Get credentials
     std::string rpc_credentials;
     std::optional<AuthCookieResult> auth_cookie_result;
@@ -1211,6 +1207,7 @@ static UniValue CallRPC(BaseRequestHandler* rh, const std::string& strMethod, co
 
     HTTPResponse response;
     try {
+        auto client{HTTPClient::Connect(host, port, timeout_duration)};
         response = client.Post(endpoint, headers, strRequest);
     } catch (const CConnectionFailed& e) {
         const std::string formatted_error{*e.what() ? strprintf(" (%s)", e.what()) : ""};
