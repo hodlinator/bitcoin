@@ -1260,11 +1260,11 @@ FUZZ_TARGET(clusterlin_postlinearize_moved_leaf)
     // Construct an arbitrary graph and a fee from the fuzz input.
     SpanReader reader(buffer);
     DepGraph<TestBitSet> depgraph;
-    Amount fee_inc{0_sats};
+    UAmount fee_inc{0_sats};
     try {
         uint64_t fee_inc_code;
         reader >> Using<DepGraphFormatter>(depgraph) >> VARINT(fee_inc_code);
-        fee_inc = Amount{fee_inc_code & 0x3ffff};
+        fee_inc = UAmount{fee_inc_code & 0x3ffff};
     } catch (const std::ios_base::failure&) {}
     if (depgraph.TxCount() == 0) return;
 

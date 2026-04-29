@@ -55,7 +55,7 @@ struct DBVal {
     Amount total_unspendables_genesis_block{0_sats};
     Amount total_unspendables_bip30{0_sats};
     Amount total_unspendables_scripts{0_sats};
-    Amount total_unspendables_unclaimed_rewards{0_sats};
+    UAmount total_unspendables_unclaimed_rewards{0_sats};
 
     SERIALIZE_METHODS(DBVal, obj)
     {
@@ -185,7 +185,7 @@ bool CoinStatsIndex::CustomAppend(const interfaces::BlockInfo& block)
     const Amount temp_total_unspendable_amount{m_total_unspendables_genesis_block + m_total_unspendables_bip30 + m_total_unspendables_scripts + m_total_unspendables_unclaimed_rewards};
     const arith_uint256 unclaimed_rewards{(m_total_prevout_spent_amount + m_total_subsidy.Int()) - (m_total_new_outputs_ex_coinbase_amount + m_total_coinbase_amount + temp_total_unspendable_amount.Int())};
     assert(unclaimed_rewards <= arith_uint256(std::numeric_limits<Amount::inner_type>::max()));
-    m_total_unspendables_unclaimed_rewards += Amount{unclaimed_rewards.GetLow64()};
+    m_total_unspendables_unclaimed_rewards += UAmount{unclaimed_rewards.GetLow64()};
 
     std::pair<uint256, DBVal> value;
     value.first = block.hash;

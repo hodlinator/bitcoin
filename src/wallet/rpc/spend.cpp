@@ -1546,12 +1546,12 @@ RPCMethod sendall()
                 throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Assigned more value to outputs than available funds.");
             }
 
-            const Amount remainder{effective_value - output_amounts_claimed};
-            if (remainder < 0_sats) {
+            const std::optional<UAmount> remainder{(effective_value - output_amounts_claimed).TryToUnsigned()};
+            if (!remainder) {
                 throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Insufficient funds for fees after creating specified outputs.");
             }
 
-            const Amount per_output_without_amount{remainder / (long)addresses_without_amount.size()};
+            const UAmount per_output_without_amount{*remainder / addresses_without_amount.size()};
 
             bool gave_remaining_to_first{false};
             for (CTxOut& out : rawTx.vout) {
@@ -1561,7 +1561,7 @@ RPCMethod sendall()
                 if (addresses_without_amount.contains(addr)) {
                     out.nValue = per_output_without_amount;
                     if (!gave_remaining_to_first) {
-                        out.nValue += remainder % addresses_without_amount.size();
+                        out.nValue += *remainder % addresses_without_amount.size();
                         gave_remaining_to_first = true;
                     }
                     if (IsDust(out, pwallet->chain().relayDustFee())) {

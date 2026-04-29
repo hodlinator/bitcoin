@@ -596,8 +596,8 @@ std::vector<CTransactionRef> TestChain100Setup::PopulateMempool(FastRandomContex
             unspent_prevouts.pop_front();
         }
         const size_t num_outputs = det_rand.randrange(25) + 1;
-        const Amount fee = 100_sats * det_rand.randrange(30);
-        const Amount amount_per_output = (total_in - fee) / num_outputs;
+        const UAmount fee{100_sats * det_rand.randrange(30U)};
+        const UAmount amount_per_output{(total_in - fee).TruncateToUnsigned() / num_outputs};
         for (size_t n{0}; n < num_outputs; ++n) {
             CScript spk = CScript() << CScriptNum(num_transactions + n);
             mtx.vout.emplace_back(amount_per_output, spk);

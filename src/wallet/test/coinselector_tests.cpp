@@ -578,7 +578,7 @@ BOOST_AUTO_TEST_CASE(knapsack_solver_test)
 
             if (amt - 2000_sats < CENT) {
                 // needs more than one input:
-                uint16_t returnSize = std::ceil((2000.0 + CENT.Int())/amt.Int());
+                uint16_t returnSize = std::ceil((2000.0 + CENT.UInt())/amt.Int());
                 Amount returnValue = amt * returnSize;
                 BOOST_CHECK_EQUAL(result24->GetSelectedValue(), returnValue);
                 BOOST_CHECK_EQUAL(result24->GetInputSet().size(), returnSize);
@@ -866,7 +866,7 @@ BOOST_AUTO_TEST_CASE(bump_fee_test)
         const std::vector<std::shared_ptr<COutput>> inputs = selection.GetShuffledInputVector();
 
         for (size_t i = 0; i < inputs.size(); ++i) {
-            inputs[i]->ApplyBumpFee(Amount{20*(i+1)});
+            inputs[i]->ApplyBumpFee(UAmount{20*(i+1)});
         }
 
         selection.RecalculateWaste(min_viable_change, change_cost, change_fee);
@@ -892,7 +892,7 @@ BOOST_AUTO_TEST_CASE(bump_fee_test)
         const std::vector<std::shared_ptr<COutput>> inputs = selection.GetShuffledInputVector();
 
         for (size_t i = 0; i < inputs.size(); ++i) {
-            inputs[i]->ApplyBumpFee(Amount{20*(i+1)});
+            inputs[i]->ApplyBumpFee(UAmount{20*(i+1)});
         }
 
         selection.RecalculateWaste(min_viable_change, change_cost, change_fee);
@@ -1143,9 +1143,9 @@ BOOST_AUTO_TEST_CASE(coin_grinder_tests)
             add_coin(available_coins, wallet, 1.8_BTC, CFeeRate(5000_sats), 144, false, 0, true, 2500);
             add_coin(available_coins, wallet, Amount(1 * COIN), CFeeRate(5000_sats), 144, false, 0, true, 1000);
             add_coin(available_coins, wallet, Amount(1 * COIN), CFeeRate(5000_sats), 144, false, 0, true, 1000);
-            for (int j = 0; j < 100; ++j) {
+            for (unsigned j = 0; j < 100; ++j) {
                 // make a 100 unique coins only differing by one sat
-                add_coin(available_coins, wallet, 0.01_BTC + Amount{j}, CFeeRate(5000_sats), 144, false, 0, true, 110);
+                add_coin(available_coins, wallet, 0.01_BTC + UAmount{j}, CFeeRate(5000_sats), 144, false, 0, true, 110);
             }
             return available_coins;
         });

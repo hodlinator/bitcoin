@@ -256,6 +256,7 @@ template <typename Stream> void Serialize(Stream& s, int64_t a)   { ser_writedat
 template <typename Stream> void Serialize(Stream& s, uint64_t a)  { ser_writedata64(s, a); }
 
 template <typename Stream> void Serialize(Stream& s, const Amount a) { Serialize(s, a.Int()); }
+template <typename Stream> void Serialize(Stream& s, const UAmount a) { Serialize(s, a.UInt()); }
 
 template <typename Stream, BasicByte B, size_t N> void Serialize(Stream& s, const B (&a)[N])           { s.write(MakeByteSpan(a)); }
 template <typename Stream, BasicByte B, size_t N> void Serialize(Stream& s, const std::array<B, N>& a) { s.write(MakeByteSpan(a)); }
@@ -278,6 +279,12 @@ template <typename Stream> void Unserialize(Stream& s, Amount& a)
     int64_t i;
     Unserialize(s, i);
     a = Amount{i};
+}
+template <typename Stream> void Unserialize(Stream& s, UAmount& a)
+{
+    uint64_t i;
+    Unserialize(s, i);
+    a = UAmount{i};
 }
 
 template <typename Stream, BasicByte B, size_t N> void Unserialize(Stream& s, B (&a)[N])            { s.read(MakeWritableByteSpan(a)); }

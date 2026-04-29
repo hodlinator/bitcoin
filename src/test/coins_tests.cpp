@@ -355,7 +355,7 @@ BOOST_FIXTURE_TEST_CASE(updatecoins_simulation_test, UpdateTest)
             CMutableTransaction tx;
             tx.vin.resize(1);
             tx.vout.resize(1);
-            tx.vout[0].nValue = Amount{i}; //Keep txs unique unless intended to duplicate
+            tx.vout[0].nValue = UAmount{i}; //Keep txs unique unless intended to duplicate
             tx.vout[0].scriptPubKey.assign(m_rng.rand32() & 0x3F, 0); // Random sizes so we can test memory usage accounting
             const int height{int(m_rng.rand32() >> 1)};
             Coin old_coin;
@@ -879,7 +879,7 @@ struct FlushTest : BasicTestingSetup {
 Coin MakeCoin()
 {
     Coin coin;
-    coin.out.nValue = Amount{m_rng.rand32()};
+    coin.out.nValue = UAmount{m_rng.rand32()};
     coin.nHeight = m_rng.randrange(4096);
     coin.fCoinBase = false;
     return coin;

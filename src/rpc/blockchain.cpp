@@ -1167,9 +1167,9 @@ static RPCMethod gettxoutsetinfo()
             arith_uint256 diff_prevout = stats.total_prevout_spent_amount - prev_stats.total_prevout_spent_amount;
             arith_uint256 diff_coinbase = stats.total_coinbase_amount - prev_stats.total_coinbase_amount;
             arith_uint256 diff_outputs = stats.total_new_outputs_ex_coinbase_amount - prev_stats.total_new_outputs_ex_coinbase_amount;
-            Amount prevout_amount = static_cast<Amount>(diff_prevout.GetLow64());
-            Amount coinbase_amount = static_cast<Amount>(diff_coinbase.GetLow64());
-            Amount outputs_amount = static_cast<Amount>(diff_outputs.GetLow64());
+            UAmount prevout_amount{diff_prevout.GetLow64()};
+            UAmount coinbase_amount{diff_coinbase.GetLow64()};
+            UAmount outputs_amount{diff_outputs.GetLow64()};
             block_info.pushKV("prevout_spent", ValueFromAmount(prevout_amount));
             block_info.pushKV("coinbase", ValueFromAmount(coinbase_amount));
             block_info.pushKV("new_outputs_ex_coinbase", ValueFromAmount(outputs_amount));
@@ -1916,12 +1916,12 @@ static T CalculateTruncatedMedian(std::vector<T>& scores)
 {
     size_t size = scores.size();
     if (size == 0) {
-        return T{0};
+        return T{0U};
     }
 
     std::sort(scores.begin(), scores.end());
     if (size % 2 == 0) {
-        return (scores[size / 2 - 1] + scores[size / 2]) / 2;
+        return (scores[size / 2 - 1] + scores[size / 2]) / 2U;
     } else {
         return scores[size / 2];
     }
@@ -2063,25 +2063,25 @@ static RPCMethod getblockstats()
     const bool do_calculate_weight = do_all || SetHasKeys(stats, "total_weight", "avgfeerate", "swtotal_weight", "avgfeerate", "feerate_percentiles", "minfeerate", "maxfeerate");
     const bool do_calculate_sw = do_all || SetHasKeys(stats, "swtxs", "swtotal_size", "swtotal_weight");
 
-    Amount maxfee{0_sats};
+    UAmount maxfee{0_sats};
     Amount maxfeerate{0_sats};
-    Amount minfee{MAX_MONEY};
+    UAmount minfee{MAX_MONEY};
     Amount minfeerate{MAX_MONEY};
     Amount total_out{0_sats};
-    Amount totalfee{0_sats};
+    UAmount totalfee{0_sats};
     int64_t inputs = 0;
     int64_t maxtxsize = 0;
     int64_t mintxsize = MAX_BLOCK_SERIALIZED_SIZE;
     int64_t outputs = 0;
-    int64_t swtotal_size = 0;
-    int64_t swtotal_weight = 0;
+    uint64_t swtotal_size = 0;
+    uint64_t swtotal_weight = 0;
     int64_t swtxs = 0;
-    int64_t total_size = 0;
-    int64_t total_weight = 0;
+    uint64_t total_size = 0;
+    uint64_t total_weight = 0;
     int64_t utxos = 0;
     int64_t utxo_size_inc = 0;
     int64_t utxo_size_inc_actual = 0;
-    std::vector<Amount> fee_array;
+    std::vector<UAmount> fee_array;
     std::vector<std::pair<Amount, int64_t>> feerate_array;
     std::vector<int64_t> txsize_array;
 
@@ -2127,7 +2127,7 @@ static RPCMethod getblockstats()
             total_size += tx_size;
         }
 
-        int64_t weight = 0;
+        uint64_t weight = 0;
         if (do_calculate_weight) {
             weight = GetTransactionWeight(*tx);
             total_weight += weight;
@@ -2151,7 +2151,7 @@ static RPCMethod getblockstats()
                 utxo_size_inc_actual -= prevout_size;
             }
 
-            Amount txfee = tx_total_in - tx_total_out;
+            UAmount txfee{(tx_total_in - tx_total_out).AssertToUnsigned()};
             CHECK_NONFATAL(MoneyRange(txfee));
             if (do_medianfee) {
                 fee_array.push_back(txfee);
@@ -2161,7 +2161,7 @@ static RPCMethod getblockstats()
             totalfee += txfee;
 
             // New feerate uses satoshis per virtual byte instead of per serialized byte
-            Amount feerate = weight ? (txfee * WITNESS_SCALE_FACTOR) / weight : 0_sats;
+            Amount feerate = weight ? (txfee * unsigned{WITNESS_SCALE_FACTOR}) / weight : 0_sats;
             if (do_feerate_percentiles) {
                 feerate_array.emplace_back(feerate, weight);
             }
@@ -2180,16 +2180,16 @@ static RPCMethod getblockstats()
 
     UniValue ret_all(UniValue::VOBJ);
     ret_all.pushKV("avgfee", Amount{(block.vtx.size() > 1) ? totalfee / (block.vtx.size() - 1) : 0_sats}.Int());
-    ret_all.pushKV("avgfeerate", Amount{total_weight ? (totalfee * WITNESS_SCALE_FACTOR) / total_weight : 0_sats}.Int()); // Unit: sat/vbyte
+    ret_all.pushKV("avgfeerate", UAmount{total_weight ? (totalfee * unsigned{WITNESS_SCALE_FACTOR}) / total_weight : 0_sats}.UInt()); // Unit: sat/vbyte
     ret_all.pushKV("avgtxsize", (block.vtx.size() > 1) ? total_size / (block.vtx.size() - 1) : 0);
     ret_all.pushKV("blockhash", pindex.GetBlockHash().GetHex());
     ret_all.pushKV("feerate_percentiles", std::move(feerates_res));
     ret_all.pushKV("height", pindex.nHeight);
     ret_all.pushKV("ins", inputs);
-    ret_all.pushKV("maxfee", maxfee.Int());
+    ret_all.pushKV("maxfee", maxfee.UInt());
     ret_all.pushKV("maxfeerate", maxfeerate.Int());
     ret_all.pushKV("maxtxsize", maxtxsize);
-    ret_all.pushKV("medianfee", CalculateTruncatedMedian(fee_array).Int());
+    ret_all.pushKV("medianfee", CalculateTruncatedMedian(fee_array).UInt());
     ret_all.pushKV("mediantime", pindex.GetMedianTimePast());
     ret_all.pushKV("mediantxsize", CalculateTruncatedMedian(txsize_array));
     ret_all.pushKV("minfee", Amount{(minfee == MAX_MONEY) ? 0_sats : minfee}.Int());
@@ -2204,7 +2204,7 @@ static RPCMethod getblockstats()
     ret_all.pushKV("total_out", total_out.Int());
     ret_all.pushKV("total_size", total_size);
     ret_all.pushKV("total_weight", total_weight);
-    ret_all.pushKV("totalfee", totalfee.Int());
+    ret_all.pushKV("totalfee", totalfee.UInt());
     ret_all.pushKV("txs", block.vtx.size());
     ret_all.pushKV("utxo_increase", outputs - inputs);
     ret_all.pushKV("utxo_size_inc", utxo_size_inc);

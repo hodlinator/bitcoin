@@ -43,7 +43,7 @@ private:
     Amount m_total_unspendables_genesis_block{0_sats};
     Amount m_total_unspendables_bip30{0_sats};
     Amount m_total_unspendables_scripts{0_sats};
-    Amount m_total_unspendables_unclaimed_rewards{0_sats};
+    UAmount m_total_unspendables_unclaimed_rewards{0_sats};
 
     uint256 m_current_block_hash{};
 

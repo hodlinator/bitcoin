@@ -15,41 +15,50 @@
 using InnerType = Amount::inner_type;
 static_assert(std::is_same_v<InnerType, int64_t>);
 
-// Ensure behavior is maintained.
-static_assert(Amount{Amount{-1321231230} % ulong(std::numeric_limits<InnerType>::max())}.Int() == InnerType(-1321231230LL % ulong(std::numeric_limits<InnerType>::max())));
-static_assert(Amount{Amount{-1321231230} / ulong(std::numeric_limits<InnerType>::max())}.Int() == InnerType(-1321231230LL / ulong(std::numeric_limits<InnerType>::max())));
-
 template <typename T>
 void TestIntegerOperations(FuzzedDataProvider& provider)
 {
     const auto i{provider.ConsumeIntegral<InnerType>()};
     const Amount sats{i};
     assert(sats.Int() == i);
-
     const T other{provider.ConsumeIntegral<T>()};
-    if (other != 0 && other <= std::numeric_limits<InnerType>::max()) {
-        assert(Amount{sats % other}.Int() == InnerType(i % other));
-        assert(Amount{sats / other}.Int() == InnerType(i / other));
-    }
 
 #ifdef __SIZEOF_INT128__
-    if (const auto product_128{__int128{i} * __int128{other}};
-        product_128 >= std::numeric_limits<InnerType>::min() &&
-        product_128 <= std::numeric_limits<InnerType>::max()) {
-        assert(Amount{sats * other}.Int() == InnerType(i * other));
-        assert(Amount{other * sats}.Int() == InnerType(other * i));
+    if constexpr (requires { Amount{sats % other}; } ||
+                  requires { Amount{sats / other}; }) {
+        if (other != 0 && other <= std::numeric_limits<InnerType>::max()) {
+            if (const auto quotient_128{__int128{i} / __int128{other}};
+                quotient_128 >= std::numeric_limits<InnerType>::min() &&
+                quotient_128 <= std::numeric_limits<InnerType>::max()) {
+                assert(Amount{sats % other}.Int() == InnerType(i % other));
+                assert(Amount{sats / other}.Int() == InnerType(i / other));
+            }
+        }
+    }
 
-        // Tests for test/util/amount.h
-        Amount other_sats{sats};
-        other_sats *= other;
-        InnerType other_i{i};
-        other_i *= other;
-        assert(other_sats.Int() == other_i);
+    Amount other_sats{sats};
+    InnerType other_i{i};
+    if constexpr (requires { sats * other; } ||
+                  requires { other * sats; } ||
+                  requires { other_sats *= other; }) {
+        if (const auto product_128{__int128{i} * __int128{other}};
+            product_128 >= std::numeric_limits<InnerType>::min() &&
+            product_128 <= std::numeric_limits<InnerType>::max()) {
+            assert(Amount{sats * other}.Int() == InnerType(i * other));
+            assert(Amount{other * sats}.Int() == InnerType(other * i));
+
+            // Tests for test/util/amount.h
+            other_sats *= other;
+            other_i *= other;
+            assert(other_sats.Int() == other_i);
+        }
     }
 #endif
 
-    if (other >= 0 && other < 64) {
-        assert((sats << other).Int() == InnerType(i << other));
+    if constexpr (requires { sats << other; }) {
+        if (other >= 0 && other < 64) {
+            assert((sats << other).Int() == InnerType(i << other));
+        }
     }
 }
 

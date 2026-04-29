@@ -25,33 +25,33 @@
 
 BOOST_FIXTURE_TEST_SUITE(compress_tests, BasicTestingSetup)
 
-bool static TestEncode(Amount in)
+static bool TestEncode(UAmount in)
 {
-    return in == Amount{DecompressAmount(CompressAmount(in.Int()))};
+    return in == UAmount{DecompressAmount(CompressAmount(in.UInt()))};
 }
 
-bool static TestDecode(Amount in)
+static bool TestDecode(UAmount in)
 {
-    return in == Amount{CompressAmount(DecompressAmount(in.Int()))};
+    return in == UAmount{CompressAmount(DecompressAmount(in.UInt()))};
 }
 
-bool static TestPair(Amount dec, uint64_t enc)
+static bool TestPair(UAmount dec, uint64_t enc)
 {
-    return CompressAmount(dec.Int()) == enc &&
-           Amount{DecompressAmount(enc)} == dec;
+    return CompressAmount(dec.UInt()) == enc &&
+           UAmount{DecompressAmount(enc)} == dec;
 }
 
 BOOST_AUTO_TEST_CASE(compress_amounts)
 {
-    BOOST_CHECK(TestPair(       0_sats,       0x0));
-    BOOST_CHECK(TestPair(       1_sats,       0x1));
-    BOOST_CHECK(TestPair(         CENT,       0x7));
-    BOOST_CHECK(TestPair(         COIN,       0x9));
-    BOOST_CHECK(TestPair(      50*COIN,      0x32));
-    BOOST_CHECK(TestPair(21000000*COIN, 0x1406f40));
+    BOOST_CHECK(TestPair(        0_sats,       0x0));
+    BOOST_CHECK(TestPair(        1_sats,       0x1));
+    BOOST_CHECK(TestPair(          CENT,       0x7));
+    BOOST_CHECK(TestPair(          COIN,       0x9));
+    BOOST_CHECK(TestPair(      50U*COIN,      0x32));
+    BOOST_CHECK(TestPair(21000000U*COIN, 0x1406f40));
 
     for (uint64_t i = 1; i <= NUM_MULTIPLES_UNIT; i++)
-        BOOST_CHECK(TestEncode(Amount{i}));
+        BOOST_CHECK(TestEncode(UAmount{i}));
 
     for (uint64_t i = 1; i <= NUM_MULTIPLES_CENT; i++)
         BOOST_CHECK(TestEncode(i * CENT));
@@ -60,10 +60,10 @@ BOOST_AUTO_TEST_CASE(compress_amounts)
         BOOST_CHECK(TestEncode(i * COIN));
 
     for (uint64_t i = 1; i <= NUM_MULTIPLES_50BTC; i++)
-        BOOST_CHECK(TestEncode(i * 50 * COIN));
+        BOOST_CHECK(TestEncode(i * 50U * COIN));
 
     for (uint64_t i = 0; i < 100000; i++)
-        BOOST_CHECK(TestDecode(Amount{i}));
+        BOOST_CHECK(TestDecode(UAmount{i}));
 }
 
 BOOST_AUTO_TEST_CASE(compress_script_to_ckey_id)

@@ -54,11 +54,11 @@ BOOST_AUTO_TEST_CASE(txgraph_trim_zigzag)
     std::vector<TxGraph::Ref> refs;
     refs.reserve(NUM_TOTAL_TX);
     // First all bottom transactions: the i'th bottom transaction is at position i.
-    for (unsigned int i = 0; i < NUM_BOTTOM_TX; ++i) {
+    for (int i = 0; i < NUM_BOTTOM_TX; ++i) {
         graph->AddTransaction(refs.emplace_back(), FeePerWeight{Amount{200 - i}, 100});
     }
     // Then all top transactions: the i'th top transaction is at position NUM_BOTTOM_TX + i.
-    for (unsigned int i = 0; i < NUM_TOP_TX; ++i) {
+    for (int i = 0; i < NUM_TOP_TX; ++i) {
         graph->AddTransaction(refs.emplace_back(), FeePerWeight{Amount{100 - i}, 100});
     }
 
@@ -119,7 +119,7 @@ BOOST_AUTO_TEST_CASE(txgraph_trim_flower)
 
     // Add all transactions. They are in individual clusters.
     graph->AddTransaction(refs.emplace_back(), {1_sats, 100});
-    for (unsigned int i = 0; i < NUM_TOP_TX; ++i) {
+    for (int i = 0; i < NUM_TOP_TX; ++i) {
         graph->AddTransaction(refs.emplace_back(), FeePerWeight{Amount{500 + i}, 100});
     }
     graph->SanityCheck();
@@ -203,7 +203,7 @@ BOOST_AUTO_TEST_CASE(txgraph_trim_huge)
     for (int chain = 0; chain < NUM_TOP_CHAINS; ++chain) {
         for (int chaintx = 0; chaintx < NUM_TX_PER_TOP_CHAIN; ++chaintx) {
             // Use random fees, size 1.
-            Amount fee{rng.randbits<27>() + 100};
+            UAmount fee{rng.randbits<27>() + 100};
             FeePerWeight feerate{fee, 1};
             graph->AddTransaction(top_refs.emplace_back(), feerate);
             // Add internal dependencies linking the chain transactions together.
@@ -222,7 +222,7 @@ BOOST_AUTO_TEST_CASE(txgraph_trim_huge)
     // Construct the bottom transactions, and dependencies to the top chains.
     while (top_components.size() > 1) {
         // Construct the transaction.
-        Amount fee{rng.randbits<27>() + 100};
+        UAmount fee{rng.randbits<27>() + 100};
         FeePerWeight feerate{fee, 1};
         TxGraph::Ref bottom_tx;
         graph->AddTransaction(bottom_tx, feerate);
@@ -277,7 +277,7 @@ BOOST_AUTO_TEST_CASE(txgraph_trim_big_singletons)
     refs.reserve(NUM_TOTAL_TX);
 
     // Add all transactions. They are in individual clusters.
-    for (unsigned int i = 0; i < NUM_TOTAL_TX; ++i) {
+    for (int i = 0; i < NUM_TOTAL_TX; ++i) {
         // The 88th transaction is oversized.
         // Every 20th transaction is oversized.
         const FeePerWeight feerate{Amount{500 + i}, (i == 88 || i % 20 == 0) ? MAX_CLUSTER_SIZE + 1 : 100};

@@ -32,7 +32,7 @@ public:
 
     template <typename T>
     constexpr explicit Amount(const T v)
-        requires(std::is_integral_v<T> && sizeof(T) <= sizeof(inner_type))
+        requires(std::is_integral_v<T> && !std::is_unsigned_v<T> && sizeof(T) <= sizeof(inner_type))
         : m_sats(v)
     {
     }
@@ -78,28 +78,32 @@ public:
 
     template <typename T>
     constexpr Amount operator/(const T other) const noexcept
-        requires(std::is_integral_v<T> && sizeof(T) <= sizeof(inner_type))
+        // int64_t divided by uint64_t results in uint64_t, so disallow it.
+        requires(std::is_integral_v<T> && (sizeof(T) < sizeof(inner_type) || std::is_same_v<T, inner_type>))
     {
         return Amount{m_sats / other};
     }
 
     template <typename T>
     constexpr Amount operator%(const T other) const noexcept
-        requires(std::is_integral_v<T> && sizeof(T) <= sizeof(inner_type))
+        // int64_t modulo uint64_t results in uint64_t, so disallow it.
+        requires(std::is_integral_v<T> && (sizeof(T) < sizeof(inner_type) || std::is_same_v<T, inner_type>))
     {
         return Amount{m_sats % other};
     }
 
     template <typename T>
     constexpr Amount operator*(const T other) const noexcept
-        requires(std::is_integral_v<T> && sizeof(T) <= sizeof(inner_type))
+        // int64_t multiplied by uint64_t results in uint64_t, so disallow it.
+        requires(std::is_integral_v<T> && (sizeof(T) < sizeof(inner_type) || std::is_same_v<T, inner_type>))
     {
         return Amount{m_sats * other};
     }
 
     template <typename T>
     friend constexpr Amount operator*(const T a, const Amount b) noexcept
-        requires(std::is_integral_v<T> && sizeof(T) <= sizeof(inner_type))
+        // uint64_t multiplied by int64_t results in uint64_t, so disallow it.
+        requires(std::is_integral_v<T> && (sizeof(T) < sizeof(inner_type) || std::is_same_v<T, inner_type>))
     {
         return Amount{a * b.Int()};
     }

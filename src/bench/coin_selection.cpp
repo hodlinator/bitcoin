@@ -123,8 +123,8 @@ static void CoinSelection(benchmark::Bench& bench)
             params->tx_noinputs_size = 72;
             params->m_avoid_partial_spends = false;
 
-            params->m_change_fee = params->m_effective_feerate.GetFee(params->change_output_size);
-            params->min_viable_change = params->m_discard_feerate.GetFee(params->change_spend_size);
+            params->m_change_fee = params->m_effective_feerate.GetFee(params->change_output_size).AssertToUnsigned();
+            params->min_viable_change = params->m_discard_feerate.GetFee(params->change_spend_size).AssertToUnsigned();
             params->m_cost_of_change = params->min_viable_change + params->m_change_fee;
 
             groups.assign(NUM_TARGETS, wallet::GroupOutputs(wallet, available_coins, *params, {{filter_standard}})[filter_standard]);
@@ -147,14 +147,14 @@ static void add_coin(const Amount& nValue, uint32_t nInput, std::vector<OutputGr
     set.back().Insert(std::make_shared<COutput>(output), /*ancestors=*/0, /*cluster_count=*/0);
 }
 
-static Amount make_hard_case(int utxos, std::vector<OutputGroup>& utxo_pool)
+static UAmount make_hard_case(unsigned utxos, std::vector<OutputGroup>& utxo_pool)
 {
     utxo_pool.clear();
-    Amount target{0_sats};
-    for (int i = 0; i < utxos; ++i) {
-        target += Amount{1} << (utxos+i);
-        add_coin(Amount{1} << (utxos+i), 2*i, utxo_pool);
-        add_coin((Amount{1} << (utxos+i)) + (Amount{1} << (utxos-1-i)), 2*i + 1, utxo_pool);
+    UAmount target{0_sats};
+    for (unsigned i = 0; i < utxos; ++i) {
+        target += 1_sats << (utxos+i);
+        add_coin(1_sats << (utxos+i), 2*i, utxo_pool);
+        add_coin((1_sats << (utxos+i)) + (1_sats << (utxos-1-i)), 2*i + 1, utxo_pool);
     }
     return target;
 }
@@ -162,7 +162,7 @@ static Amount make_hard_case(int utxos, std::vector<OutputGroup>& utxo_pool)
 static void BnBExhaustion(benchmark::Bench& bench)
 {
     std::vector<OutputGroup> utxo_pool;
-    Amount target{0_sats};
+    UAmount target{0_sats};
     bench.setup([&] { target = make_hard_case(17, utxo_pool); })
         .run([&] {
             auto res{SelectCoinsBnB(utxo_pool, target, /*cost_of_change=*/0_sats, MAX_STANDARD_TX_WEIGHT)}; // Should exhaust
