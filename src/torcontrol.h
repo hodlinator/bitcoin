@@ -111,7 +111,7 @@ private:
     /** Buffer for incoming data */
     std::string m_recv_buffer;
     /** Process complete lines from the receive buffer */
-    bool ProcessBuffer();
+    util::Expected<void, std::string> ProcessBuffer();
 };
 
 /****** Bitcoin specific TorController implementation ********/
