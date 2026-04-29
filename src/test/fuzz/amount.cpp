@@ -118,9 +118,12 @@ FUZZ_TARGET(amount)
 #endif
 
     auto shift_amount{provider.ConsumeIntegralInRange(0, 63)};
-    new_sats >>= shift_amount;
-    new_i >>= shift_amount;
-    assert(new_sats.Int() == new_i); // operator >>=
+    if (std::optional<UAmount> unew_sats{new_sats.TryToUnsigned()})
+    {
+        *unew_sats >>= shift_amount;
+        new_i >>= shift_amount;
+        assert(unew_sats->UInt() == static_cast<UAmount::inner_type>(new_i)); // operator >>=
+    }
 
     TestIntegerOperations<int8_t>(provider);
     TestIntegerOperations<uint8_t>(provider);

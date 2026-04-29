@@ -99,7 +99,7 @@ enum class SynchronizationState {
 /** Documentation for argument 'checklevel'. */
 extern const std::vector<std::string> CHECKLEVEL_DOC;
 
-Amount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams);
+UAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams);
 
 bool FatalError(kernel::Notifications& notifications, BlockValidationState& state, const bilingual_str& message);
 

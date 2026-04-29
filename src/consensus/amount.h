@@ -76,12 +76,6 @@ public:
         return *this;
     }
 
-    constexpr Amount& operator >>=(const int other) noexcept
-    {
-        m_sats >>= other;
-        return *this;
-    }
-
     template <typename T>
     constexpr Amount operator/(const T other) const noexcept
         requires(std::is_integral_v<T> && sizeof(T) <= sizeof(inner_type))
@@ -188,6 +182,12 @@ public:
     {
         Assume(static_cast<Amount::inner_type>(m_sats) >= other.Int());
         m_sats -= other.Int();
+        return *this;
+    }
+
+    constexpr UAmount& operator >>=(const int other) noexcept
+    {
+        m_sats >>= other;
         return *this;
     }
 
