@@ -495,11 +495,11 @@ std::unique_ptr<CBlockTemplate> WaitAndCreateNewBlock(ChainstateManager& chainma
 
             // Calculate the original template total fees if we haven't already
             if (current_fees == -1_sats) {
-                current_fees = std::accumulate(block_template->vTxFees.begin(), block_template->vTxFees.end(), 0_sats);
+                current_fees = std::accumulate(block_template->vTxFees.begin(), block_template->vTxFees.end(), Amount{0_sats});
             }
 
             // Check if fees increased enough to return the new template
-            const Amount new_fees = std::accumulate(new_tmpl->vTxFees.begin(), new_tmpl->vTxFees.end(), Amount{0});
+            const Amount new_fees = std::accumulate(new_tmpl->vTxFees.begin(), new_tmpl->vTxFees.end(), Amount{0_sats});
             Assume(wait_options.fee_threshold != MAX_MONEY);
             if (new_fees >= current_fees + wait_options.fee_threshold) return new_tmpl;
         }

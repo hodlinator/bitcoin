@@ -413,9 +413,9 @@ constexpr Amount UAmount::operator-(const UAmountLiteral other) const noexcept
 }
 
 
-consteval Amount operator""_sats(unsigned long long amount) noexcept
+consteval UAmountLiteral operator""_sats(unsigned long long amount) noexcept
 {
-    return Amount{amount};
+    return UAmountLiteral{amount};
 }
 
 /** The amount of satoshis in one BTC. */

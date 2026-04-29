@@ -272,7 +272,7 @@ FUZZ_TARGET(bnb_finds_min_waste)
     assert(num_groups <= max_output_groups);
 
     // Only choose targets below max_spendable
-    const Amount target{ConsumeMoney(fuzzed_data_provider, 1_sats, std::max(1_sats, max_spendable - coin_params.m_cost_of_change))};
+    const Amount target{ConsumeMoney(fuzzed_data_provider, 1_sats, std::max<Amount>(1_sats, max_spendable - coin_params.m_cost_of_change))};
 
     // Brute force optimal solution (lowest waste, but cannot be superset of another solution)
     std::vector<uint32_t> solutions;
