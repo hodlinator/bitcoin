@@ -119,7 +119,11 @@ PSBTAnalysis AnalyzePSBT(PartiallySignedTransaction psbtx)
         }
 
         // Get the fee
-        Amount fee = in_amt - out_amt;
+        const Amount fee = in_amt - out_amt;
+        if (fee < 0) {
+            result.SetInvalid("PSBT is not valid. Output amount higher than input amount");
+            return result;
+        }
         result.fee = fee;
 
         // Estimate the size

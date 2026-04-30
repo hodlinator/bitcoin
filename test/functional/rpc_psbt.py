@@ -1138,6 +1138,22 @@ class PSBTTest(BitcoinTestFramework):
         assert_equal(analysis['next'], 'creator')
         assert_equal(analysis['error'], 'PSBT is not valid. Output amount invalid')
 
+        #insufficient_utxo = self.create_outpoints(self.nodes[0], outputs=[{addr: 7}])[0]
+        #addrinfo = self.nodes[1].getaddressinfo(addr)
+        #psbt = self.nodes[1].createpsbt([insufficient_utxo], {self.nodes[0].getnewaddress("", "p2sh-segwit"):Decimal('8')})
+        #analysis = self.nodes[0].analyzepsbt(psbt)
+        #assert_equal(analysis['inputs'][0]['has_utxo'], False)
+        #assert_equal(analysis['inputs'][0]['is_final'], False)
+        #assert_equal(analysis['inputs'][0]['next'], 'updater')
+        #assert_equal(analysis['next'], 'updater')
+        #updated = self.nodes[1].walletprocesspsbt(psbt, False, 'ALL', True)['psbt']
+        #analysis = self.nodes[0].analyzepsbt(updated)
+        #assert_equal(analysis['next'], 'signer')
+        #signed = self.nodes[1].walletprocesspsbt(updated)['psbt']
+        #assert_equal(analysis['next'], 'extractor')
+        #assert_equal(analysis['error'], 'PSBT is not valid. Output amount invalid')
+
+
         assert_raises_rpc_error(-22, "TX decode failed", self.nodes[0].analyzepsbt, "cHNidP8BAJoCAAAAAkvEW8NnDtdNtDpsmze+Ht2LH35IJcKv00jKAlUs21RrAwAAAAD/////S8Rbw2cO1020OmybN74e3Ysffkglwq/TSMoCVSzbVGsBAAAAAP7///8CwLYClQAAAAAWABSNJKzjaUb3uOxixsvh1GGE3fW7zQD5ApUAAAAAFgAUKNw0x8HRctAgmvoevm4u1SbN7XIAAAAAAAEAnQIAAAACczMa321tVHuN4GKWKRncycI22aX3uXgwSFUKM2orjRsBAAAAAP7///9zMxrfbW1Ue43gYpYpGdzJwjbZpfe5eDBIVQozaiuNGwAAAAAA/v///wIA+QKVAAAAABl2qRT9zXUVA8Ls5iVqynLHe5/vSe1XyYisQM0ClQAAAAAWABRmWQUcjSjghQ8/uH4Bn/zkakwLtAAAAAAAAQEfQM0ClQAAAAAWABRmWQUcjSjghQ8/uH4Bn/zkakwLtAAAAA==")
 
         assert_raises_rpc_error(-22, "TX decode failed", self.nodes[0].walletprocesspsbt, "cHNidP8BAJoCAAAAAkvEW8NnDtdNtDpsmze+Ht2LH35IJcKv00jKAlUs21RrAwAAAAD/////S8Rbw2cO1020OmybN74e3Ysffkglwq/TSMoCVSzbVGsBAAAAAP7///8CwLYClQAAAAAWABSNJKzjaUb3uOxixsvh1GGE3fW7zQD5ApUAAAAAFgAUKNw0x8HRctAgmvoevm4u1SbN7XIAAAAAAAEAnQIAAAACczMa321tVHuN4GKWKRncycI22aX3uXgwSFUKM2orjRsBAAAAAP7///9zMxrfbW1Ue43gYpYpGdzJwjbZpfe5eDBIVQozaiuNGwAAAAAA/v///wIA+QKVAAAAABl2qRT9zXUVA8Ls5iVqynLHe5/vSe1XyYisQM0ClQAAAAAWABRmWQUcjSjghQ8/uH4Bn/zkakwLtAAAAAAAAQEfQM0ClQAAAAAWABRmWQUcjSjghQ8/uH4Bn/zkakwLtAAAAA==")
