@@ -261,6 +261,8 @@ private:
 };
 
 // Allows comparisons with signed counterpart, much like integer literals.
+// TODO?: Put in detail namespace to discourage usage, so that constants are declared as Amount or UAmount
+//        Or remove this type and have _sats return UAmount, implement comparisons between UAmount&Amount.
 class UAmountLiteral
 {
 public:
@@ -436,6 +438,10 @@ constexpr UAmount& UAmount::operator-=(const UAmountLiteral other) noexcept
 
 constexpr Amount UAmount::operator-(const UAmountLiteral other) const noexcept
 {
+    // If we would subtract large unsigned from small unsigned *without first casting*,
+    // we trigger the UB sanitizer (even though LLM claims for it to be well defined in C++20).
+    // Not sure what we want here.
+    // Another alternative would be to add more runtime Assumes and return UAmount.
     return Amount::From(static_cast<Amount::inner_type>(m_sats) - static_cast<Amount::inner_type>(other.UInt()));
 }
 
