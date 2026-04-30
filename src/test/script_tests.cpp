@@ -1644,7 +1644,7 @@ BOOST_AUTO_TEST_CASE(bip341_keypath_test_vectors)
         for (const auto& utxo_spent : vec["given"]["utxosSpent"].getValues()) {
             auto script_bytes = ParseHex(utxo_spent["scriptPubKey"].get_str());
             CScript script{script_bytes.begin(), script_bytes.end()};
-            UAmount amount{utxo_spent["amountSats"].getInt<uint64_t>()};
+            UAmount amount{UAmount::From(utxo_spent["amountSats"].getInt<uint64_t>())};
             utxos.emplace_back(amount, script);
         }
 

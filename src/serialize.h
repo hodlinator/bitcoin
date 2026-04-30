@@ -278,13 +278,13 @@ template <typename Stream> void Unserialize(Stream& s, Amount& a)
 {
     int64_t i;
     Unserialize(s, i);
-    a = Amount{i};
+    a = Amount::From(i);
 }
 template <typename Stream> void Unserialize(Stream& s, UAmount& a)
 {
     uint64_t i;
     Unserialize(s, i);
-    a = UAmount{i};
+    a = UAmount::From(i);
 }
 
 template <typename Stream, BasicByte B, size_t N> void Unserialize(Stream& s, B (&a)[N])            { s.read(MakeWritableByteSpan(a)); }

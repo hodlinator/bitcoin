@@ -197,7 +197,7 @@ BOOST_AUTO_TEST_CASE(tx_valid)
                 mapprevOutScriptPubKeys[outpoint] = ParseScript(vinput[2].get_str());
                 if (vinput.size() >= 4)
                 {
-                    mapprevOutValues.emplace(outpoint, vinput[3].getInt<uint64_t>());
+                    mapprevOutValues.emplace(outpoint, UAmount::From(vinput[3].getInt<uint64_t>()));
                 }
             }
             if (!fValid)
@@ -285,7 +285,7 @@ BOOST_AUTO_TEST_CASE(tx_invalid)
                 mapprevOutScriptPubKeys[outpoint] = ParseScript(vinput[2].get_str());
                 if (vinput.size() >= 4)
                 {
-                    mapprevOutValues.emplace(outpoint, vinput[3].getInt<uint64_t>());
+                    mapprevOutValues.emplace(outpoint, UAmount::From(vinput[3].getInt<uint64_t>()));
                 }
             }
             if (!fValid)
@@ -1037,7 +1037,7 @@ BOOST_AUTO_TEST_CASE(max_standard_legacy_sigops)
     const unsigned p2sh_inputs_count{MAX_TX_LEGACY_SIGOPS / MAX_P2SH_SIGOPS};
     tx_create.vout.reserve(p2sh_inputs_count);
     for (unsigned i{0}; i < p2sh_inputs_count; ++i) {
-        tx_create.vout.emplace_back(UAmount{424242 + i}, max_sigops_p2sh);
+        tx_create.vout.emplace_back(UAmount::From(424242 + i), max_sigops_p2sh);
     }
     auto prev_txid{tx_create.GetHash()};
     tx_max_sigops.vin.reserve(p2sh_inputs_count);
@@ -1080,7 +1080,7 @@ BOOST_AUTO_TEST_CASE(max_standard_legacy_sigops)
     const auto p2pk_script{CScript() << key.GetPubKey() << OP_CHECKSIG};
     unsigned p2pk_inputs_count{10}; // From 2490 to 2500.
     for (unsigned i{0}; i < p2pk_inputs_count; ++i) {
-        tx_create_p2pk.vout.emplace_back(UAmount{212121 + i}, p2pk_script);
+        tx_create_p2pk.vout.emplace_back(UAmount::From(212121 + i), p2pk_script);
     }
     prev_txid = tx_create_p2pk.GetHash();
     tx_max_sigops.vin.resize(p2sh_inputs_count); // Drop the extra input.

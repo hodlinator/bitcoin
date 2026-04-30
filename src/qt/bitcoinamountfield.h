@@ -39,7 +39,7 @@ public:
 
     QAmount value(bool *value=nullptr) const;
     void setValue(const Amount& value);
-    inline void setValue(qint64 value) { setValue(Amount{value}); }
+    inline void setValue(qint64 value) { setValue(Amount::From(value)); }
 
     /** If allow empty is set to false the field will be set to the minimum allowed value if left empty. **/
     void SetAllowEmpty(bool allow);

@@ -427,25 +427,25 @@ BOOST_AUTO_TEST_CASE(util_FormatMoney)
     BOOST_CHECK_EQUAL(FormatMoney(COIN/10000000), "0.0000001");
     BOOST_CHECK_EQUAL(FormatMoney(COIN/100000000), "0.00000001");
 
-    BOOST_CHECK_EQUAL(FormatMoney(Amount{std::numeric_limits<Amount::inner_type>::max()}), "92233720368.54775807");
-    BOOST_CHECK_EQUAL(FormatMoney(Amount{std::numeric_limits<Amount::inner_type>::max() - 1}), "92233720368.54775806");
-    BOOST_CHECK_EQUAL(FormatMoney(Amount{std::numeric_limits<Amount::inner_type>::max() - 2}), "92233720368.54775805");
-    BOOST_CHECK_EQUAL(FormatMoney(Amount{std::numeric_limits<Amount::inner_type>::max() - 3}), "92233720368.54775804");
+    BOOST_CHECK_EQUAL(FormatMoney(Amount::From(std::numeric_limits<Amount::inner_type>::max())), "92233720368.54775807");
+    BOOST_CHECK_EQUAL(FormatMoney(Amount::From(std::numeric_limits<Amount::inner_type>::max() - 1)), "92233720368.54775806");
+    BOOST_CHECK_EQUAL(FormatMoney(Amount::From(std::numeric_limits<Amount::inner_type>::max() - 2)), "92233720368.54775805");
+    BOOST_CHECK_EQUAL(FormatMoney(Amount::From(std::numeric_limits<Amount::inner_type>::max() - 3)), "92233720368.54775804");
     // ...
-    BOOST_CHECK_EQUAL(FormatMoney(Amount{std::numeric_limits<Amount::inner_type>::min() + 3}), "-92233720368.54775805");
-    BOOST_CHECK_EQUAL(FormatMoney(Amount{std::numeric_limits<Amount::inner_type>::min() + 2}), "-92233720368.54775806");
-    BOOST_CHECK_EQUAL(FormatMoney(Amount{std::numeric_limits<Amount::inner_type>::min() + 1}), "-92233720368.54775807");
-    BOOST_CHECK_EQUAL(FormatMoney(Amount{std::numeric_limits<Amount::inner_type>::min()}), "-92233720368.54775808");
+    BOOST_CHECK_EQUAL(FormatMoney(Amount::From(std::numeric_limits<Amount::inner_type>::min() + 3)), "-92233720368.54775805");
+    BOOST_CHECK_EQUAL(FormatMoney(Amount::From(std::numeric_limits<Amount::inner_type>::min() + 2)), "-92233720368.54775806");
+    BOOST_CHECK_EQUAL(FormatMoney(Amount::From(std::numeric_limits<Amount::inner_type>::min() + 1)), "-92233720368.54775807");
+    BOOST_CHECK_EQUAL(FormatMoney(Amount::From(std::numeric_limits<Amount::inner_type>::min())), "-92233720368.54775808");
 
-    BOOST_CHECK_EQUAL(FormatMoney(UAmount{std::numeric_limits<UAmount::inner_type>::max()}), "184467440737.09551615");
-    BOOST_CHECK_EQUAL(FormatMoney(UAmount{std::numeric_limits<UAmount::inner_type>::max() - 1}), "184467440737.09551614");
-    BOOST_CHECK_EQUAL(FormatMoney(UAmount{std::numeric_limits<UAmount::inner_type>::max() - 2}), "184467440737.09551613");
-    BOOST_CHECK_EQUAL(FormatMoney(UAmount{std::numeric_limits<UAmount::inner_type>::max() - 3}), "184467440737.09551612");
+    BOOST_CHECK_EQUAL(FormatMoney(UAmount::From(std::numeric_limits<UAmount::inner_type>::max())), "184467440737.09551615");
+    BOOST_CHECK_EQUAL(FormatMoney(UAmount::From(std::numeric_limits<UAmount::inner_type>::max() - 1)), "184467440737.09551614");
+    BOOST_CHECK_EQUAL(FormatMoney(UAmount::From(std::numeric_limits<UAmount::inner_type>::max() - 2)), "184467440737.09551613");
+    BOOST_CHECK_EQUAL(FormatMoney(UAmount::From(std::numeric_limits<UAmount::inner_type>::max() - 3)), "184467440737.09551612");
     // ...
-    BOOST_CHECK_EQUAL(FormatMoney(UAmount{std::numeric_limits<UAmount::inner_type>::min() + 3}), "0.00000003");
-    BOOST_CHECK_EQUAL(FormatMoney(UAmount{std::numeric_limits<UAmount::inner_type>::min() + 2}), "0.00000002");
-    BOOST_CHECK_EQUAL(FormatMoney(UAmount{std::numeric_limits<UAmount::inner_type>::min() + 1}), "0.00000001");
-    BOOST_CHECK_EQUAL(FormatMoney(UAmount{std::numeric_limits<UAmount::inner_type>::min()}), "0.00");
+    BOOST_CHECK_EQUAL(FormatMoney(UAmount::From(std::numeric_limits<UAmount::inner_type>::min() + 3)), "0.00000003");
+    BOOST_CHECK_EQUAL(FormatMoney(UAmount::From(std::numeric_limits<UAmount::inner_type>::min() + 2)), "0.00000002");
+    BOOST_CHECK_EQUAL(FormatMoney(UAmount::From(std::numeric_limits<UAmount::inner_type>::min() + 1)), "0.00000001");
+    BOOST_CHECK_EQUAL(FormatMoney(UAmount::From(std::numeric_limits<UAmount::inner_type>::min())), "0.00");
 }
 
 BOOST_AUTO_TEST_CASE(util_ParseMoney)

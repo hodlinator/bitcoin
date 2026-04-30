@@ -61,7 +61,7 @@ namespace {
 TestingSetup* g_setup;
 
 //! Fee each created tx will pay.
-const Amount AMOUNT_FEE{1000};
+const UAmountLiteral AMOUNT_FEE{1000_sats};
 //! Cached coinbases that each iteration can copy and use.
 std::vector<std::pair<COutPoint, Amount>> g_mature_coinbase;
 //! Constant value used to create valid headers.

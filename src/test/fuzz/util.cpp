@@ -48,13 +48,13 @@ UAmount ConsumeMoney(FuzzedDataProvider& provider, const UAmountLiteral& max) no
 
 Amount ConsumeMoney(FuzzedDataProvider& provider, const Amount& min, const Amount& max) noexcept
 {
-    return Amount{provider.ConsumeIntegralInRange(min.Int(), max.Int())};
+    return Amount::From(provider.ConsumeIntegralInRange(min.Int(), max.Int()));
 }
 
 Amount ConsumeMoney(FuzzedDataProvider& provider, const Amount& min, const UAmount& max) noexcept
 {
     assert(max.UInt() <= std::numeric_limits<Amount::inner_type>::max());
-    return Amount{provider.ConsumeIntegralInRange<Amount::inner_type>(min.Int(), max.UInt())};
+    return Amount::From(provider.ConsumeIntegralInRange<Amount::inner_type>(min.Int(), max.UInt()));
 }
 
 Amount ConsumeMoney(FuzzedDataProvider& provider, const Amount& min, const UAmountLiteral& max) noexcept
@@ -64,7 +64,7 @@ Amount ConsumeMoney(FuzzedDataProvider& provider, const Amount& min, const UAmou
 
 UAmount ConsumeMoney(FuzzedDataProvider& provider, const UAmount& min, const UAmount& max) noexcept
 {
-    return UAmount{provider.ConsumeIntegralInRange(min.UInt(), max.UInt())};
+    return UAmount::From(provider.ConsumeIntegralInRange(min.UInt(), max.UInt()));
 }
 
 UAmount ConsumeMoney(FuzzedDataProvider& provider, const UAmountLiteral& min, const UAmount& max) noexcept

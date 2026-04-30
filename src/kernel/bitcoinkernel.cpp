@@ -596,7 +596,7 @@ void btck_script_pubkey_destroy(btck_ScriptPubkey* script_pubkey)
 
 btck_TransactionOutput* btck_transaction_output_create(const btck_ScriptPubkey* script_pubkey, uint64_t amount)
 {
-    return btck_TransactionOutput::create(UAmount{amount}, btck_ScriptPubkey::get(script_pubkey));
+    return btck_TransactionOutput::create(UAmount::From(amount), btck_ScriptPubkey::get(script_pubkey));
 }
 
 btck_TransactionOutput* btck_transaction_output_copy(const btck_TransactionOutput* output)
@@ -687,7 +687,7 @@ int btck_script_pubkey_verify(const btck_ScriptPubkey* script_pubkey,
                                btck_ScriptPubkey::get(script_pubkey),
                                &tx.vin[input_index].scriptWitness,
                                script_verify_flags::from_int(flags),
-                               TransactionSignatureChecker(&tx, input_index, UAmount{amount}, txdata, MissingDataBehavior::FAIL),
+                               TransactionSignatureChecker(&tx, input_index, UAmount::From(amount), txdata, MissingDataBehavior::FAIL),
                                nullptr);
     return result ? 1 : 0;
 }

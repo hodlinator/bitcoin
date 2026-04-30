@@ -34,7 +34,7 @@ extern std::atomic<bool> g_used_g_prng;
 template <RandomNumberGenerator Rng>
 inline UAmount RandMoney(Rng&& rng)
 {
-    return UAmount{rng.randrange(MAX_MONEY.UInt() + 1)};
+    return UAmount::From(rng.randrange(MAX_MONEY.UInt() + 1));
 }
 
 #endif // BITCOIN_TEST_UTIL_RANDOM_H

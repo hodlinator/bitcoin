@@ -99,7 +99,7 @@ UAmount AmountFromValue(const UniValue& value, int decimals)
 {
     if (!value.isNum() && !value.isStr())
         throw JSONRPCError(RPC_TYPE_ERROR, "Amount is not a number or string");
-    std::optional<Amount> amount{ParseFixedPoint(value.getValStr(), decimals)};
+    std::optional<Amount> amount{Amount::From(ParseFixedPoint(value.getValStr(), decimals))};
     if (!amount)
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount");
     if (!MoneyRange(*amount))

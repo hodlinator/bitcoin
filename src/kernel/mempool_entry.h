@@ -124,7 +124,7 @@ public:
     // Updates the modified fees with descendants/ancestors.
     void UpdateModifiedFee(Amount fee_diff) const
     {
-        m_modified_fee = Amount{SaturatingAdd(m_modified_fee.Int(), fee_diff.Int())};
+        m_modified_fee = Amount::From(SaturatingAdd(m_modified_fee.Int(), fee_diff.Int()));
     }
 
     // Update the LockPoints after a reorg

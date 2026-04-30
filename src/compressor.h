@@ -105,7 +105,7 @@ struct AmountCompression
     {
         uint64_t v;
         s >> VARINT(v);
-        val = UAmount{DecompressAmount(v)};
+        val = UAmount::From(DecompressAmount(v));
     }
 };
 

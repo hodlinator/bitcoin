@@ -559,7 +559,7 @@ FUZZ_TARGET(txorphanage_sim)
             count += 1 + (txn[ann.tx]->vin.size() / 10);
             usage += GetTransactionWeight(*txn[ann.tx]);
         }
-        return std::max<ByRatioNegSize<FeeFrac>>(FeeFrac{Amount{count}, max_count}, FeeFrac{Amount{usage}, max_usage});
+        return std::max<ByRatioNegSize<FeeFrac>>(FeeFrac{Amount::From(count), max_count}, FeeFrac{Amount::From(usage), max_usage});
     };
 
     //

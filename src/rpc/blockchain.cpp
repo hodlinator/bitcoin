@@ -1167,9 +1167,9 @@ static RPCMethod gettxoutsetinfo()
             arith_uint256 diff_prevout = stats.total_prevout_spent_amount - prev_stats.total_prevout_spent_amount;
             arith_uint256 diff_coinbase = stats.total_coinbase_amount - prev_stats.total_coinbase_amount;
             arith_uint256 diff_outputs = stats.total_new_outputs_ex_coinbase_amount - prev_stats.total_new_outputs_ex_coinbase_amount;
-            UAmount prevout_amount{diff_prevout.GetLow64()};
-            UAmount coinbase_amount{diff_coinbase.GetLow64()};
-            UAmount outputs_amount{diff_outputs.GetLow64()};
+            auto prevout_amount{UAmount::From(diff_prevout.GetLow64())};
+            auto coinbase_amount{UAmount::From(diff_coinbase.GetLow64())};
+            auto outputs_amount{UAmount::From(diff_outputs.GetLow64())};
             block_info.pushKV("prevout_spent", ValueFromAmount(prevout_amount));
             block_info.pushKV("coinbase", ValueFromAmount(coinbase_amount));
             block_info.pushKV("new_outputs_ex_coinbase", ValueFromAmount(outputs_amount));
@@ -1911,12 +1911,12 @@ static RPCMethod getchaintxstats()
     };
 }
 
-template<typename T>
-static T CalculateTruncatedMedian(std::vector<T>& scores)
+template <typename T, typename E>
+static T CalculateTruncatedMedian(std::vector<T>& scores, const E& empty_value)
 {
     size_t size = scores.size();
     if (size == 0) {
-        return T{0U};
+        return empty_value;
     }
 
     std::sort(scores.begin(), scores.end());
@@ -2189,9 +2189,9 @@ static RPCMethod getblockstats()
     ret_all.pushKV("maxfee", maxfee.UInt());
     ret_all.pushKV("maxfeerate", maxfeerate.UInt());
     ret_all.pushKV("maxtxsize", maxtxsize);
-    ret_all.pushKV("medianfee", CalculateTruncatedMedian(fee_array).UInt());
+    ret_all.pushKV("medianfee", CalculateTruncatedMedian(fee_array, 0_sats).UInt());
     ret_all.pushKV("mediantime", pindex.GetMedianTimePast());
-    ret_all.pushKV("mediantxsize", CalculateTruncatedMedian(txsize_array));
+    ret_all.pushKV("mediantxsize", CalculateTruncatedMedian(txsize_array, 0));
     ret_all.pushKV("minfee", Amount{(minfee == MAX_MONEY) ? 0_sats : minfee}.Int());
     ret_all.pushKV("minfeerate", Amount{(minfeerate == MAX_MONEY) ? 0_sats : minfeerate}.Int());
     ret_all.pushKV("mintxsize", mintxsize == MAX_BLOCK_SERIALIZED_SIZE ? 0 : mintxsize);

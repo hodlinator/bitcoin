@@ -27,7 +27,7 @@ DepGraph<SetType> MakeWideGraph(DepGraphIndex ntx)
 {
     DepGraph<SetType> depgraph;
     for (DepGraphIndex i = 0; i < ntx; ++i) {
-        depgraph.AddTransaction(FeeFrac{Amount{int32_t(i) + 1}, 1});
+        depgraph.AddTransaction(FeeFrac{Amount::From(int32_t(i) + 1), 1});
         if (i > 0) depgraph.AddDependencies(SetType::Singleton(0), i);
     }
     return depgraph;

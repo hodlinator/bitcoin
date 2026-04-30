@@ -638,7 +638,7 @@ void CTxMemPool::PrioritiseTransaction(const Txid& hash, const Amount& nFeeDelta
                 return mapDeltas.emplace(hash, 0_sats).first->second;
             }
         }();
-        delta = Amount{SaturatingAdd(delta.Int(), nFeeDelta.Int())};
+        delta = Amount::From(SaturatingAdd(delta.Int(), nFeeDelta.Int()));
         txiter it = mapTx.find(hash);
         if (it != mapTx.end()) {
             // PrioritiseTransaction calls stack on previous ones. Set the new
@@ -835,7 +835,7 @@ int CTxMemPool::Expire(std::chrono::seconds time)
 CFeeRate CTxMemPool::GetMinFee(size_t sizelimit) const {
     LOCK(cs);
     if (!blockSinceLastRollingFeeBump || rollingMinimumFeeRate == 0)
-        return CFeeRate{Amount{llround(rollingMinimumFeeRate)}};
+        return CFeeRate{Amount::From(llround(rollingMinimumFeeRate))};
 
     int64_t time = GetTime();
     if (time > lastRollingFeeUpdate + 10) {
@@ -853,7 +853,7 @@ CFeeRate CTxMemPool::GetMinFee(size_t sizelimit) const {
             return CFeeRate(0_sats);
         }
     }
-    return std::max(CFeeRate{Amount{llround(rollingMinimumFeeRate)}}, m_opts.incremental_relay_feerate);
+    return std::max(CFeeRate{Amount::From(llround(rollingMinimumFeeRate))}, m_opts.incremental_relay_feerate);
 }
 
 void CTxMemPool::trackPackageRemoved(const CFeeRate& rate) {

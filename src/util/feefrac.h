@@ -160,13 +160,13 @@ struct FeeFrac
         if (fee >= 0_sats && fee < 0x200000000_sats) [[likely]] {
             // Common case where (this->fee * at_size) is guaranteed to fit in a uint64_t.
             if constexpr (RoundDown) {
-                return Amount{static_cast<Amount::inner_type>((uint64_t(fee.Int()) * at_size) / uint32_t(size))};
+                return Amount::From(static_cast<Amount::inner_type>((uint64_t(fee.Int()) * at_size) / uint32_t(size)));
             } else {
-                return Amount{static_cast<Amount::inner_type>(CeilDiv(uint64_t(fee.Int()) * at_size, uint32_t(size)))};
+                return Amount::From(static_cast<Amount::inner_type>(CeilDiv(uint64_t(fee.Int()) * at_size, uint32_t(size))));
             }
         } else {
             // Otherwise, use Mul and Div.
-            return Amount{Div(Mul(fee, at_size), size, RoundDown)};
+            return Amount::From(Div(Mul(fee, at_size), size, RoundDown));
         }
     }
 

@@ -142,7 +142,7 @@ public:
     UAmount nValue;
     CScript scriptPubKey;
 
-    CTxOut() : nValue{std::numeric_limits<UAmount::inner_type>::max()} {}
+    CTxOut() : nValue{UAmount::From(std::numeric_limits<UAmount::inner_type>::max())} {}
 
     CTxOut(const UAmount& nValueIn, CScript scriptPubKeyIn);
 
@@ -150,7 +150,7 @@ public:
 
     void SetNull()
     {
-        nValue = UAmount{std::numeric_limits<UAmount::inner_type>::max()};
+        nValue = UAmount::From(std::numeric_limits<UAmount::inner_type>::max());
         scriptPubKey.clear();
     }
 

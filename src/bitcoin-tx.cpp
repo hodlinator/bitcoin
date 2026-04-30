@@ -556,7 +556,7 @@ static UAmount AmountFromValue(const UniValue& value)
 {
     if (!value.isNum() && !value.isStr())
         throw std::runtime_error("Amount is not a number or string");
-    std::optional<Amount> amount{ParseFixedPoint(value.getValStr(), 8)};
+    std::optional<Amount> amount{Amount::From(ParseFixedPoint(value.getValStr(), 8))};
     if (!amount)
         throw std::runtime_error("Invalid amount");
     if (!MoneyRange(*amount))

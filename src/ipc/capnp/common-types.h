@@ -142,7 +142,7 @@ decltype(auto) CustomReadField(TypeList<UAmount>, Priority<1>, InvokeContext& in
                                ReadDest&& read_dest)
 {
     const UAmount::inner_type& source{input.get()};
-    return read_dest.construct(source);
+    return read_dest.construct(UAmount::From(source));
 }
 
 } // namespace mp

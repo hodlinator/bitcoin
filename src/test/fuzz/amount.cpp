@@ -19,7 +19,7 @@ template <typename T>
 void TestIntegerOperations(FuzzedDataProvider& provider)
 {
     const auto i{provider.ConsumeIntegral<InnerType>()};
-    const Amount sats{i};
+    const Amount sats{Amount::From(i)};
     assert(sats.Int() == i);
     const T other{provider.ConsumeIntegral<T>()};
 
@@ -67,11 +67,11 @@ FUZZ_TARGET(amount)
     FuzzedDataProvider provider(buffer.data(), buffer.size());
 
     const auto i{provider.ConsumeIntegral<InnerType>()};
-    const Amount sats{i};
+    const Amount sats{Amount::From(i)};
     assert(sats.Int() == i);
 
     const auto other_i{provider.ConsumeIntegral<InnerType>()};
-    const Amount other_sats{other_i};
+    const Amount other_sats{Amount::From(other_i)};
     assert(other_sats.Int() == other_i);
 
     assert((sats < other_sats) == (i < other_i));

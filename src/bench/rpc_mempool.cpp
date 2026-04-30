@@ -38,9 +38,9 @@ static void RpcMempool(benchmark::Bench& bench)
         tx.vin[0].scriptWitness.stack.push_back({1});
         tx.vout.resize(1);
         tx.vout[0].scriptPubKey = CScript() << OP_1 << OP_EQUAL;
-        tx.vout[0].nValue = UAmount{i};
+        tx.vout[0].nValue = UAmount::From(i);
         const CTransactionRef tx_r{MakeTransactionRef(tx)};
-        AddTx(tx_r, /*fee=*/UAmount{i}, pool);
+        AddTx(tx_r, /*fee=*/UAmount::From(i), pool);
     }
 
     bench.run([&] {

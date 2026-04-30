@@ -100,7 +100,7 @@ static void ApplyStats(CCoinsStats& stats, const std::map<uint32_t, Coin>& outpu
     for (auto it = outputs.begin(); it != outputs.end(); ++it) {
         stats.nTransactionOutputs++;
         if (stats.total_amount.has_value()) {
-            stats.total_amount = std::optional<UAmount>{CheckedAdd(stats.total_amount->UInt(), it->second.out.nValue.UInt())};
+            stats.total_amount = UAmount::From(CheckedAdd(stats.total_amount->UInt(), it->second.out.nValue.UInt()));
         }
         stats.nBogoSize += GetBogoSize(it->second.out.scriptPubKey);
     }

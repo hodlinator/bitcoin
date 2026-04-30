@@ -160,7 +160,7 @@ FUZZ_TARGET(coin_grinder_is_optimal)
         // Only make UTXOs with positive effective value
         const UAmount input_fee{coin_params.m_effective_feerate.GetFee(n_input_bytes).AssertToUnsigned()};
         // Ensure that each UTXO has at least an effective value of 1 sat
-        const UAmount eff_value{ConsumeMoney(fuzzed_data_provider, 1_sats, (MAX_MONEY + UAmount{group_pos.size()} - max_spendable - UAmount{max_output_groups}).AssertToUnsigned())};
+        const UAmount eff_value{ConsumeMoney(fuzzed_data_provider, 1_sats, (MAX_MONEY + UAmount::From(group_pos.size()) - max_spendable - UAmount::From(max_output_groups)).AssertToUnsigned())};
         const UAmount amount{eff_value + input_fee};
         std::vector<COutput> temp_utxo_pool;
 
@@ -257,7 +257,7 @@ FUZZ_TARGET(bnb_finds_min_waste)
         const int n_input_bytes{fuzzed_data_provider.ConsumeIntegralInRange<int>(1, 20'000)};
         const UAmount input_fee{coin_params.m_effective_feerate.GetFee(n_input_bytes).AssertToUnsigned()};
         // Ensure that each UTXO has at least an effective value of 1 sat
-        const UAmount eff_value{ConsumeMoney(fuzzed_data_provider, 1_sats, (MAX_MONEY + UAmount{group_pos.size()} - max_spendable - UAmount{max_output_groups}).AssertToUnsigned())};
+        const UAmount eff_value{ConsumeMoney(fuzzed_data_provider, 1_sats, (MAX_MONEY + UAmount::From(group_pos.size()) - max_spendable - UAmount::From(max_output_groups)).AssertToUnsigned())};
         const UAmount amount{eff_value + input_fee};
         std::vector<COutput> temp_utxo_pool;
 
@@ -276,7 +276,7 @@ FUZZ_TARGET(bnb_finds_min_waste)
 
     // Brute force optimal solution (lowest waste, but cannot be superset of another solution)
     std::vector<uint32_t> solutions;
-    Amount best_waste{std::numeric_limits<int64_t>::max()};
+    Amount best_waste{Amount::From(std::numeric_limits<int64_t>::max())};
     int best_weight{std::numeric_limits<int>::max()};
     for (uint32_t pattern = 1; (pattern >> num_groups) == 0; ++pattern) {
         // BnB does not permit adding more inputs to a solution, i.e. a superset of a solution cannot ever be a solution.

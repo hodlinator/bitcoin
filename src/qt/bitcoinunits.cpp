@@ -184,7 +184,7 @@ std::optional<Amount> BitcoinUnits::parse(Unit unit, const QString& value)
     {
         return std::nullopt; // Longer numbers will exceed 63 bits
     }
-    Amount retvalue(str.toLongLong(&ok));
+    auto retvalue{Amount::From(str.toLongLong(&ok))};
     return ok ? std::optional{retvalue} : std::nullopt;
 }
 

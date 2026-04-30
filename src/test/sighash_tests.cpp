@@ -218,7 +218,7 @@ BOOST_AUTO_TEST_CASE(sighash_caching)
     CMutableTransaction tx;
     RandomTransaction(tx, /*fSingle=*/false);
     const auto in_index{static_cast<uint32_t>(m_rng.randrange(tx.vin.size()))};
-    const UAmount amount{m_rng.rand<UAmount::inner_type>()};
+    const UAmount amount{UAmount::From(m_rng.rand<UAmount::inner_type>())};
 
     // Exercise the sighash function under both legacy and segwit v0.
     for (const auto sigversion: {SigVersion::BASE, SigVersion::WITNESS_V0}) {

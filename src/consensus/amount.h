@@ -30,15 +30,20 @@ public:
     // Require explicit initialization to a specified value.
     Amount() = delete;
 
-    template <typename T>
-    constexpr explicit Amount(const T v)
-        requires(std::is_integral_v<T> && !std::is_unsigned_v<T> && sizeof(T) <= sizeof(inner_type))
-        : m_sats(v)
-    {
-    }
-
     constexpr Amount(UAmount v);
     constexpr Amount(UAmountLiteral v);
+
+    template <typename T>
+    constexpr static Amount From(const T v)
+    {
+        return Amount{v};
+    }
+
+    template <typename T>
+    static constexpr std::optional<Amount> From(const std::optional<T> v)
+    {
+        return v ? std::optional<Amount>{From(*v)} : std::nullopt;
+    }
 
     constexpr auto operator<=>(const Amount& other) const noexcept = default;
 
@@ -115,6 +120,13 @@ public:
     constexpr const inner_type& Int() const noexcept { return m_sats; }
 
 private:
+    template <typename T>
+    constexpr explicit Amount(const T v)
+        requires(std::is_integral_v<T> && !std::is_unsigned_v<T> && sizeof(T) <= sizeof(inner_type))
+        : m_sats(v)
+    {
+    }
+
     inner_type m_sats;
 };
 
@@ -123,21 +135,26 @@ class UAmount
 public:
     using inner_type = uint64_t;
 
+    constexpr UAmount(UAmountLiteral v);
+
     template <typename T>
-    constexpr explicit UAmount(const T v)
-        requires(std::is_integral_v<T> && std::is_unsigned_v<T> && sizeof(T) <= sizeof(inner_type))
-        : m_sats{v}
+    constexpr static UAmount From(const T v)
     {
+        return UAmount{v};
     }
 
-    constexpr UAmount(UAmountLiteral v);
+    template <typename T>
+    static constexpr std::optional<UAmount> From(const std::optional<T> v)
+    {
+        return v ? std::optional<UAmount>{From(*v)} : std::nullopt;
+    }
 
     constexpr auto operator<=>(const UAmount& other) const noexcept = default;
 
     constexpr Amount operator-() const noexcept
     {
         Assume(UInt() <= std::numeric_limits<Amount::inner_type>::max());
-        return Amount{-static_cast<Amount::inner_type>(UInt())};
+        return Amount::From(-static_cast<Amount::inner_type>(UInt()));
     }
 
     constexpr UAmount operator+(const UAmount other) const noexcept
@@ -147,12 +164,12 @@ public:
 
     constexpr Amount operator-(const UAmount other) const noexcept
     {
-        return Amount{static_cast<Amount::inner_type>(m_sats) - static_cast<Amount::inner_type>(other.m_sats)};
+        return Amount::From(static_cast<Amount::inner_type>(m_sats) - static_cast<Amount::inner_type>(other.m_sats));
     }
 
     constexpr Amount operator-(const Amount other) const noexcept
     {
-        return Amount{static_cast<Amount::inner_type>(m_sats) - other.Int()};
+        return Amount::From(static_cast<Amount::inner_type>(m_sats) - other.Int());
     }
 
     constexpr Amount operator-(UAmountLiteral other) const noexcept;
@@ -225,14 +242,21 @@ public:
 
     Amount TruncateToSigned() const noexcept
     {
-        return Amount{m_sats <= std::numeric_limits<Amount::inner_type>::max() ?
-                      static_cast<Amount::inner_type>(m_sats) :
-                      std::numeric_limits<Amount::inner_type>::max()};
+        return Amount::From(m_sats <= std::numeric_limits<Amount::inner_type>::max() ?
+                            static_cast<Amount::inner_type>(m_sats) :
+                            std::numeric_limits<Amount::inner_type>::max());
     }
 
     constexpr const inner_type& UInt() const noexcept { return m_sats; }
 
 private:
+    template <typename T>
+    constexpr explicit UAmount(const T v)
+        requires(std::is_integral_v<T> && std::is_unsigned_v<T> && sizeof(T) <= sizeof(inner_type))
+        : m_sats{v}
+    {
+    }
+
     inner_type m_sats;
 };
 
@@ -243,10 +267,10 @@ public:
     using inner_type = UAmount::inner_type;
 
     template <typename T>
-    consteval explicit UAmountLiteral(const T v)
+    static consteval UAmountLiteral From(const T v)
         requires(std::is_integral_v<T> && std::is_unsigned_v<T> && sizeof(T) <= sizeof(inner_type))
-        : m_sats{v}
     {
+        return UAmountLiteral{v};
     }
 
     constexpr auto operator<=>(const UAmountLiteral& other) const noexcept = default;
@@ -284,36 +308,29 @@ public:
     consteval Amount operator-() const noexcept
     {
         Assume(UInt() < std::numeric_limits<Amount::inner_type>::max());
-        return Amount{-static_cast<Amount::inner_type>(UInt())};
+        return Amount::From(-static_cast<Amount::inner_type>(UInt()));
     }
 
-    consteval UAmountLiteral operator+(const UAmountLiteral other) const noexcept
-    {
-        return UAmountLiteral{m_sats + other.m_sats};
-    }
+    consteval UAmountLiteral operator+( UAmountLiteral other) const noexcept;
 
-    consteval UAmountLiteral operator-(const UAmountLiteral other) const noexcept
-    {
-        assert(m_sats >= other.m_sats);
-        return UAmountLiteral{m_sats - other.m_sats};
-    }
+    consteval UAmountLiteral operator-(UAmountLiteral other) const noexcept;
 
     friend constexpr UAmount operator+(const UAmountLiteral a, const UAmount b) noexcept
     {
-        return UAmount{a.m_sats + b.UInt()};
+        return UAmount::From(a.m_sats + b.UInt());
     }
 
     friend constexpr UAmount operator-(const UAmountLiteral a, const UAmount b) noexcept
     {
         assert(a.m_sats >= b.UInt());
-        return UAmount{a.m_sats - b.UInt()};
+        return UAmount::From(a.m_sats - b.UInt());
     }
 
     template <typename T>
     friend constexpr UAmount operator/(const UAmountLiteral a, const T b) noexcept
         requires(std::is_integral_v<T> && std::is_unsigned_v<T> && sizeof(T) <= sizeof(inner_type))
     {
-        return UAmount{a.UInt() / b};
+        return UAmount::From(a.UInt() / b);
     }
 
     template <typename T>
@@ -321,14 +338,14 @@ public:
         requires(std::is_integral_v<T> && !std::is_unsigned_v<T> && sizeof(T) <= sizeof(inner_type))
     {
         Assume(a.UInt() < std::numeric_limits<Amount::inner_type>::max());
-        return Amount{static_cast<Amount::inner_type>(a.UInt()) / b};
+        return Amount::From(static_cast<Amount::inner_type>(a.UInt()) / b);
     }
 
     template <typename T>
     friend constexpr UAmount operator*(const T a, const UAmountLiteral b) noexcept
         requires(std::is_integral_v<T> && std::is_unsigned_v<T> && sizeof(T) <= sizeof(inner_type))
     {
-        return UAmount{a * b.UInt()};
+        return UAmount::From(a * b.UInt());
     }
 
     template <typename T>
@@ -336,14 +353,14 @@ public:
         requires(std::is_integral_v<T> && !std::is_unsigned_v<T> && sizeof(T) <= sizeof(inner_type))
     {
         Assume(b.UInt() < std::numeric_limits<Amount::inner_type>::max());
-        return Amount{a * static_cast<Amount::inner_type>(b.UInt())};
+        return Amount::From(a * static_cast<Amount::inner_type>(b.UInt()));
     }
 
     template <typename T>
     friend constexpr UAmount operator*(const UAmountLiteral a, const T b) noexcept
         requires(std::is_integral_v<T> && std::is_unsigned_v<T> && sizeof(T) <= sizeof(inner_type))
     {
-        return UAmount{a.UInt() * b};
+        return UAmount::From(a.UInt() * b);
     }
 
     template <typename T>
@@ -351,7 +368,7 @@ public:
         requires(std::is_integral_v<T> && !std::is_unsigned_v<T> && sizeof(T) <= sizeof(inner_type))
     {
         Assume(a.UInt() < std::numeric_limits<Amount::inner_type>::max());
-        return Amount{static_cast<Amount::inner_type>(a.UInt()) * b};
+        return Amount::From(static_cast<Amount::inner_type>(a.UInt()) * b);
     }
 
     friend constexpr UAmount::inner_type operator/(const UAmount a, const UAmountLiteral b) noexcept
@@ -367,6 +384,13 @@ public:
     constexpr const inner_type& UInt() const noexcept { return m_sats; }
 
 private:
+    template <typename T>
+    consteval explicit UAmountLiteral(const T v)
+        requires(std::is_integral_v<T> && std::is_unsigned_v<T> && sizeof(T) <= sizeof(inner_type))
+        : m_sats{v}
+    {
+    }
+
     const inner_type m_sats;
 };
 
@@ -384,19 +408,19 @@ constexpr Amount::Amount(const UAmountLiteral v)
 
 constexpr UAmount Amount::TruncateToUnsigned() const noexcept
 {
-    return UAmount{m_sats >= 0 ? UAmount::inner_type(m_sats) : 0};
+    return UAmount::From(m_sats >= 0 ? UAmount::inner_type(m_sats) : 0);
 }
 
 constexpr UAmount Amount::AssertToUnsigned() const noexcept
 {
     assert(m_sats >= 0); // Accidental wraparound, use TruncateToUnsigned() if intentional.
-    return UAmount{static_cast<UAmount::inner_type>(m_sats)};
+    return UAmount::From(static_cast<UAmount::inner_type>(m_sats));
 }
 
 constexpr std::optional<UAmount> Amount::TryToUnsigned() const noexcept
 {
     if (m_sats < 0) return std::nullopt;
-    return UAmount{static_cast<UAmount::inner_type>(m_sats)};
+    return UAmount::From(static_cast<UAmount::inner_type>(m_sats));
 }
 
 constexpr UAmount::UAmount(const UAmountLiteral v)
@@ -413,13 +437,24 @@ constexpr UAmount& UAmount::operator-=(const UAmountLiteral other) noexcept
 
 constexpr Amount UAmount::operator-(const UAmountLiteral other) const noexcept
 {
-    return Amount{static_cast<Amount::inner_type>(m_sats) - static_cast<Amount::inner_type>(other.UInt())};
+    return Amount::From(static_cast<Amount::inner_type>(m_sats) - static_cast<Amount::inner_type>(other.UInt()));
+}
+
+consteval UAmountLiteral UAmountLiteral::operator+(const UAmountLiteral other) const noexcept
+{
+    return UAmountLiteral{m_sats + other.m_sats};
+}
+
+consteval UAmountLiteral UAmountLiteral::operator-(const UAmountLiteral other) const noexcept
+{
+    assert(m_sats >= other.m_sats);
+    return UAmountLiteral{m_sats - other.m_sats};
 }
 
 
 consteval UAmountLiteral operator""_sats(unsigned long long amount) noexcept
 {
-    return UAmountLiteral{amount};
+    return UAmountLiteral::From(amount);
 }
 
 /** The amount of satoshis in one BTC. */

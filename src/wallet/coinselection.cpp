@@ -887,7 +887,7 @@ UAmount GenerateChangeTarget(const UAmount payment_value, const UAmount change_f
     } else {
         // random value between 50ksat and min (payment_value * 2, 1milsat)
         const auto upper_bound = std::min(payment_value * 2U, CHANGE_UPPER);
-        return change_fee + Amount{rng.randrange((upper_bound - CHANGE_LOWER).Int())}.AssertToUnsigned() + CHANGE_LOWER;
+        return change_fee + Amount::From(rng.randrange((upper_bound - CHANGE_LOWER).Int())).AssertToUnsigned() + CHANGE_LOWER;
     }
 }
 

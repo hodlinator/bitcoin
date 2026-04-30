@@ -38,7 +38,7 @@ public:
     /** Fee rate of 0 satoshis per 0 vB */
     CFeeRate() = default;
     template <typename T>
-    explicit CFeeRate(const T m_feerate_kvb) : m_feerate{Amount{m_feerate_kvb}, 1000} {}
+    explicit CFeeRate(const T m_feerate_kvb) : m_feerate{m_feerate_kvb, 1000} {}
 
     /**
      * Construct a fee rate from a fee in satoshis and a vsize in vB.

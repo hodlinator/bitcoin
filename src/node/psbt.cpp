@@ -109,7 +109,7 @@ PSBTAnalysis AnalyzePSBT(PartiallySignedTransaction psbtx)
         UAmount out_amt = std::accumulate(psbtx.outputs.begin(), psbtx.outputs.end(), UAmount(0_sats),
             [](UAmount a, const PSBTOutput& b) {
                 if (!MoneyRange(a) || !MoneyRange(b.amount) || !MoneyRange(a + b.amount)) {
-                    return UAmount{std::numeric_limits<UAmount::inner_type>::max()};
+                    return UAmount::From(std::numeric_limits<UAmount::inner_type>::max());
                 }
                 return a += b.amount;
             }

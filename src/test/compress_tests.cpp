@@ -27,18 +27,18 @@ BOOST_FIXTURE_TEST_SUITE(compress_tests, BasicTestingSetup)
 
 static bool TestEncode(UAmount in)
 {
-    return in == UAmount{DecompressAmount(CompressAmount(in.UInt()))};
+    return in == UAmount::From(DecompressAmount(CompressAmount(in.UInt())));
 }
 
 static bool TestDecode(UAmount in)
 {
-    return in == UAmount{CompressAmount(DecompressAmount(in.UInt()))};
+    return in == UAmount::From(CompressAmount(DecompressAmount(in.UInt())));
 }
 
 static bool TestPair(UAmount dec, uint64_t enc)
 {
     return CompressAmount(dec.UInt()) == enc &&
-           UAmount{DecompressAmount(enc)} == dec;
+           UAmount::From(DecompressAmount(enc)) == dec;
 }
 
 BOOST_AUTO_TEST_CASE(compress_amounts)
@@ -51,7 +51,7 @@ BOOST_AUTO_TEST_CASE(compress_amounts)
     BOOST_CHECK(TestPair(21000000U*COIN, 0x1406f40));
 
     for (uint64_t i = 1; i <= NUM_MULTIPLES_UNIT; i++)
-        BOOST_CHECK(TestEncode(UAmount{i}));
+        BOOST_CHECK(TestEncode(UAmount::From(i)));
 
     for (uint64_t i = 1; i <= NUM_MULTIPLES_CENT; i++)
         BOOST_CHECK(TestEncode(i * CENT));
@@ -63,7 +63,7 @@ BOOST_AUTO_TEST_CASE(compress_amounts)
         BOOST_CHECK(TestEncode(i * 50U * COIN));
 
     for (uint64_t i = 0; i < 100000; i++)
-        BOOST_CHECK(TestDecode(UAmount{i}));
+        BOOST_CHECK(TestDecode(UAmount::From(i)));
 }
 
 BOOST_AUTO_TEST_CASE(compress_script_to_ckey_id)
