@@ -24,7 +24,7 @@
 #include <cstddef>
 #include <vector>
 
-Amount GetDustThreshold(const CTxOut& txout, const CFeeRate& dustRelayFeeIn)
+UAmount GetDustThreshold(const CTxOut& txout, const CFeeRate& dustRelayFeeIn)
 {
     // "Dust" is defined in terms of dustRelayFee,
     // which has units satoshis-per-kilobyte.
@@ -60,7 +60,7 @@ Amount GetDustThreshold(const CTxOut& txout, const CFeeRate& dustRelayFeeIn)
         nSize += (32 + 4 + 1 + 107 + 4); // the 148 mentioned above
     }
 
-    return dustRelayFeeIn.GetFee(nSize);
+    return dustRelayFeeIn.GetFee(nSize).TruncateToUnsigned();
 }
 
 bool IsDust(const CTxOut& txout, const CFeeRate& dustRelayFeeIn)

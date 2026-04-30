@@ -189,9 +189,9 @@ BOOST_AUTO_TEST_CASE(bnb_search_test)
         /*tx_noinputs_size=*/ 0,
         /*avoid_partial=*/ false,
     };
-    coin_selection_params_bnb.m_change_fee = coin_selection_params_bnb.m_effective_feerate.GetFee(coin_selection_params_bnb.change_output_size);
-    coin_selection_params_bnb.m_cost_of_change = coin_selection_params_bnb.m_effective_feerate.GetFee(coin_selection_params_bnb.change_spend_size) + coin_selection_params_bnb.m_change_fee;
-    coin_selection_params_bnb.min_viable_change = coin_selection_params_bnb.m_effective_feerate.GetFee(coin_selection_params_bnb.change_spend_size);
+    coin_selection_params_bnb.m_change_fee = coin_selection_params_bnb.m_effective_feerate.GetFee(coin_selection_params_bnb.change_output_size).AssertToUnsigned();
+    coin_selection_params_bnb.m_cost_of_change = coin_selection_params_bnb.m_effective_feerate.GetFee(coin_selection_params_bnb.change_spend_size).AssertToUnsigned() + coin_selection_params_bnb.m_change_fee;
+    coin_selection_params_bnb.min_viable_change = coin_selection_params_bnb.m_effective_feerate.GetFee(coin_selection_params_bnb.change_spend_size).AssertToUnsigned();
 
     {
         std::unique_ptr<CWallet> wallet = NewWallet(m_node);
@@ -322,8 +322,8 @@ BOOST_AUTO_TEST_CASE(bnb_sffo_restriction)
             /*avoid_partial=*/ false,
     };
     params.m_subtract_fee_outputs = true;
-    params.m_change_fee = params.m_effective_feerate.GetFee(params.change_output_size);
-    params.m_cost_of_change = params.m_discard_feerate.GetFee(params.change_spend_size) + params.m_change_fee;
+    params.m_change_fee = params.m_effective_feerate.GetFee(params.change_output_size).AssertToUnsigned();
+    params.m_cost_of_change = params.m_discard_feerate.GetFee(params.change_spend_size).AssertToUnsigned() + params.m_change_fee;
     params.m_min_change_target = params.m_cost_of_change + 1_sats;
     // Add spendable coin at the BnB selection upper bound
     CoinsResult available_coins;

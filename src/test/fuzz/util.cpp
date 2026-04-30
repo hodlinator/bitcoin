@@ -11,7 +11,7 @@
 #include <util/rbf.h>
 #include <util/time.h>
 
-#include <memory>
+#include <limits>
 
 std::vector<uint8_t> ConstructPubKeyBytes(FuzzedDataProvider& fuzzed_data_provider, std::span<const uint8_t> byte_data, const bool compressed) noexcept
 {
@@ -26,19 +26,50 @@ std::vector<uint8_t> ConstructPubKeyBytes(FuzzedDataProvider& fuzzed_data_provid
     return pk_data;
 }
 
-Amount ConsumeMoney(FuzzedDataProvider& provider) noexcept
+UAmount ConsumeMoney(FuzzedDataProvider& provider) noexcept
 {
     return ConsumeMoney(provider, 0_sats, MAX_MONEY);
 }
 
-Amount ConsumeMoney(FuzzedDataProvider& provider, const Amount& max) noexcept
+UAmount ConsumeMoney(FuzzedDataProvider& provider, const Amount& max) noexcept
+{
+    return ConsumeMoney(provider, 0_sats, max.AssertToUnsigned());
+}
+
+UAmount ConsumeMoney(FuzzedDataProvider& provider, const UAmount& max) noexcept
 {
     return ConsumeMoney(provider, 0_sats, max);
 }
 
+UAmount ConsumeMoney(FuzzedDataProvider& provider, const UAmountLiteral& max) noexcept
+{
+    return ConsumeMoney(provider, 0_sats, UAmount{max});
+}
+
 Amount ConsumeMoney(FuzzedDataProvider& provider, const Amount& min, const Amount& max) noexcept
 {
-    return Amount{provider.ConsumeIntegralInRange<Amount::inner_type>(min.Int(), max.Int())};
+    return Amount{provider.ConsumeIntegralInRange(min.Int(), max.Int())};
+}
+
+Amount ConsumeMoney(FuzzedDataProvider& provider, const Amount& min, const UAmount& max) noexcept
+{
+    assert(max.UInt() <= std::numeric_limits<Amount::inner_type>::max());
+    return Amount{provider.ConsumeIntegralInRange<Amount::inner_type>(min.Int(), max.UInt())};
+}
+
+Amount ConsumeMoney(FuzzedDataProvider& provider, const Amount& min, const UAmountLiteral& max) noexcept
+{
+    return ConsumeMoney(provider, min, UAmount{max});
+}
+
+UAmount ConsumeMoney(FuzzedDataProvider& provider, const UAmount& min, const UAmount& max) noexcept
+{
+    return UAmount{provider.ConsumeIntegralInRange(min.UInt(), max.UInt())};
+}
+
+UAmount ConsumeMoney(FuzzedDataProvider& provider, const UAmountLiteral& min, const UAmount& max) noexcept
+{
+    return ConsumeMoney(provider, UAmount{min}, max);
 }
 
 NodeSeconds ConsumeTime(FuzzedDataProvider& fuzzed_data_provider, const std::optional<int64_t>& min, const std::optional<int64_t>& max) noexcept

@@ -50,8 +50,8 @@ static CoinSelectionParams init_cs_params(Amount eff_feerate = 5000_sats)
         /*tx_noinputs_size=*/11 + P2WPKH_OUTPUT_VSIZE, //static header size + output size
         /*avoid_partial=*/false,
     };
-    csp.m_change_fee = csp.m_effective_feerate.GetFee(csp.change_output_size); // 155 sats for default feerate of 5000 s/kvB
-    csp.min_viable_change = /*204 sats=*/csp.m_discard_feerate.GetFee(csp.change_spend_size);
+    csp.m_change_fee = csp.m_effective_feerate.GetFee(csp.change_output_size).AssertToUnsigned(); // 155 sats for default feerate of 5000 s/kvB
+    csp.min_viable_change = /*204 sats=*/csp.m_discard_feerate.GetFee(csp.change_spend_size).AssertToUnsigned();
     csp.m_cost_of_change = csp.min_viable_change + csp.m_change_fee; // 204 + 155 sats for default feerate of 5000 s/kvB
     csp.m_subtract_fee_outputs = false;
     return csp;

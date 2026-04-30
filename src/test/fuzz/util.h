@@ -153,12 +153,17 @@ template <typename WeakEnumType, size_t size>
 }
 
 /// Returns an amount between 0 and MAX_MONEY
-[[nodiscard]] Amount ConsumeMoney(FuzzedDataProvider& provider) noexcept;
+[[nodiscard]] UAmount ConsumeMoney(FuzzedDataProvider& provider) noexcept;
 /// Returns an amount between 0 and max arg
-[[nodiscard]] Amount ConsumeMoney(FuzzedDataProvider& provider, const Amount& max) noexcept;
+[[nodiscard]] UAmount ConsumeMoney(FuzzedDataProvider& provider, const Amount& max) noexcept;
+[[nodiscard]] UAmount ConsumeMoney(FuzzedDataProvider& provider, const UAmount& max) noexcept;
+[[nodiscard]] UAmount ConsumeMoney(FuzzedDataProvider& provider, const UAmountLiteral& max) noexcept;
 
 [[nodiscard]] Amount ConsumeMoney(FuzzedDataProvider& provider, const Amount& min, const Amount& max) noexcept;
-
+[[nodiscard]] Amount ConsumeMoney(FuzzedDataProvider& provider, const Amount& min, const UAmount& max) noexcept;
+[[nodiscard]] Amount ConsumeMoney(FuzzedDataProvider& provider, const Amount& min, const UAmountLiteral& max) noexcept;
+[[nodiscard]] UAmount ConsumeMoney(FuzzedDataProvider& provider, const UAmount& min, const UAmount& max) noexcept;
+[[nodiscard]] UAmount ConsumeMoney(FuzzedDataProvider& provider, const UAmountLiteral& min, const UAmount& max) noexcept;
 
 [[nodiscard]] NodeSeconds ConsumeTime(FuzzedDataProvider& fuzzed_data_provider, const std::optional<int64_t>& min = std::nullopt, const std::optional<int64_t>& max = std::nullopt) noexcept;
 

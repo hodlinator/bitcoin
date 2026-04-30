@@ -79,8 +79,7 @@ static void MempoolCheckEphemeralSpends(benchmark::Bench& bench)
     Wtxid dummy_wtxid;
 
     bench.run([&]() NO_THREAD_SAFETY_ANALYSIS {
-
-        CheckEphemeralSpends({tx2_r}, /*dust_relay_rate=*/CFeeRate(iteration * COIN / 10), pool, dummy_state, dummy_wtxid);
+        CheckEphemeralSpends({tx2_r}, /*dust_relay_rate=*/CFeeRate(iteration * COIN / 10U), pool, dummy_state, dummy_wtxid);
         iteration++;
     });
 }

@@ -94,8 +94,8 @@ FUZZ_TARGET(coin_grinder)
     coin_params.m_effective_feerate = CFeeRate{ConsumeMoney(fuzzed_data_provider, /*max=*/COIN)};
     coin_params.change_output_size = fuzzed_data_provider.ConsumeIntegralInRange<int>(10, 1000);
     coin_params.change_spend_size = fuzzed_data_provider.ConsumeIntegralInRange<int>(10, 1000);
-    coin_params.m_cost_of_change= coin_params.m_effective_feerate.GetFee(coin_params.change_output_size) + coin_params.m_long_term_feerate.GetFee(coin_params.change_spend_size);
-    coin_params.m_change_fee = coin_params.m_effective_feerate.GetFee(coin_params.change_output_size);
+    coin_params.m_cost_of_change = (coin_params.m_effective_feerate.GetFee(coin_params.change_output_size) + coin_params.m_long_term_feerate.GetFee(coin_params.change_spend_size)).AssertToUnsigned();
+    coin_params.m_change_fee = coin_params.m_effective_feerate.GetFee(coin_params.change_output_size).AssertToUnsigned();
     // For other results to be comparable to SRD, we must align the change_target with SRD’s hardcoded behavior
     coin_params.m_min_change_target = CHANGE_LOWER + coin_params.m_change_fee;
 
@@ -160,7 +160,7 @@ FUZZ_TARGET(coin_grinder_is_optimal)
         // Only make UTXOs with positive effective value
         const Amount input_fee = coin_params.m_effective_feerate.GetFee(n_input_bytes);
         // Ensure that each UTXO has at least an effective value of 1 sat
-        const Amount eff_value{ConsumeMoney(fuzzed_data_provider, 1_sats, MAX_MONEY + Amount{group_pos.size()} - max_spendable - Amount{max_output_groups})};
+        const Amount eff_value{ConsumeMoney(fuzzed_data_provider, 1_sats, MAX_MONEY + UAmount{group_pos.size()} - max_spendable - UAmount{max_output_groups})};
         const Amount amount{eff_value + input_fee};
         std::vector<COutput> temp_utxo_pool;
 
@@ -232,9 +232,9 @@ FUZZ_TARGET(bnb_finds_min_waste)
     coin_params.m_cost_of_change = ConsumeMoney(fuzzed_data_provider);
 
     coin_params.change_output_size = fuzzed_data_provider.ConsumeIntegralInRange(1, MAX_SCRIPT_SIZE);
-    coin_params.m_change_fee = coin_params.m_effective_feerate.GetFee(coin_params.change_output_size);
+    coin_params.m_change_fee = coin_params.m_effective_feerate.GetFee(coin_params.change_output_size).AssertToUnsigned();
     coin_params.change_spend_size = fuzzed_data_provider.ConsumeIntegralInRange<int>(41, 1000);
-    const auto change_spend_fee{coin_params.m_discard_feerate.GetFee(coin_params.change_spend_size)};
+    const UAmount change_spend_fee{coin_params.m_discard_feerate.GetFee(coin_params.change_spend_size).AssertToUnsigned()};
     coin_params.m_cost_of_change = coin_params.m_change_fee + change_spend_fee;
     CScript change_out_script = CScript() << std::vector<unsigned char>(coin_params.change_output_size, OP_TRUE);
     const auto dust{GetDustThreshold(CTxOut{0_sats, change_out_script}, coin_params.m_discard_feerate)};
@@ -257,7 +257,7 @@ FUZZ_TARGET(bnb_finds_min_waste)
         const int n_input_bytes{fuzzed_data_provider.ConsumeIntegralInRange<int>(1, 20'000)};
         const Amount input_fee = coin_params.m_effective_feerate.GetFee(n_input_bytes);
         // Ensure that each UTXO has at least an effective value of 1 sat
-        const Amount eff_value{ConsumeMoney(fuzzed_data_provider, 1_sats, MAX_MONEY + Amount{group_pos.size()} - max_spendable - Amount{max_output_groups})};
+        const Amount eff_value{ConsumeMoney(fuzzed_data_provider, 1_sats, MAX_MONEY + UAmount{group_pos.size()} - max_spendable - UAmount{max_output_groups})};
         const Amount amount{eff_value + input_fee};
         std::vector<COutput> temp_utxo_pool;
 
@@ -369,10 +369,10 @@ void FuzzCoinSelectionAlgorithm(std::span<const uint8_t> buffer) {
     coin_params.m_long_term_feerate = long_term_fee_rate;
     coin_params.m_effective_feerate = effective_fee_rate;
     coin_params.change_output_size = fuzzed_data_provider.ConsumeIntegralInRange(1, MAX_SCRIPT_SIZE);
-    coin_params.m_change_fee = effective_fee_rate.GetFee(coin_params.change_output_size);
+    coin_params.m_change_fee = effective_fee_rate.GetFee(coin_params.change_output_size).AssertToUnsigned();
     coin_params.m_discard_feerate = discard_fee_rate;
     coin_params.change_spend_size = fuzzed_data_provider.ConsumeIntegralInRange<int>(41, 1000);
-    const auto change_spend_fee{coin_params.m_discard_feerate.GetFee(coin_params.change_spend_size)};
+    const UAmount change_spend_fee{coin_params.m_discard_feerate.GetFee(coin_params.change_spend_size).AssertToUnsigned()};
     coin_params.m_cost_of_change = coin_params.m_change_fee + change_spend_fee;
     CScript change_out_script = CScript() << std::vector<unsigned char>(coin_params.change_output_size, OP_TRUE);
     const auto dust{GetDustThreshold(CTxOut{0_sats, change_out_script}, coin_params.m_discard_feerate)};

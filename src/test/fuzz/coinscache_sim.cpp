@@ -93,7 +93,7 @@ struct PrecomputedData
             }
             /* Hash again to construct nValue and fCoinBase. */
             CSHA256().Write(PREFIX_M, 1).Write(ser, sizeof(ser)).Finalize(hash.begin());
-            coins[i].out.nValue = Amount{hash.GetUint64(0) % MAX_MONEY.Int()};
+            coins[i].out.nValue = UAmount{hash.GetUint64(0) % MAX_MONEY.UInt()};
             coins[i].fCoinBase = (hash.GetUint64(1) & 7) == 0;
             coins[i].nHeight = 0; /* Real nHeight used in simulation is set dynamically. */
         }

@@ -1178,8 +1178,8 @@ static util::Result<CreatedTransactionResult> CreateTransactionInternal(
     // For creating the change output now, we use the effective feerate.
     // For spending the change output in the future, we use the discard feerate for now.
     // So cost of change = (change output size * effective feerate) + (size of spending change output * discard feerate)
-    coin_selection_params.m_change_fee = coin_selection_params.m_effective_feerate.GetFee(coin_selection_params.change_output_size);
-    coin_selection_params.m_cost_of_change = coin_selection_params.m_discard_feerate.GetFee(coin_selection_params.change_spend_size) + coin_selection_params.m_change_fee;
+    coin_selection_params.m_change_fee = coin_selection_params.m_effective_feerate.GetFee(coin_selection_params.change_output_size).TruncateToUnsigned();
+    coin_selection_params.m_cost_of_change = (coin_selection_params.m_discard_feerate.GetFee(coin_selection_params.change_spend_size) + coin_selection_params.m_change_fee).TruncateToUnsigned();
 
     coin_selection_params.m_min_change_target = GenerateChangeTarget(recipients_sum / vecSend.size(), coin_selection_params.m_change_fee, rng_fast);
 
@@ -1187,7 +1187,7 @@ static util::Result<CreatedTransactionResult> CreateTransactionInternal(
     // 1. at least equal to dust threshold
     // 2. at least 1 sat greater than fees to spend it at m_discard_feerate
     const auto dust = GetDustThreshold(change_prototype_txout, coin_selection_params.m_discard_feerate);
-    const auto change_spend_fee = coin_selection_params.m_discard_feerate.GetFee(coin_selection_params.change_spend_size);
+    const UAmount change_spend_fee{coin_selection_params.m_discard_feerate.GetFee(coin_selection_params.change_spend_size).AssertToUnsigned()};
     coin_selection_params.min_viable_change = std::max(change_spend_fee + 1_sats, dust);
 
     // Include the fees for things that aren't inputs, excluding the change output

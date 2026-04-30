@@ -136,7 +136,7 @@ static constexpr script_verify_flags STANDARD_NOT_MANDATORY_VERIFY_FLAGS{STANDAR
 /** Used as the flags parameter to sequence and nLocktime checks in non-consensus code. */
 static constexpr unsigned int STANDARD_LOCKTIME_VERIFY_FLAGS{LOCKTIME_VERIFY_SEQUENCE};
 
-Amount GetDustThreshold(const CTxOut& txout, const CFeeRate& dustRelayFee);
+UAmount GetDustThreshold(const CTxOut& txout, const CFeeRate& dustRelayFee);
 
 bool IsDust(const CTxOut& txout, const CFeeRate& dustRelayFee);
 

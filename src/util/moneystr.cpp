@@ -42,7 +42,7 @@ std::string FormatMoney(const Amount n)
 }
 
 
-std::optional<Amount> ParseMoney(const std::string& money_string)
+std::optional<UAmount> ParseMoney(const std::string& money_string)
 {
     if (!ContainsNoNUL(money_string)) {
         return std::nullopt;
@@ -60,7 +60,7 @@ std::optional<Amount> ParseMoney(const std::string& money_string)
         if (*p == '.')
         {
             p++;
-            int64_t nMult = COIN.Int() / 10;
+            int64_t nMult = COIN.UInt() / 10;
             while (IsDigit(*p) && (nMult > 0))
             {
                 nUnits += nMult * (*p++ - '0');
@@ -79,7 +79,7 @@ std::optional<Amount> ParseMoney(const std::string& money_string)
     }
     if (strWhole.size() > 10) // guard against 63 bit overflow
         return std::nullopt;
-    if (nUnits < 0 || nUnits > COIN.Int())
+    if (nUnits < 0 || static_cast<uint64_t>(nUnits) > COIN.UInt())
         return std::nullopt;
     int64_t nWhole = LocaleIndependentAtoi<int64_t>(strWhole);
     Amount value = nWhole * COIN + Amount{nUnits};
@@ -88,5 +88,5 @@ std::optional<Amount> ParseMoney(const std::string& money_string)
         return std::nullopt;
     }
 
-    return value;
+    return value.AssertToUnsigned();
 }

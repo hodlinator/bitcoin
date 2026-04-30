@@ -19,6 +19,6 @@
  */
 std::string FormatMoney(Amount n);
 /** Parse an amount denoted in full coins. E.g. "0.0034" supplied on the command line. **/
-std::optional<Amount> ParseMoney(const std::string& str);
+std::optional<UAmount> ParseMoney(const std::string& str);
 
 #endif // BITCOIN_UTIL_MONEYSTR_H

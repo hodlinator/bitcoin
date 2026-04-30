@@ -144,11 +144,11 @@ struct CoinSelectionParams {
     /** Minimum amount for creating a change output.
      * If change budget is smaller than min_change then we forgo creation of change output.
      */
-    Amount min_viable_change{0_sats};
+    UAmount min_viable_change{0_sats};
     /** Cost of creating the change output. */
-    Amount m_change_fee{0_sats};
+    UAmount m_change_fee{0_sats};
     /** Cost of creating the change output + cost of spending the change output in the future. */
-    Amount m_cost_of_change{0_sats};
+    UAmount m_cost_of_change{0_sats};
     /** The targeted feerate of the transaction being built. */
     CFeeRate m_effective_feerate;
     /** The feerate estimate used to estimate an upper bound on what should be sufficient to spend

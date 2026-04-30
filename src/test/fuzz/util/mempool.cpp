@@ -20,7 +20,7 @@ CTxMemPoolEntry ConsumeTxMemPoolEntry(FuzzedDataProvider& fuzzed_data_provider, 
     // policy/feerate.cpp:28:34: runtime error: signed integer overflow: 34873208148477500 * 1000 cannot be represented in type 'long'
     //
     // Reproduce using CFeeRate(348732081484775, 10).GetFeePerK()
-    const Amount fee{ConsumeMoney(fuzzed_data_provider, /*max=*/Amount{std::numeric_limits<Amount::inner_type>::max() / 100'000})};
+    const UAmount fee{ConsumeMoney(fuzzed_data_provider, /*max=*/UAmount{std::numeric_limits<UAmount::inner_type>::max() / 100'000})};
     assert(MoneyRange(fee));
     const int64_t time = fuzzed_data_provider.ConsumeIntegral<int64_t>();
     const uint64_t entry_sequence{fuzzed_data_provider.ConsumeIntegral<uint64_t>()};

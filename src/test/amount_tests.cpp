@@ -17,7 +17,7 @@ BOOST_AUTO_TEST_CASE(MoneyRangeTest)
     BOOST_CHECK_EQUAL(MoneyRange(Amount(0)), true);
     BOOST_CHECK_EQUAL(MoneyRange(Amount(1)), true);
     BOOST_CHECK_EQUAL(MoneyRange(MAX_MONEY), true);
-    BOOST_CHECK_EQUAL(MoneyRange(MAX_MONEY + Amount(1)), false);
+    BOOST_CHECK_EQUAL(MoneyRange(MAX_MONEY + 1_sats), false);
 }
 
 BOOST_AUTO_TEST_CASE(GetFeeTest)

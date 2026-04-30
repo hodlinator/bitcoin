@@ -419,7 +419,7 @@ consteval UAmountLiteral operator""_sats(unsigned long long amount) noexcept
 }
 
 /** The amount of satoshis in one BTC. */
-constexpr Amount COIN{100000000};
+constexpr UAmountLiteral COIN{100000000_sats};
 
 /** No amount larger than this (in satoshi) is valid.
  *
@@ -430,7 +430,7 @@ constexpr Amount COIN{100000000};
  * critical; in unusual circumstances like a(nother) overflow bug that allowed
  * for the creation of coins out of thin air modification could lead to a fork.
  * */
-constexpr Amount MAX_MONEY{21000000 * COIN};
+constexpr UAmount MAX_MONEY{21000000U * COIN};
 constexpr bool MoneyRange(const Amount& nValue) { return (nValue >= 0_sats && nValue <= MAX_MONEY); }
 constexpr bool MoneyRange(const UAmount& nValue) { return (nValue >= 0_sats && nValue <= MAX_MONEY); }
 constexpr bool MoneyRange(const UAmountLiteral& nValue) { return MoneyRange(UAmount{nValue}); }
