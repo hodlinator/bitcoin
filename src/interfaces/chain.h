@@ -204,7 +204,7 @@ public:
     //! @param[out] err_string Set if an error occurs.
     //! @return False if the transaction could not be added due to the fee or for another reason.
     virtual bool broadcastTransaction(const CTransactionRef& tx,
-                                      const Amount& max_tx_fee,
+                                      const UAmount& max_tx_fee,
                                       node::TxBroadcast broadcast_method,
                                       std::string& err_string) = 0;
 
@@ -238,7 +238,7 @@ public:
     //  outputs in the same transaction) or have shared ancestry, the bump fees are calculated
     //  independently, i.e. as if only one of them is spent. This may result in double-fee-bumping. This
     //  caveat can be rectified per use of the sister-function CalculateCombinedBumpFee(…).
-    virtual std::map<COutPoint, Amount> calculateIndividualBumpFees(const std::vector<COutPoint>& outpoints, const CFeeRate& target_feerate) = 0;
+    virtual std::map<COutPoint, UAmount> calculateIndividualBumpFees(const std::vector<COutPoint>& outpoints, const CFeeRate& target_feerate) = 0;
 
     //! Calculate the combined bump fee for an input set per the same strategy
     //  as in CalculateIndividualBumpFees(…).

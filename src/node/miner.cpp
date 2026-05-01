@@ -46,6 +46,7 @@
 #include <condition_variable>
 #include <cstddef>
 #include <functional>
+#include <optional>
 #include <numeric>
 #include <span>
 #include <stdexcept>
@@ -179,7 +180,7 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock()
     coinbaseTx.vout.resize(1);
     coinbaseTx.vout[0].scriptPubKey = m_options.coinbase_output_script;
     // Block subsidy + fees
-    const UAmount block_reward{nFees.AssertToUnsigned() + GetBlockSubsidy(nHeight, chainparams.GetConsensus())};
+    const UAmount block_reward{nFees + GetBlockSubsidy(nHeight, chainparams.GetConsensus())};
     coinbaseTx.vout[0].nValue = block_reward;
     coinbase_tx.block_reward_remaining = block_reward;
 
@@ -431,7 +432,7 @@ std::unique_ptr<CBlockTemplate> WaitAndCreateNewBlock(ChainstateManager& chainma
 {
     // Delay calculating the current template fees, just in case a new block
     // comes in before the next tick.
-    Amount current_fees{-1};
+    std::optional<UAmount> current_fees;
 
     // Alternate waiting for a new tip and checking if fees have risen.
     // The latter check is expensive so we only run it once per second.
@@ -494,14 +495,14 @@ std::unique_ptr<CBlockTemplate> WaitAndCreateNewBlock(ChainstateManager& chainma
             if (tip_changed) return new_tmpl;
 
             // Calculate the original template total fees if we haven't already
-            if (current_fees == -1_sats) {
-                current_fees = std::accumulate(block_template->vTxFees.begin(), block_template->vTxFees.end(), Amount{0_sats});
+            if (!current_fees.has_value()) {
+                current_fees = std::accumulate(block_template->vTxFees.begin(), block_template->vTxFees.end(), UAmount{0_sats});
             }
 
             // Check if fees increased enough to return the new template
-            const Amount new_fees = std::accumulate(new_tmpl->vTxFees.begin(), new_tmpl->vTxFees.end(), Amount{0_sats});
+            const UAmount new_fees = std::accumulate(new_tmpl->vTxFees.begin(), new_tmpl->vTxFees.end(), UAmount{0_sats});
             Assume(wait_options.fee_threshold != MAX_MONEY);
-            if (new_fees >= current_fees + wait_options.fee_threshold) return new_tmpl;
+            if (new_fees >= *current_fees + wait_options.fee_threshold) return new_tmpl;
         }
 
         now = NodeClock::now();

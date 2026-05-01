@@ -306,7 +306,7 @@ public:
         return *this;
     }
 
-    TestBuilder& PushSig(const CKey& key, int nHashType = SIGHASH_ALL, unsigned int lenR = 32, unsigned int lenS = 32, SigVersion sigversion = SigVersion::BASE, Amount amount = 0_sats)
+    TestBuilder& PushSig(const CKey& key, int nHashType = SIGHASH_ALL, unsigned int lenR = 32, unsigned int lenS = 32, SigVersion sigversion = SigVersion::BASE, UAmount amount = 0_sats)
     {
         uint256 hash = SignatureHash(script, spendTx, 0, nHashType, amount, sigversion);
         std::vector<unsigned char> vchSig, r, s;
@@ -328,7 +328,7 @@ public:
     {
         if (amount == -1_sats)
             amount = nValue;
-        return PushSig(key, nHashType, lenR, lenS, sigversion, amount).AsWit();
+        return PushSig(key, nHashType, lenR, lenS, sigversion, amount.AssertToUnsigned()).AsWit();
     }
 
     TestBuilder& Push(const CPubKey& pubkey)

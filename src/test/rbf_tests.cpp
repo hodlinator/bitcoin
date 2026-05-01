@@ -61,9 +61,9 @@ BOOST_FIXTURE_TEST_CASE(rbf_helper_functions, TestChain100Setup)
     LOCK2(::cs_main, pool.cs);
     TestMemPoolEntryHelper entry;
 
-    const Amount low_fee{CENT/100};
-    const Amount normal_fee{CENT/10};
-    const Amount high_fee{CENT};
+    const UAmount low_fee{CENT/100U};
+    const UAmount normal_fee{CENT/10U};
+    const UAmount high_fee{CENT};
 
     // Create a parent tx1 and child tx2 with normal fees:
     const auto tx1 = make_tx(/*inputs=*/ {m_coinbase_txns[0]}, /*output_values=*/ {10U * COIN});
@@ -167,7 +167,7 @@ BOOST_FIXTURE_TEST_CASE(rbf_conflicts_calculator, TestChain100Setup)
     LOCK2(::cs_main, pool.cs);
     TestMemPoolEntryHelper entry;
 
-    const Amount normal_fee{CENT/10};
+    const UAmount normal_fee{CENT/10U};
 
     // Create two parent transactions with 51 outputs each
     const int NUM_OUTPUTS = 51;
@@ -252,8 +252,8 @@ BOOST_FIXTURE_TEST_CASE(improves_feerate, TestChain100Setup)
     LOCK2(::cs_main, pool.cs);
     TestMemPoolEntryHelper entry;
 
-    const Amount low_fee{CENT/100};
-    const Amount normal_fee{CENT/10};
+    const UAmount low_fee{CENT/100U};
+    const UAmount normal_fee{CENT/10U};
 
     // low feerate parent with normal feerate child
     const auto tx1 = make_tx(/*inputs=*/ {m_coinbase_txns[0], m_coinbase_txns[1]}, /*output_values=*/ {10U * COIN});
@@ -277,8 +277,8 @@ BOOST_FIXTURE_TEST_CASE(improves_feerate, TestChain100Setup)
     auto changeset = pool.GetChangeSet();
     changeset->StageRemoval(entry1);
     changeset->StageRemoval(entry2);
-    changeset->StageAddition(tx1_conflict, tx1_fee, 0, 1, 0, false, 4, LockPoints());
-    changeset->StageAddition(tx3, tx2_fee, 0, 1, 0, false, 4, LockPoints());
+    changeset->StageAddition(tx1_conflict, tx1_fee.AssertToUnsigned(), 0, 1, 0, false, 4, LockPoints());
+    changeset->StageAddition(tx3, tx2_fee.AssertToUnsigned(), 0, 1, 0, false, 4, LockPoints());
     const auto res1 = ImprovesFeerateDiagram(*changeset);
     BOOST_CHECK(res1.has_value());
     BOOST_CHECK(res1.value().first == DiagramCheckError::FAILURE);
@@ -289,8 +289,8 @@ BOOST_FIXTURE_TEST_CASE(improves_feerate, TestChain100Setup)
     changeset = pool.GetChangeSet();
     changeset->StageRemoval(entry1);
     changeset->StageRemoval(entry2);
-    changeset->StageAddition(tx1_conflict, tx1_fee+1_sats, 0, 1, 0, false, 4, LockPoints());
-    changeset->StageAddition(tx3, tx2_fee, 0, 1, 0, false, 4, LockPoints());
+    changeset->StageAddition(tx1_conflict, tx1_fee.AssertToUnsigned()+1_sats, 0, 1, 0, false, 4, LockPoints());
+    changeset->StageAddition(tx3, tx2_fee.AssertToUnsigned(), 0, 1, 0, false, 4, LockPoints());
     BOOST_CHECK(ImprovesFeerateDiagram(*changeset) == std::nullopt);
 
     changeset.reset();
@@ -299,8 +299,8 @@ BOOST_FIXTURE_TEST_CASE(improves_feerate, TestChain100Setup)
     changeset = pool.GetChangeSet();
     changeset->StageRemoval(entry1);
     changeset->StageRemoval(entry2);
-    changeset->StageAddition(tx1_conflict, tx1_fee+1_sats, 0, 1, 0, false, 4, LockPoints());
-    changeset->StageAddition(tx3, tx2_fee, 0, 1, 0, false, 4, LockPoints());
+    changeset->StageAddition(tx1_conflict, tx1_fee.AssertToUnsigned()+1_sats, 0, 1, 0, false, 4, LockPoints());
+    changeset->StageAddition(tx3, tx2_fee.AssertToUnsigned(), 0, 1, 0, false, 4, LockPoints());
     const auto res2 = ImprovesFeerateDiagram(*changeset);
     BOOST_CHECK(res2.has_value());
     BOOST_CHECK(res2.value().first == DiagramCheckError::FAILURE);
@@ -316,8 +316,8 @@ BOOST_FIXTURE_TEST_CASE(improves_feerate, TestChain100Setup)
     changeset = pool.GetChangeSet();
     changeset->StageRemoval(entry1);
     changeset->StageRemoval(entry2);
-    changeset->StageAddition(tx1_conflict, tx1_fee, 0, 1, 0, false, 4, LockPoints());
-    changeset->StageAddition(entry4.GetSharedTx(), tx2_fee, 0, 1, 0, false, 4, LockPoints());
+    changeset->StageAddition(tx1_conflict, tx1_fee.AssertToUnsigned(), 0, 1, 0, false, 4, LockPoints());
+    changeset->StageAddition(entry4.GetSharedTx(), tx2_fee.AssertToUnsigned(), 0, 1, 0, false, 4, LockPoints());
     BOOST_CHECK(ImprovesFeerateDiagram(*changeset) == std::nullopt);
     changeset.reset();
 
@@ -330,8 +330,8 @@ BOOST_FIXTURE_TEST_CASE(improves_feerate, TestChain100Setup)
     changeset->StageRemoval(entry1);
     changeset->StageRemoval(entry2);
     changeset->StageRemoval(entry5);
-    changeset->StageAddition(tx1_conflict, tx1_fee, 0, 1, 0, false, 4, LockPoints());
-    changeset->StageAddition(entry4.GetSharedTx(), tx2_fee + entry5->GetModifiedFee() + 1_sats, 0, 1, 0, false, 4, LockPoints());
+    changeset->StageAddition(tx1_conflict, tx1_fee.AssertToUnsigned(), 0, 1, 0, false, 4, LockPoints());
+    changeset->StageAddition(entry4.GetSharedTx(), (tx2_fee + entry5->GetModifiedFee() + 1_sats).AssertToUnsigned(), 0, 1, 0, false, 4, LockPoints());
     const auto res3 = ImprovesFeerateDiagram(*changeset);
     BOOST_CHECK(res3 == std::nullopt);
 }
@@ -342,8 +342,8 @@ BOOST_FIXTURE_TEST_CASE(calc_feerate_diagram_rbf, TestChain100Setup)
     LOCK2(::cs_main, pool.cs);
     TestMemPoolEntryHelper entry;
 
-    const Amount low_fee{CENT/100};
-    const Amount high_fee{CENT};
+    const UAmount low_fee{CENT/100U};
+    const UAmount high_fee{CENT};
 
     // low -> high -> medium fee transactions that would result in two chunks together since they
     // are all same size

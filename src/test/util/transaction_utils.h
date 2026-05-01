@@ -46,7 +46,7 @@ void BulkTransaction(CMutableTransaction& tx, int32_t target_weight);
  * @return           True if the produced script is entirely satisfying `fromPubKey`.
  **/
 bool SignSignature(const SigningProvider &provider, const CScript& fromPubKey, CMutableTransaction& txTo,
-                   unsigned int nIn, const Amount& amount, int nHashType, SignatureData& sig_data);
+                   unsigned int nIn, const UAmount& amount, int nHashType, SignatureData& sig_data);
 bool SignSignature(const SigningProvider &provider, const CTransaction& txFrom, CMutableTransaction& txTo,
                    unsigned int nIn, int nHashType, SignatureData& sig_data);
 

@@ -587,7 +587,7 @@ void CoinControlDialog::updateView()
             itemWalletAddress->setText(COLUMN_ADDRESS, sWalletAddress);
         }
 
-        Amount nSum{0_sats};
+        UAmount nSum{0_sats};
         int nChildren = 0;
         for (const auto& outpair : coins.second) {
             const COutPoint& output = std::get<0>(outpair);
@@ -664,7 +664,7 @@ void CoinControlDialog::updateView()
         {
             itemWalletAddress->setText(COLUMN_CHECKBOX, "(" + QString::number(nChildren) + ")");
             itemWalletAddress->setText(COLUMN_AMOUNT, BitcoinUnits::format(nDisplayUnit, nSum));
-            itemWalletAddress->setData(COLUMN_AMOUNT, Qt::UserRole, QVariant(qlonglong{nSum.Int()}));
+            itemWalletAddress->setData(COLUMN_AMOUNT, Qt::UserRole, QVariant(qulonglong{nSum.UInt()}));
         }
     }
 

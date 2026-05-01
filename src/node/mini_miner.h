@@ -94,7 +94,7 @@ class MiniMiner
     // sequence number.
     std::map<Txid, uint32_t> m_inclusion_order;
     // What we're trying to calculate. Outpoint to the fee needed to bring the transaction to the target feerate.
-    std::map<COutPoint, Amount> m_bump_fees;
+    std::map<COutPoint, UAmount> m_bump_fees;
 
     // The constructed block template
     std::set<Txid> m_in_block;
@@ -153,7 +153,7 @@ public:
      * did not make it into the block, calculate the cost of bumping those transactions (and their
      * ancestors) to the minimum feerate. Returns a map from outpoint to bump fee, or an empty map
      * if they cannot be calculated. */
-    std::map<COutPoint, Amount> CalculateBumpFees(const CFeeRate& target_feerate);
+    std::map<COutPoint, UAmount> CalculateBumpFees(const CFeeRate& target_feerate);
 
     /** Construct a new block template and, calculate the cost of bumping all transactions that did
      * not make it into the block to the target feerate. Returns the total bump fee, or std::nullopt

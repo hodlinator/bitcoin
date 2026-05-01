@@ -85,7 +85,7 @@ bool CheckMapFlagNames()
 * Check that the input scripts of a transaction are valid/invalid as expected.
 */
 bool CheckTxScripts(const CTransaction& tx, const std::map<COutPoint, CScript>& map_prevout_scriptPubKeys,
-    const std::map<COutPoint, Amount>& map_prevout_values, script_verify_flags flags,
+    const std::map<COutPoint, UAmount>& map_prevout_values, script_verify_flags flags,
     const PrecomputedTransactionData& txdata, const std::string& strTest, bool expect_valid)
 {
     bool tx_valid = true;
@@ -93,7 +93,7 @@ bool CheckTxScripts(const CTransaction& tx, const std::map<COutPoint, CScript>& 
     for (unsigned int i = 0; i < tx.vin.size() && tx_valid; ++i) {
         const CTxIn input = tx.vin[i];
         const auto it{map_prevout_values.find(input.prevout)};
-        const Amount amount{it != map_prevout_values.end() ? it->second : 0_sats};
+        const UAmount amount{it != map_prevout_values.end() ? it->second : 0_sats};
         try {
             tx_valid = VerifyScript(input.scriptSig, map_prevout_scriptPubKeys.at(input.prevout),
                 &input.scriptWitness, flags, TransactionSignatureChecker(&tx, i, amount, txdata, MissingDataBehavior::ASSERT_FAIL), &err);
@@ -178,7 +178,7 @@ BOOST_AUTO_TEST_CASE(tx_valid)
             }
 
             std::map<COutPoint, CScript> mapprevOutScriptPubKeys;
-            std::map<COutPoint, Amount> mapprevOutValues;
+            std::map<COutPoint, UAmount> mapprevOutValues;
             UniValue inputs = test[0].get_array();
             bool fValid = true;
             for (unsigned int inpIdx = 0; inpIdx < inputs.size(); inpIdx++) {
@@ -197,7 +197,7 @@ BOOST_AUTO_TEST_CASE(tx_valid)
                 mapprevOutScriptPubKeys[outpoint] = ParseScript(vinput[2].get_str());
                 if (vinput.size() >= 4)
                 {
-                    mapprevOutValues.emplace(outpoint, vinput[3].getInt<int64_t>());
+                    mapprevOutValues.emplace(outpoint, vinput[3].getInt<uint64_t>());
                 }
             }
             if (!fValid)
@@ -266,7 +266,7 @@ BOOST_AUTO_TEST_CASE(tx_invalid)
             }
 
             std::map<COutPoint, CScript> mapprevOutScriptPubKeys;
-            std::map<COutPoint, Amount> mapprevOutValues;
+            std::map<COutPoint, UAmount> mapprevOutValues;
             UniValue inputs = test[0].get_array();
             bool fValid = true;
             for (unsigned int inpIdx = 0; inpIdx < inputs.size(); inpIdx++) {
@@ -285,7 +285,7 @@ BOOST_AUTO_TEST_CASE(tx_invalid)
                 mapprevOutScriptPubKeys[outpoint] = ParseScript(vinput[2].get_str());
                 if (vinput.size() >= 4)
                 {
-                    mapprevOutValues.emplace(outpoint, vinput[3].getInt<int64_t>());
+                    mapprevOutValues.emplace(outpoint, vinput[3].getInt<uint64_t>());
                 }
             }
             if (!fValid)
@@ -1141,7 +1141,7 @@ BOOST_AUTO_TEST_CASE(checktxinputs_invalid_transactions_test)
         mtx.vout.emplace_back(output_value, CScript() << OP_TRUE);
 
         TxValidationState state;
-        Amount txfee{0_sats};
+        UAmount txfee{0_sats};
         BOOST_CHECK(!Consensus::CheckTxInputs(CTransaction{mtx}, state, inputs, spend_height, txfee));
         BOOST_CHECK(state.IsInvalid());
         BOOST_CHECK_EQUAL(state.GetResult(), expected_result);

@@ -18,7 +18,7 @@
 
 
 namespace wallet {
-static Amount GetReceived(const CWallet& wallet, const UniValue& params, bool by_label) EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet)
+static UAmount GetReceived(const CWallet& wallet, const UniValue& params, bool by_label) EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet)
 {
     std::vector<CTxDestination> addresses;
     if (by_label) {
@@ -55,7 +55,7 @@ static Amount GetReceived(const CWallet& wallet, const UniValue& params, bool by
     const bool include_immature_coinbase{params[2].isNull() ? false : params[2].get_bool()};
 
     // Tally
-    Amount amount{0_sats};
+    UAmount amount{0_sats};
     for (const auto& [_, wtx] : wallet.mapWallet) {
         int depth{wallet.GetTxDepthInMainChain(wtx)};
         if (depth < min_depth

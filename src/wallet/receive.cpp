@@ -29,7 +29,7 @@ bool AllInputsMine(const CWallet& wallet, const CTransaction& tx)
     return true;
 }
 
-Amount OutputGetCredit(const CWallet& wallet, const CTxOut& txout)
+UAmount OutputGetCredit(const CWallet& wallet, const CTxOut& txout)
 {
     if (!MoneyRange(txout.nValue))
         throw std::runtime_error(std::string(__func__) + ": value out of range");
@@ -37,9 +37,9 @@ Amount OutputGetCredit(const CWallet& wallet, const CTxOut& txout)
     return (wallet.IsMine(txout) ? txout.nValue : 0_sats);
 }
 
-Amount TxGetCredit(const CWallet& wallet, const CTransaction& tx)
+UAmount TxGetCredit(const CWallet& wallet, const CTransaction& tx)
 {
-    Amount nCredit{0_sats};
+    UAmount nCredit{0_sats};
     for (const CTxOut& txout : tx.vout)
     {
         nCredit += OutputGetCredit(wallet, txout);
@@ -76,7 +76,7 @@ bool OutputIsChange(const CWallet& wallet, const CTxOut& txout)
     return ScriptIsChange(wallet, txout.scriptPubKey);
 }
 
-Amount OutputGetChange(const CWallet& wallet, const CTxOut& txout)
+UAmount OutputGetChange(const CWallet& wallet, const CTxOut& txout)
 {
     AssertLockHeld(wallet.cs_wallet);
     if (!MoneyRange(txout.nValue))
@@ -84,10 +84,10 @@ Amount OutputGetChange(const CWallet& wallet, const CTxOut& txout)
     return (OutputIsChange(wallet, txout) ? txout.nValue : 0_sats);
 }
 
-Amount TxGetChange(const CWallet& wallet, const CTransaction& tx)
+UAmount TxGetChange(const CWallet& wallet, const CTransaction& tx)
 {
     LOCK(wallet.cs_wallet);
-    Amount nChange{0_sats};
+    UAmount nChange{0_sats};
     for (const CTxOut& txout : tx.vout)
     {
         nChange += OutputGetChange(wallet, txout);
@@ -97,7 +97,7 @@ Amount TxGetChange(const CWallet& wallet, const CTransaction& tx)
     return nChange;
 }
 
-static Amount GetCachableAmount(const CWallet& wallet, const CWalletTx& wtx, CWalletTx::AmountType type, bool avoid_reuse)
+static UAmount GetCachableAmount(const CWallet& wallet, const CWalletTx& wtx, CWalletTx::AmountType type, bool avoid_reuse)
 {
     auto& amount = wtx.m_amounts[type];
     if (!amount.IsCached(avoid_reuse)) {
@@ -107,7 +107,7 @@ static Amount GetCachableAmount(const CWallet& wallet, const CWalletTx& wtx, CWa
     return amount.Get(avoid_reuse);
 }
 
-Amount CachedTxGetCredit(const CWallet& wallet, const CWalletTx& wtx, bool avoid_reuse)
+UAmount CachedTxGetCredit(const CWallet& wallet, const CWalletTx& wtx, bool avoid_reuse)
 {
     AssertLockHeld(wallet.cs_wallet);
 
@@ -119,7 +119,7 @@ Amount CachedTxGetCredit(const CWallet& wallet, const CWalletTx& wtx, bool avoid
     return GetCachableAmount(wallet, wtx, CWalletTx::CREDIT, avoid_reuse);
 }
 
-Amount CachedTxGetDebit(const CWallet& wallet, const CWalletTx& wtx, bool avoid_reuse)
+UAmount CachedTxGetDebit(const CWallet& wallet, const CWalletTx& wtx, bool avoid_reuse)
 {
     if (wtx.tx->vin.empty())
         return 0_sats;
@@ -127,7 +127,7 @@ Amount CachedTxGetDebit(const CWallet& wallet, const CWalletTx& wtx, bool avoid_
     return GetCachableAmount(wallet, wtx, CWalletTx::DEBIT, avoid_reuse);
 }
 
-Amount CachedTxGetChange(const CWallet& wallet, const CWalletTx& wtx)
+UAmount CachedTxGetChange(const CWallet& wallet, const CWalletTx& wtx)
 {
     if (wtx.fChangeCached)
         return wtx.nChangeCached;
@@ -138,7 +138,7 @@ Amount CachedTxGetChange(const CWallet& wallet, const CWalletTx& wtx)
 
 void CachedTxGetAmounts(const CWallet& wallet, const CWalletTx& wtx,
                   std::list<COutputEntry>& listReceived,
-                  std::list<COutputEntry>& listSent, Amount& nFee,
+                  std::list<COutputEntry>& listSent, UAmount& nFee,
                   bool include_change)
 {
     nFee = 0_sats;
@@ -146,11 +146,11 @@ void CachedTxGetAmounts(const CWallet& wallet, const CWalletTx& wtx,
     listSent.clear();
 
     // Compute fee:
-    Amount nDebit = CachedTxGetDebit(wallet, wtx, /*avoid_reuse=*/false);
+    UAmount nDebit = CachedTxGetDebit(wallet, wtx, /*avoid_reuse=*/false);
     if (nDebit > 0_sats) // debit>0 means we signed/sent this transaction
     {
-        Amount nValueOut = wtx.tx->GetValueOut();
-        nFee = nDebit - nValueOut;
+        UAmount nValueOut = wtx.tx->GetValueOut();
+        nFee = (nDebit - nValueOut).TruncateToUnsigned();
     }
 
     LOCK(wallet.cs_wallet);
@@ -266,7 +266,7 @@ Balance GetBalance(const CWallet& wallet, const int min_depth, bool avoid_reuse,
                 nonmempool_spent = true;
                 [[fallthrough]];
             case CWallet::SpendType::UNSPENT:
-                Amount* bucket = nullptr;
+                UAmount* bucket = nullptr;
 
                 // Set the amounts in the return object
                 if (wallet.IsTxImmatureCoinBase(wtx) && wtx.isConfirmed()) {
@@ -278,7 +278,7 @@ Balance GetBalance(const CWallet& wallet, const int min_depth, bool avoid_reuse,
                 }
                 if (bucket) {
                     // Get the amounts for mine
-                    Amount credit_mine = txo.GetTxOut().nValue;
+                    UAmount credit_mine = txo.GetTxOut().nValue;
 
                     if (!allow_used_addresses && wallet.IsSpentKey(txo.GetTxOut().scriptPubKey)) {
                         bucket = &ret.m_mine_used;
@@ -294,9 +294,9 @@ Balance GetBalance(const CWallet& wallet, const int min_depth, bool avoid_reuse,
     return ret;
 }
 
-std::map<CTxDestination, Amount> GetAddressBalances(const CWallet& wallet)
+std::map<CTxDestination, UAmount> GetAddressBalances(const CWallet& wallet)
 {
-    std::map<CTxDestination, Amount> balances;
+    std::map<CTxDestination, UAmount> balances;
 
     {
         LOCK(wallet.cs_wallet);
@@ -314,7 +314,7 @@ std::map<CTxDestination, Amount> GetAddressBalances(const CWallet& wallet)
             Assume(wallet.IsMine(txo.GetTxOut()));
             if(!ExtractDestination(txo.GetTxOut().scriptPubKey, addr)) continue;
 
-            Amount n = wallet.IsSpent(outpoint) ? 0_sats : txo.GetTxOut().nValue;
+            UAmount n = wallet.IsSpent(outpoint) ? 0_sats : txo.GetTxOut().nValue;
             if (auto it{balances.find(addr)}; it != balances.end()) {
                 it->second += n;
             } else {

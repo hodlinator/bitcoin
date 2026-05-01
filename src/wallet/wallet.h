@@ -116,11 +116,11 @@ constexpr Amount DEFAULT_CONSOLIDATE_FEERATE{10000_sats}; // 10 sat/vbyte
  * A value of 0 (current default) means to attempt to do partial spend avoidance, and use its results if the fees remain *unchanged*
  * A value > 0 means to do partial spend avoidance if the fee difference against a regular coin selection instance is in the range [0..value].
  */
-constexpr Amount DEFAULT_MAX_AVOIDPARTIALSPEND_FEE{0_sats};
+constexpr UAmountLiteral DEFAULT_MAX_AVOIDPARTIALSPEND_FEE{0_sats};
 //! discourage APS fee higher than this amount
-constexpr Amount HIGH_APS_FEE{COIN / 10000};
+constexpr UAmount HIGH_APS_FEE{COIN / 10000U};
 //! minimum recommended increment for replacement txs
-constexpr Amount WALLET_INCREMENTAL_RELAY_FEE{5000_sats};
+constexpr UAmountLiteral WALLET_INCREMENTAL_RELAY_FEE{5000_sats};
 //! Default for -spendzeroconfchange
 static const bool DEFAULT_SPEND_ZEROCONF_CHANGE = true;
 //! Default for -walletrejectlongchains
@@ -133,11 +133,11 @@ static const bool DEFAULT_WALLETBROADCAST = true;
 static const bool DEFAULT_DISABLE_WALLET = false;
 static const bool DEFAULT_WALLETCROSSCHAIN = false;
 //! -maxtxfee default
-constexpr Amount DEFAULT_TRANSACTION_MAXFEE{COIN / 10};
+constexpr UAmount DEFAULT_TRANSACTION_MAXFEE{COIN / 10U};
 //! Discourage users to set fees higher than this amount (in satoshis) per kB
-constexpr Amount HIGH_TX_FEE_PER_KB{COIN / 100};
+constexpr UAmount HIGH_TX_FEE_PER_KB{COIN / 100U};
 //! -maxtxfee will warn if called with a higher fee than this amount (in satoshis)
-constexpr Amount HIGH_MAX_TX_FEE{100 * HIGH_TX_FEE_PER_KB};
+constexpr UAmount HIGH_MAX_TX_FEE{100U * HIGH_TX_FEE_PER_KB};
 //! Pre-calculated constants for input size estimation in *virtual size*
 static constexpr size_t DUMMY_NESTED_P2WPKH_INPUT_SIZE = 91;
 
@@ -737,7 +737,7 @@ public:
      */
     std::optional<OutputType> m_default_change_type{};
     /** Absolute maximum transaction fee (in satoshis) used by default for the wallet */
-    Amount m_default_max_tx_fee{DEFAULT_TRANSACTION_MAXFEE};
+    UAmount m_default_max_tx_fee{DEFAULT_TRANSACTION_MAXFEE};
 
     /** Number of pre-generated keys/scripts by each spkm (part of the look-ahead process, used to detect payments) */
     int64_t m_keypool_size{DEFAULT_KEYPOOL_SIZE};
@@ -785,13 +785,13 @@ public:
     bool IsMine(const CTxDestination& dest) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     bool IsMine(const CScript& script) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     /** Returns amount of debit, i.e. the amount leaving this wallet due to this input */
-    Amount GetDebit(const CTxIn& txin) const;
+    UAmount GetDebit(const CTxIn& txin) const;
     bool IsMine(const CTxOut& txout) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     bool IsMine(const CTransaction& tx) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     bool IsMine(const COutPoint& outpoint) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     /** should probably be renamed to IsRelevantToMe */
     bool IsFromMe(const CTransaction& tx) const;
-    Amount GetDebit(const CTransaction& tx) const;
+    UAmount GetDebit(const CTransaction& tx) const;
 
     DBErrors PopulateWalletFromDB(bilingual_str& error, std::vector<bilingual_str>& warnings);
 

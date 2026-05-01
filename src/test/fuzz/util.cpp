@@ -72,6 +72,11 @@ UAmount ConsumeMoney(FuzzedDataProvider& provider, const UAmountLiteral& min, co
     return ConsumeMoney(provider, UAmount{min}, max);
 }
 
+UAmount ConsumeMoney(FuzzedDataProvider& provider, const UAmountLiteral& min, const UAmountLiteral& max) noexcept
+{
+    return ConsumeMoney(provider, UAmount{min}, UAmount{max});
+}
+
 NodeSeconds ConsumeTime(FuzzedDataProvider& fuzzed_data_provider, const std::optional<int64_t>& min, const std::optional<int64_t>& max) noexcept
 {
     // Avoid t=0 (1970-01-01T00:00:00Z) since SetMockTime(0) disables mocktime.

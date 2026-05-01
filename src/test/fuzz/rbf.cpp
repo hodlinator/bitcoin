@@ -192,7 +192,7 @@ FUZZ_TARGET(package_rbf, .init = initialize_package_rbf)
         pool.CalculateDescendants(txiter, all_conflicts);
     }
 
-    Amount replacement_fees = ConsumeMoney(fuzzed_data_provider);
+    UAmount replacement_fees = ConsumeMoney(fuzzed_data_provider);
     auto changeset = pool.GetChangeSet();
     for (auto& txiter : all_conflicts) {
         changeset->StageRemoval(txiter);

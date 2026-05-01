@@ -2,6 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <consensus/amount.h>
 #include <node/context.h>
 #include <policy/policy.h>
 #include <primitives/transaction.h>
@@ -48,7 +49,7 @@ static void add_coin(const UAmount& nValue, int nInput, SelectionResult& result)
     result.AddInput(group);
 }
 
-static void add_coin(const UAmount& nValue, int nInput, SelectionResult& result, Amount fee, Amount long_term_fee)
+static void add_coin(const UAmount& nValue, int nInput, SelectionResult& result, UAmount fee, UAmount long_term_fee)
 {
     CMutableTransaction tx;
     tx.vout.resize(nInput + 1);
@@ -81,14 +82,14 @@ static void add_coin(CoinsResult& available_coins, CWallet& wallet, const UAmoun
 }
 
 // Helpers
-std::optional<SelectionResult> KnapsackSolver(std::vector<OutputGroup>& groups, const Amount& nTargetValue,
-                                              Amount change_target, FastRandomContext& rng)
+std::optional<SelectionResult> KnapsackSolver(std::vector<OutputGroup>& groups, const UAmount& nTargetValue,
+                                              UAmount change_target, FastRandomContext& rng)
 {
     auto res{KnapsackSolver(groups, nTargetValue, change_target, rng, MAX_STANDARD_TX_WEIGHT)};
     return res ? std::optional<SelectionResult>(*res) : std::nullopt;
 }
 
-std::optional<SelectionResult> SelectCoinsBnB(std::vector<OutputGroup>& utxo_pool, const Amount& selection_target, const Amount& cost_of_change)
+std::optional<SelectionResult> SelectCoinsBnB(std::vector<OutputGroup>& utxo_pool, const UAmount& selection_target, const UAmount& cost_of_change)
 {
     auto res{SelectCoinsBnB(utxo_pool, selection_target, cost_of_change, MAX_STANDARD_TX_WEIGHT)};
     return res ? std::optional<SelectionResult>(*res) : std::nullopt;
@@ -98,8 +99,8 @@ std::optional<SelectionResult> SelectCoinsBnB(std::vector<OutputGroup>& utxo_poo
  * Equivalent means same input values, but maybe different inputs (i.e. same value, different prevout) */
 static bool EquivalentResult(const SelectionResult& a, const SelectionResult& b)
 {
-    std::vector<Amount> a_amts;
-    std::vector<Amount> b_amts;
+    std::vector<UAmount> a_amts;
+    std::vector<UAmount> b_amts;
     for (const auto& coin : a.GetInputSet()) {
         a_amts.push_back(coin->txout.nValue);
     }
@@ -109,7 +110,7 @@ static bool EquivalentResult(const SelectionResult& a, const SelectionResult& b)
     std::sort(a_amts.begin(), a_amts.end());
     std::sort(b_amts.begin(), b_amts.end());
 
-    std::pair<std::vector<Amount>::iterator, std::vector<Amount>::iterator> ret = std::mismatch(a_amts.begin(), a_amts.end(), b_amts.begin());
+    std::pair<std::vector<UAmount>::iterator, std::vector<UAmount>::iterator> ret = std::mismatch(a_amts.begin(), a_amts.end(), b_amts.begin());
     return ret.first == a_amts.end() && ret.second == b_amts.end();
 }
 
@@ -200,15 +201,15 @@ BOOST_AUTO_TEST_CASE(bnb_search_test)
 
         add_coin(available_coins, *wallet, 1_sats, coin_selection_params_bnb.m_effective_feerate);
         available_coins.All().at(0).input_bytes = 40; // Make sure that it has a negative effective value. The next check should assert if this somehow got through. Otherwise it will fail
-        BOOST_CHECK(!SelectCoinsBnB(GroupCoins(available_coins.All()), 1 * CENT, coin_selection_params_bnb.m_cost_of_change));
+        BOOST_CHECK(!SelectCoinsBnB(GroupCoins(available_coins.All()), 1U * CENT, coin_selection_params_bnb.m_cost_of_change));
 
         // Test fees subtracted from output:
         available_coins = {};
         add_coin(available_coins, *wallet, 1U * CENT, coin_selection_params_bnb.m_effective_feerate);
         available_coins.All().at(0).input_bytes = 40;
-        const auto result9 = SelectCoinsBnB(GroupCoins(available_coins.All()), 1 * CENT, coin_selection_params_bnb.m_cost_of_change);
+        const auto result9 = SelectCoinsBnB(GroupCoins(available_coins.All()), 1U * CENT, coin_selection_params_bnb.m_cost_of_change);
         BOOST_CHECK(result9);
-        BOOST_CHECK_EQUAL(result9->GetSelectedValue(), 1 * CENT);
+        BOOST_CHECK_EQUAL(result9->GetSelectedValue(), 1U * CENT);
         expected_attempts = 1;
         BOOST_CHECK_MESSAGE(result9->GetSelectionsEvaluated() == expected_attempts, strprintf("Expected %i attempts, but got %i", expected_attempts, result9->GetSelectionsEvaluated()));
     }
@@ -231,7 +232,7 @@ BOOST_AUTO_TEST_CASE(bnb_search_test)
         available_coins.Erase({available_coins.coins[OutputType::BECH32].begin()->outpoint});
 
         LOCK(wallet->cs_wallet);
-        const auto result10 = SelectCoins(*wallet, available_coins, selected_input, 10 * CENT, coin_control, coin_selection_params_bnb);
+        const auto result10 = SelectCoins(*wallet, available_coins, selected_input, 10U * CENT, coin_control, coin_selection_params_bnb);
         BOOST_CHECK(result10);
         expected_attempts = 3;
         BOOST_CHECK_MESSAGE(result10->GetSelectionsEvaluated() == expected_attempts, strprintf("Expected %i attempts, but got %i", expected_attempts, result10->GetSelectionsEvaluated()));
@@ -247,7 +248,7 @@ BOOST_AUTO_TEST_CASE(bnb_search_test)
         coin_selection_params_bnb.m_long_term_feerate = CFeeRate(3000_sats);
 
         // Add selectable outputs, increasing their raw amounts by their input fee to make the effective value equal to the raw amount
-        UAmount input_fee{coin_selection_params_bnb.m_effective_feerate.GetFee(/*virtual_bytes=*/68).AssertToUnsigned()}; // bech32 input size (default test output type)
+        const UAmount input_fee{coin_selection_params_bnb.m_effective_feerate.GetFee(/*virtual_bytes=*/68).AssertToUnsigned()}; // bech32 input size (default test output type)
         add_coin(available_coins, *wallet, 10U * CENT + input_fee, coin_selection_params_bnb.m_effective_feerate, 6 * 24, false, 0, true);
         add_coin(available_coins, *wallet, 9U * CENT + input_fee, coin_selection_params_bnb.m_effective_feerate, 6 * 24, false, 0, true);
         add_coin(available_coins, *wallet, 1U * CENT + input_fee, coin_selection_params_bnb.m_effective_feerate, 6 * 24, false, 0, true);
@@ -262,7 +263,7 @@ BOOST_AUTO_TEST_CASE(bnb_search_test)
         CoinsResult selected_input;
         selected_input.Add(OutputType::BECH32, select_coin);
         available_coins.Erase({(++available_coins.coins[OutputType::BECH32].begin())->outpoint});
-        const auto result13 = SelectCoins(*wallet, available_coins, selected_input, 10 * CENT, coin_control, coin_selection_params_bnb);
+        const auto result13 = SelectCoins(*wallet, available_coins, selected_input, 10U * CENT, coin_control, coin_selection_params_bnb);
         BOOST_CHECK(EquivalentResult(expected_result, *result13));
         expected_attempts = 2;
         BOOST_CHECK_MESSAGE(result13->GetSelectionsEvaluated() == expected_attempts, strprintf("Expected %i attempts, but got %i", expected_attempts, result13->GetSelectionsEvaluated()));
@@ -282,7 +283,7 @@ BOOST_AUTO_TEST_CASE(bnb_search_test)
         add_coin(available_coins, *wallet, 3U * CENT, coin_selection_params_bnb.m_effective_feerate, 6 * 24, false, 0, true);
         add_coin(available_coins, *wallet, 1U * CENT, coin_selection_params_bnb.m_effective_feerate, 6 * 24, false, 0, true);
 
-        Amount selection_target = 16 * CENT;
+        UAmount selection_target = 16U * CENT;
         const auto& no_res = SelectCoinsBnB(GroupCoins(available_coins.All(), /*subtract_fee_outputs=*/true),
                                             selection_target, /*cost_of_change=*/0_sats, MAX_STANDARD_TX_WEIGHT);
         BOOST_REQUIRE(!no_res);
@@ -343,7 +344,7 @@ BOOST_AUTO_TEST_CASE(bnb_sffo_restriction)
 BOOST_AUTO_TEST_CASE(knapsack_solver_test)
 {
     FastRandomContext rand{};
-    const auto temp1{[&rand](std::vector<OutputGroup>& g, const Amount& v, Amount c) { return KnapsackSolver(g, v, c, rand); }};
+    const auto temp1{[&rand](std::vector<OutputGroup>& g, const UAmount& v, UAmount c) { return KnapsackSolver(g, v, c, rand); }};
     const auto KnapsackSolver{temp1};
     std::unique_ptr<CWallet> wallet = NewWallet(m_node);
 
@@ -355,27 +356,27 @@ BOOST_AUTO_TEST_CASE(knapsack_solver_test)
         available_coins = {};
 
         // with an empty wallet we can't even pay one cent
-        BOOST_CHECK(!KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_standard), 1 * CENT, CENT));
+        BOOST_CHECK(!KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_standard), 1U * CENT, CENT));
 
         add_coin(available_coins, *wallet, 1U*CENT, CFeeRate(0_sats), 4);        // add a new 1 cent coin
 
         // with a new 1 cent coin, we still can't find a mature 1 cent
-        BOOST_CHECK(!KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_standard), 1 * CENT, CENT));
+        BOOST_CHECK(!KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_standard), 1U * CENT, CENT));
 
         // but we can find a new 1 cent
-        const auto result1 = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_confirmed), 1 * CENT, CENT);
+        const auto result1 = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_confirmed), 1U * CENT, CENT);
         BOOST_CHECK(result1);
-        BOOST_CHECK_EQUAL(result1->GetSelectedValue(), 1 * CENT);
+        BOOST_CHECK_EQUAL(result1->GetSelectedValue(), 1U * CENT);
 
         add_coin(available_coins, *wallet, 2U*CENT);           // add a mature 2 cent coin
 
         // we can't make 3 cents of mature coins
-        BOOST_CHECK(!KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_standard), 3 * CENT, CENT));
+        BOOST_CHECK(!KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_standard), 3U * CENT, CENT));
 
         // we can make 3 cents of new coins
-        const auto result2 = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_confirmed), 3 * CENT, CENT);
+        const auto result2 = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_confirmed), 3U * CENT, CENT);
         BOOST_CHECK(result2);
-        BOOST_CHECK_EQUAL(result2->GetSelectedValue(), 3 * CENT);
+        BOOST_CHECK_EQUAL(result2->GetSelectedValue(), 3U * CENT);
 
         add_coin(available_coins, *wallet, 5U*CENT);           // add a mature 5 cent coin,
         add_coin(available_coins, *wallet, 10U*CENT, CFeeRate(0_sats), 3, true); // a new 10 cent coin sent from one of our own addresses
@@ -384,40 +385,40 @@ BOOST_AUTO_TEST_CASE(knapsack_solver_test)
         // now we have new: 1+10=11 (of which 10 was self-sent), and mature: 2+5+20=27.  total = 38
 
         // we can't make 38 cents only if we disallow new coins:
-        BOOST_CHECK(!KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_standard), 38 * CENT, CENT));
+        BOOST_CHECK(!KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_standard), 38U * CENT, CENT));
         // we can't even make 37 cents if we don't allow new coins even if they're from us
-        BOOST_CHECK(!KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_standard_extra), 38 * CENT, CENT));
+        BOOST_CHECK(!KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_standard_extra), 38U * CENT, CENT));
         // but we can make 37 cents if we accept new coins from ourself
-        const auto result3 = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_standard), 37 * CENT, CENT);
+        const auto result3 = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_standard), 37U * CENT, CENT);
         BOOST_CHECK(result3);
-        BOOST_CHECK_EQUAL(result3->GetSelectedValue(), 37 * CENT);
+        BOOST_CHECK_EQUAL(result3->GetSelectedValue(), 37U * CENT);
         // and we can make 38 cents if we accept all new coins
-        const auto result4 = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_confirmed), 38 * CENT, CENT);
+        const auto result4 = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_confirmed), 38U * CENT, CENT);
         BOOST_CHECK(result4);
-        BOOST_CHECK_EQUAL(result4->GetSelectedValue(), 38 * CENT);
+        BOOST_CHECK_EQUAL(result4->GetSelectedValue(), 38U * CENT);
 
         // try making 34 cents from 1,2,5,10,20 - we can't do it exactly
-        const auto result5 = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_confirmed), 34 * CENT, CENT);
+        const auto result5 = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_confirmed), 34U * CENT, CENT);
         BOOST_CHECK(result5);
-        BOOST_CHECK_EQUAL(result5->GetSelectedValue(), 35 * CENT);       // but 35 cents is closest
+        BOOST_CHECK_EQUAL(result5->GetSelectedValue(), 35U * CENT);       // but 35 cents is closest
         BOOST_CHECK_EQUAL(result5->GetInputSet().size(), 3U);     // the best should be 20+10+5.  it's incredibly unlikely the 1 or 2 got included (but possible)
 
         // when we try making 7 cents, the smaller coins (1,2,5) are enough.  We should see just 2+5
-        const auto result6 = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_confirmed), 7 * CENT, CENT);
+        const auto result6 = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_confirmed), 7U * CENT, CENT);
         BOOST_CHECK(result6);
-        BOOST_CHECK_EQUAL(result6->GetSelectedValue(), 7 * CENT);
+        BOOST_CHECK_EQUAL(result6->GetSelectedValue(), 7U * CENT);
         BOOST_CHECK_EQUAL(result6->GetInputSet().size(), 2U);
 
         // when we try making 8 cents, the smaller coins (1,2,5) are exactly enough.
-        const auto result7 = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_confirmed), 8 * CENT, CENT);
+        const auto result7 = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_confirmed), 8U * CENT, CENT);
         BOOST_CHECK(result7);
-        BOOST_CHECK(result7->GetSelectedValue() == 8 * CENT);
+        BOOST_CHECK(result7->GetSelectedValue() == 8U * CENT);
         BOOST_CHECK_EQUAL(result7->GetInputSet().size(), 3U);
 
         // when we try making 9 cents, no subset of smaller coins is enough, and we get the next bigger coin (10)
-        const auto result8 = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_confirmed), 9 * CENT, CENT);
+        const auto result8 = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_confirmed), 9U * CENT, CENT);
         BOOST_CHECK(result8);
-        BOOST_CHECK_EQUAL(result8->GetSelectedValue(), 10 * CENT);
+        BOOST_CHECK_EQUAL(result8->GetSelectedValue(), 10U * CENT);
         BOOST_CHECK_EQUAL(result8->GetInputSet().size(), 1U);
 
         // now clear out the wallet and start again to test choosing between subsets of smaller coins and the next biggest coin
@@ -430,36 +431,36 @@ BOOST_AUTO_TEST_CASE(knapsack_solver_test)
         add_coin(available_coins, *wallet, 30U*CENT); // now we have 6+7+8+20+30 = 71 cents total
 
         // check that we have 71 and not 72
-        const auto result9 = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_confirmed), 71 * CENT, CENT);
+        const auto result9 = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_confirmed), 71U * CENT, CENT);
         BOOST_CHECK(result9);
-        BOOST_CHECK(!KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_confirmed), 72 * CENT, CENT));
+        BOOST_CHECK(!KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_confirmed), 72U * CENT, CENT));
 
         // now try making 16 cents.  the best smaller coins can do is 6+7+8 = 21; not as good at the next biggest coin, 20
-        const auto result10 = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_confirmed), 16 * CENT, CENT);
+        const auto result10 = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_confirmed), 16U * CENT, CENT);
         BOOST_CHECK(result10);
-        BOOST_CHECK_EQUAL(result10->GetSelectedValue(), 20 * CENT); // we should get 20 in one coin
+        BOOST_CHECK_EQUAL(result10->GetSelectedValue(), 20U * CENT); // we should get 20 in one coin
         BOOST_CHECK_EQUAL(result10->GetInputSet().size(), 1U);
 
         add_coin(available_coins, *wallet,  5U*CENT); // now we have 5+6+7+8+20+30 = 75 cents total
 
         // now if we try making 16 cents again, the smaller coins can make 5+6+7 = 18 cents, better than the next biggest coin, 20
-        const auto result11 = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_confirmed), 16 * CENT, CENT);
+        const auto result11 = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_confirmed), 16U * CENT, CENT);
         BOOST_CHECK(result11);
-        BOOST_CHECK_EQUAL(result11->GetSelectedValue(), 18 * CENT); // we should get 18 in 3 coins
+        BOOST_CHECK_EQUAL(result11->GetSelectedValue(), 18U * CENT); // we should get 18 in 3 coins
         BOOST_CHECK_EQUAL(result11->GetInputSet().size(), 3U);
 
         add_coin(available_coins, *wallet,  18U*CENT); // now we have 5+6+7+8+18+20+30
 
         // and now if we try making 16 cents again, the smaller coins can make 5+6+7 = 18 cents, the same as the next biggest coin, 18
-        const auto result12 = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_confirmed), 16 * CENT, CENT);
+        const auto result12 = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_confirmed), 16U * CENT, CENT);
         BOOST_CHECK(result12);
-        BOOST_CHECK_EQUAL(result12->GetSelectedValue(), 18 * CENT);  // we should get 18 in 1 coin
+        BOOST_CHECK_EQUAL(result12->GetSelectedValue(), 18U * CENT);  // we should get 18 in 1 coin
         BOOST_CHECK_EQUAL(result12->GetInputSet().size(), 1U); // because in the event of a tie, the biggest coin wins
 
         // now try making 11 cents.  we should get 5+6
-        const auto result13 = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_confirmed), 11 * CENT, CENT);
+        const auto result13 = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_confirmed), 11U * CENT, CENT);
         BOOST_CHECK(result13);
-        BOOST_CHECK_EQUAL(result13->GetSelectedValue(), 11 * CENT);
+        BOOST_CHECK_EQUAL(result13->GetSelectedValue(), 11U * CENT);
         BOOST_CHECK_EQUAL(result13->GetInputSet().size(), 2U);
 
         // check that the smallest bigger coin is used
@@ -467,14 +468,14 @@ BOOST_AUTO_TEST_CASE(knapsack_solver_test)
         add_coin(available_coins, *wallet,  2U*COIN);
         add_coin(available_coins, *wallet,  3U*COIN);
         add_coin(available_coins, *wallet,  4U*COIN); // now we have 5+6+7+8+18+20+30+100+200+300+400 = 1094 cents
-        const auto result14 = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_confirmed), 95 * CENT, CENT);
+        const auto result14 = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_confirmed), 95U * CENT, CENT);
         BOOST_CHECK(result14);
-        BOOST_CHECK_EQUAL(result14->GetSelectedValue(), 1 * COIN);  // we should get 1 BTC in 1 coin
+        BOOST_CHECK_EQUAL(result14->GetSelectedValue(), 1U * COIN);  // we should get 1 BTC in 1 coin
         BOOST_CHECK_EQUAL(result14->GetInputSet().size(), 1U);
 
-        const auto result15 = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_confirmed), 195 * CENT, CENT);
+        const auto result15 = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_confirmed), 195U * CENT, CENT);
         BOOST_CHECK(result15);
-        BOOST_CHECK_EQUAL(result15->GetSelectedValue(), 2 * COIN);  // we should get 2 BTC in 1 coin
+        BOOST_CHECK_EQUAL(result15->GetSelectedValue(), 2U * COIN);  // we should get 2 BTC in 1 coin
         BOOST_CHECK_EQUAL(result15->GetInputSet().size(), 1U);
 
         // empty the wallet and start again, now with fractions of a cent, to test small change avoidance
@@ -486,7 +487,7 @@ BOOST_AUTO_TEST_CASE(knapsack_solver_test)
         add_coin(available_coins, *wallet, CENT * 4U / 10U);
         add_coin(available_coins, *wallet, CENT * 5U / 10U);
 
-        // try making 1 * CENT from the 1.5 * CENT
+        // try making 1U * CENT from the 1.5U * CENT
         // we'll get change smaller than CENT whatever happens, so can expect CENT exactly
         const auto result16 = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_confirmed), CENT, CENT);
         BOOST_CHECK(result16);
@@ -496,18 +497,18 @@ BOOST_AUTO_TEST_CASE(knapsack_solver_test)
         add_coin(available_coins, *wallet, 1111U*CENT);
 
         // try making 1 from 0.1 + 0.2 + 0.3 + 0.4 + 0.5 + 1111 = 1112.5
-        const auto result17 = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_confirmed), 1 * CENT, CENT);
+        const auto result17 = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_confirmed), 1U * CENT, CENT);
         BOOST_CHECK(result17);
-        BOOST_CHECK_EQUAL(result17->GetSelectedValue(), 1 * CENT); // we should get the exact amount
+        BOOST_CHECK_EQUAL(result17->GetSelectedValue(), 1U * CENT); // we should get the exact amount
 
         // if we add more small coins:
         add_coin(available_coins, *wallet, CENT * 6U / 10U);
         add_coin(available_coins, *wallet, CENT * 7U / 10U);
 
-        // and try again to make 1.0 * CENT
-        const auto result18 = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_confirmed), 1 * CENT, CENT);
+        // and try again to make 1.0U * CENT
+        const auto result18 = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_confirmed), 1U * CENT, CENT);
         BOOST_CHECK(result18);
-        BOOST_CHECK_EQUAL(result18->GetSelectedValue(), 1 * CENT); // we should get the exact amount
+        BOOST_CHECK_EQUAL(result18->GetSelectedValue(), 1U * CENT); // we should get the exact amount
 
         // run the 'mtgox' test (see https://blockexplorer.com/tx/29a3efd3ef04f9153d47a990bd7b048a4b2d213daaa5fb8ed670fb85f13bdbcf)
         // they tried to consolidate 10 50k coins into one 500k coin, and ended up with 50k in change
@@ -515,12 +516,12 @@ BOOST_AUTO_TEST_CASE(knapsack_solver_test)
         for (int j = 0; j < 20; j++)
             add_coin(available_coins, *wallet, 50000U * COIN);
 
-        const auto result19 = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_confirmed), 500000 * COIN, CENT);
+        const auto result19 = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_confirmed), 500000U * COIN, CENT);
         BOOST_CHECK(result19);
-        BOOST_CHECK_EQUAL(result19->GetSelectedValue(), 500000 * COIN); // we should get the exact amount
+        BOOST_CHECK_EQUAL(result19->GetSelectedValue(), 500000U * COIN); // we should get the exact amount
         BOOST_CHECK_EQUAL(result19->GetInputSet().size(), 10U); // in ten coins
 
-        // if there's not enough in the smaller coins to make at least 1 * CENT change (0.5+0.6+0.7 < 1.0+1.0),
+        // if there's not enough in the smaller coins to make at least 1U * CENT change (0.5+0.6+0.7 < 1.0+1.0),
         // we need to try finding an exact subset anyway
 
         // sometimes it will fail, and so we use the next biggest coin:
@@ -529,9 +530,9 @@ BOOST_AUTO_TEST_CASE(knapsack_solver_test)
         add_coin(available_coins, *wallet, CENT * 6U / 10U);
         add_coin(available_coins, *wallet, CENT * 7U / 10U);
         add_coin(available_coins, *wallet, 1111U * CENT);
-        const auto result20 = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_confirmed), 1 * CENT, CENT);
+        const auto result20 = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_confirmed), 1U * CENT, CENT);
         BOOST_CHECK(result20);
-        BOOST_CHECK_EQUAL(result20->GetSelectedValue(), 1111 * CENT); // we get the bigger coin
+        BOOST_CHECK_EQUAL(result20->GetSelectedValue(), 1111U * CENT); // we get the bigger coin
         BOOST_CHECK_EQUAL(result20->GetInputSet().size(), 1U);
 
         // but sometimes it's possible, and we use an exact subset (0.4 + 0.6 = 1.0)
@@ -552,15 +553,15 @@ BOOST_AUTO_TEST_CASE(knapsack_solver_test)
         add_coin(available_coins, *wallet, CENT * 100U);
 
         // trying to make 100.01 from these three coins
-        const auto result22 = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_confirmed), CENT * 10001 / 100, CENT);
+        const auto result22 = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_confirmed), CENT * 10001U / 100U, CENT);
         BOOST_CHECK(result22);
-        BOOST_CHECK_EQUAL(result22->GetSelectedValue(), CENT * 10105 / 100); // we should get all coins
+        BOOST_CHECK_EQUAL(result22->GetSelectedValue(), CENT * 10105U / 100U); // we should get all coins
         BOOST_CHECK_EQUAL(result22->GetInputSet().size(), 3U);
 
         // but if we try to make 99.9, we should take the bigger of the two small coins to avoid small change
-        const auto result23 = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_confirmed), CENT * 9990 / 100, CENT);
+        const auto result23 = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_confirmed), CENT * 9990U / 100U, CENT);
         BOOST_CHECK(result23);
-        BOOST_CHECK_EQUAL(result23->GetSelectedValue(), 101 * CENT);
+        BOOST_CHECK_EQUAL(result23->GetSelectedValue(), 101U * CENT);
         BOOST_CHECK_EQUAL(result23->GetInputSet().size(), 2U);
     }
 
@@ -600,9 +601,9 @@ BOOST_AUTO_TEST_CASE(knapsack_solver_test)
         for (int i = 0; i < RUN_TESTS; i++) {
             // picking 50 from 100 coins doesn't depend on the shuffle,
             // but does depend on randomness in the stochastic approximation code
-            const auto result25 = KnapsackSolver(GroupCoins(available_coins.All()), 50 * COIN, CENT);
+            const auto result25 = KnapsackSolver(GroupCoins(available_coins.All()), 50U * COIN, CENT);
             BOOST_CHECK(result25);
-            const auto result26 = KnapsackSolver(GroupCoins(available_coins.All()), 50 * COIN, CENT);
+            const auto result26 = KnapsackSolver(GroupCoins(available_coins.All()), 50U * COIN, CENT);
             BOOST_CHECK(result26);
             BOOST_CHECK(!EqualResult(*result25, *result26));
 
@@ -636,9 +637,9 @@ BOOST_AUTO_TEST_CASE(knapsack_solver_test)
             int fails = 0;
             for (int j = 0; j < RANDOM_REPEATS; j++)
             {
-                const auto result29 = KnapsackSolver(GroupCoins(available_coins.All()), 90 * CENT, CENT);
+                const auto result29 = KnapsackSolver(GroupCoins(available_coins.All()), 90U * CENT, CENT);
                 BOOST_CHECK(result29);
-                const auto result30 = KnapsackSolver(GroupCoins(available_coins.All()), 90 * CENT, CENT);
+                const auto result30 = KnapsackSolver(GroupCoins(available_coins.All()), 90U * CENT, CENT);
                 BOOST_CHECK(result30);
                 if (EqualResult(*result29, *result30))
                     fails++;
@@ -660,9 +661,9 @@ BOOST_AUTO_TEST_CASE(ApproximateBestSubset)
         add_coin(available_coins, *wallet, 1000U * COIN);
     add_coin(available_coins, *wallet, 3U * COIN);
 
-    const auto result = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_standard), 1003 * COIN, CENT, rand);
+    const auto result = KnapsackSolver(KnapsackGroupOutputs(available_coins, *wallet, filter_standard), 1003U * COIN, CENT, rand);
     BOOST_CHECK(result);
-    BOOST_CHECK_EQUAL(result->GetSelectedValue(), 1003 * COIN);
+    BOOST_CHECK_EQUAL(result->GetSelectedValue(), 1003U * COIN);
     BOOST_CHECK_EQUAL(result->GetInputSet().size(), 2U);
 }
 
@@ -681,7 +682,7 @@ BOOST_AUTO_TEST_CASE(SelectCoins_test)
     for (int i = 0; i < 100; ++i)
     {
         CoinsResult available_coins;
-        Amount balance{0_sats};
+        UAmount balance{0_sats};
 
         // Make a wallet with 1000 exponentially distributed random inputs
         for (int j = 0; j < 1000; ++j)
@@ -695,7 +696,7 @@ BOOST_AUTO_TEST_CASE(SelectCoins_test)
         CFeeRate rate(Amount{rand.randrange(300) + 100});
 
         // Generate a random target value between 1000 and wallet balance
-        Amount target{rand.randrange(balance.Int() - 1000) + 1000};
+        UAmount target{rand.randrange(balance.UInt() - 1000) + 1000};
 
         // Perform selection
         CoinSelectionParams cs_params{
@@ -720,15 +721,15 @@ BOOST_AUTO_TEST_CASE(SelectCoins_test)
 
 BOOST_AUTO_TEST_CASE(waste_test)
 {
-    const Amount fee{100_sats};
-    const Amount min_viable_change{300_sats};
-    const Amount change_cost{125_sats};
-    const Amount change_fee{30_sats};
-    const Amount fee_diff{40_sats};
-    const Amount in_amt{3 * COIN};
-    const Amount target{2 * COIN};
-    const Amount excess{80_sats};
-    const Amount exact_target{in_amt - fee * 2}; // Maximum spendable amount after fees: no change, no excess
+    const UAmount fee{100_sats};
+    const UAmount min_viable_change{300_sats};
+    const UAmount change_cost{125_sats};
+    const UAmount change_fee{30_sats};
+    const UAmount fee_diff{40_sats};
+    const UAmount in_amt{3U * COIN};
+    const UAmount target{2U * COIN};
+    const UAmount excess{80_sats};
+    const UAmount exact_target{(in_amt - fee * 2U).AssertToUnsigned()}; // Maximum spendable amount after fees: no change, no excess
 
     // In the following, we test that the waste is calculated correctly in various scenarios.
     // Usually, RecalculateWaste would compute change_fee and change_cost on basis of the
@@ -737,15 +738,15 @@ BOOST_AUTO_TEST_CASE(waste_test)
     {
         // Waste with change is the change cost and difference between fee and long term fee
         SelectionResult selection1{target, SelectionAlgorithm::MANUAL};
-        add_coin(1U * COIN, 1, selection1, /*fee=*/fee, /*long_term_fee=*/fee - fee_diff);
-        add_coin(2U * COIN, 2, selection1, fee, fee - fee_diff);
+        add_coin(1U * COIN, 1, selection1, /*fee=*/fee, /*long_term_fee=*/(fee - fee_diff).AssertToUnsigned());
+        add_coin(2U * COIN, 2, selection1, fee, (fee - fee_diff).AssertToUnsigned());
         selection1.RecalculateWaste(min_viable_change, change_cost, change_fee);
-        BOOST_CHECK_EQUAL(fee_diff * 2 + change_cost, selection1.GetWaste());
+        BOOST_CHECK_EQUAL(fee_diff * 2U + change_cost, selection1.GetWaste());
 
         // Waste will be greater when fee is greater, but long term fee is the same
         SelectionResult selection2{target, SelectionAlgorithm::MANUAL};
-        add_coin(1U * COIN, 1, selection2, fee * 2, fee - fee_diff);
-        add_coin(2U * COIN, 2, selection2, fee * 2, fee - fee_diff);
+        add_coin(1U * COIN, 1, selection2, fee * 2U, (fee - fee_diff).AssertToUnsigned());
+        add_coin(2U * COIN, 2, selection2, fee * 2U, (fee - fee_diff).AssertToUnsigned());
         selection2.RecalculateWaste(min_viable_change, change_cost, change_fee);
         BOOST_CHECK_GT(selection2.GetWaste(), selection1.GetWaste());
 
@@ -755,25 +756,25 @@ BOOST_AUTO_TEST_CASE(waste_test)
         add_coin(1U * COIN, 1, selection3, fee, fee + fee_diff);
         add_coin(2U * COIN, 2, selection3, fee, fee + fee_diff);
         selection3.RecalculateWaste(min_viable_change, change_cost, change_fee);
-        BOOST_CHECK_EQUAL(fee_diff * -2 + change_cost, selection3.GetWaste());
+        BOOST_CHECK_EQUAL(Amount{fee_diff} * -2 + change_cost, selection3.GetWaste());
         BOOST_CHECK_LT(selection3.GetWaste(), selection1.GetWaste());
     }
 
     {
         // Waste without change is the excess and difference between fee and long term fee
-        SelectionResult selection_nochange1{exact_target - excess, SelectionAlgorithm::MANUAL};
-        add_coin(1U * COIN, 1, selection_nochange1, fee, fee - fee_diff);
-        add_coin(2U * COIN, 2, selection_nochange1, fee, fee - fee_diff);
+        SelectionResult selection_nochange1{(exact_target - excess).AssertToUnsigned(), SelectionAlgorithm::MANUAL};
+        add_coin(1U * COIN, 1, selection_nochange1, fee, (fee - fee_diff).AssertToUnsigned());
+        add_coin(2U * COIN, 2, selection_nochange1, fee, (fee - fee_diff).AssertToUnsigned());
         selection_nochange1.RecalculateWaste(min_viable_change, change_cost, change_fee);
-        BOOST_CHECK_EQUAL(fee_diff * 2 + excess, selection_nochange1.GetWaste());
+        BOOST_CHECK_EQUAL(fee_diff * 2U + excess, selection_nochange1.GetWaste());
 
         // Waste without change is the excess and difference between fee and long term fee
         // With long term fee greater than fee, waste should be less than when long term fee is less than fee
-        SelectionResult selection_nochange2{exact_target - excess, SelectionAlgorithm::MANUAL};
+        SelectionResult selection_nochange2{(exact_target - excess).AssertToUnsigned(), SelectionAlgorithm::MANUAL};
         add_coin(1U * COIN, 1, selection_nochange2, fee, fee + fee_diff);
         add_coin(2U * COIN, 2, selection_nochange2, fee, fee + fee_diff);
         selection_nochange2.RecalculateWaste(min_viable_change, change_cost, change_fee);
-        BOOST_CHECK_EQUAL(fee_diff * -2 + excess, selection_nochange2.GetWaste());
+        BOOST_CHECK_EQUAL(Amount{fee_diff} * -2 + excess, selection_nochange2.GetWaste());
         BOOST_CHECK_LT(selection_nochange2.GetWaste(), selection_nochange1.GetWaste());
     }
 
@@ -788,7 +789,7 @@ BOOST_AUTO_TEST_CASE(waste_test)
 
     {
         // Waste without change and fee == long term fee is just the excess
-        SelectionResult selection{exact_target - excess, SelectionAlgorithm::MANUAL};
+        SelectionResult selection{(exact_target - excess).AssertToUnsigned(), SelectionAlgorithm::MANUAL};
         add_coin(1U * COIN, 1, selection, fee, fee);
         add_coin(2U * COIN, 2, selection, fee, fee);
         selection.RecalculateWaste(min_viable_change, change_cost, change_fee);
@@ -809,13 +810,13 @@ BOOST_AUTO_TEST_CASE(waste_test)
         SelectionResult selection{target, SelectionAlgorithm::MANUAL};
         add_coin(1U * COIN, 1, selection, fee, fee + fee_diff);
         add_coin(2U * COIN, 2, selection, fee, fee + fee_diff);
-        selection.RecalculateWaste(min_viable_change, /*change_cost=*/fee_diff * 2, change_fee);
+        selection.RecalculateWaste(min_viable_change, /*change_cost=*/fee_diff * 2U, change_fee);
         BOOST_CHECK_EQUAL(0_sats, selection.GetWaste());
     }
 
     {
         // Waste is 0 when (fee - long_term_fee) == (-excess), no change cost
-        const Amount new_target{exact_target - /*excess=*/fee_diff * 2};
+        const UAmount new_target{(exact_target - /*excess=*/fee_diff * 2U).AssertToUnsigned()};
         SelectionResult selection{new_target, SelectionAlgorithm::MANUAL};
         add_coin(1U * COIN, 1, selection, fee, fee + fee_diff);
         add_coin(2U * COIN, 2, selection, fee, fee + fee_diff);
@@ -826,7 +827,7 @@ BOOST_AUTO_TEST_CASE(waste_test)
     {
         // Negative waste when the long term fee is greater than the current fee and the selected value == target
         SelectionResult selection{exact_target, SelectionAlgorithm::MANUAL};
-        const Amount target_waste1{-2 * fee_diff}; // = (2 * fee) - (2 * (fee + fee_diff))
+        const Amount target_waste1{-2 * Amount{fee_diff}}; // = (2 * fee) - (2 * (fee + fee_diff))
         add_coin(1U * COIN, 1, selection, fee, fee + fee_diff);
         add_coin(2U * COIN, 2, selection, fee, fee + fee_diff);
         selection.RecalculateWaste(min_viable_change, change_cost, change_fee);
@@ -836,8 +837,8 @@ BOOST_AUTO_TEST_CASE(waste_test)
     {
         // Negative waste when the long term fee is greater than the current fee and change_cost < - (inputs * (fee - long_term_fee))
         SelectionResult selection{target, SelectionAlgorithm::MANUAL};
-        const Amount large_fee_diff{90_sats};
-        const Amount target_waste2{-2 * large_fee_diff + change_cost};
+        const UAmount large_fee_diff{90_sats};
+        const Amount target_waste2{-2 * Amount{large_fee_diff} + change_cost};
         // = (2 * fee) - (2 * (fee + large_fee_diff)) + change_cost
         // = (2 * 100) - (2 * (100 + 90)) + 125
         // = 200 - 380 + 125 = -55
@@ -852,12 +853,12 @@ BOOST_AUTO_TEST_CASE(waste_test)
 
 BOOST_AUTO_TEST_CASE(bump_fee_test)
 {
-    const Amount fee{100_sats};
-    const Amount min_viable_change{200_sats};
-    const Amount change_cost{125_sats};
-    const Amount change_fee{35_sats};
-    const Amount fee_diff{40_sats};
-    const Amount target{2 * COIN};
+    const UAmount fee{100_sats};
+    const UAmount min_viable_change{200_sats};
+    const UAmount change_cost{125_sats};
+    const UAmount change_fee{35_sats};
+    const UAmount fee_diff{40_sats};
+    const UAmount target{2U * COIN};
 
     {
         SelectionResult selection{target, SelectionAlgorithm::MANUAL};
@@ -870,12 +871,12 @@ BOOST_AUTO_TEST_CASE(bump_fee_test)
         }
 
         selection.RecalculateWaste(min_viable_change, change_cost, change_fee);
-        Amount expected_waste = fee_diff * -2 + change_cost + /*bump_fees=*/60_sats;
+        Amount expected_waste = Amount{fee_diff} * -2 + change_cost + /*bump_fees=*/60_sats;
         BOOST_CHECK_EQUAL(expected_waste, selection.GetWaste());
 
         selection.SetBumpFeeDiscount(30_sats);
         selection.RecalculateWaste(min_viable_change, change_cost, change_fee);
-        expected_waste = fee_diff * -2 + change_cost + /*bump_fees=*/60_sats - /*group_discount=*/30_sats;
+        expected_waste = Amount{fee_diff} * -2 + change_cost + /*bump_fees=*/60_sats - /*group_discount=*/30_sats;
         BOOST_CHECK_EQUAL(expected_waste, selection.GetWaste());
     }
 
@@ -885,7 +886,7 @@ BOOST_AUTO_TEST_CASE(bump_fee_test)
         // Bump fees and excess both contribute fully to the waste score,
         // therefore, a bump fee group discount will not change the waste
         // score as long as we do not create change in both instances.
-        Amount changeless_target = 3 * COIN - 2 * fee - 100_sats;
+        const UAmount changeless_target{(3 * COIN - 2U * fee - 100_sats).AssertToUnsigned()};
         SelectionResult selection{changeless_target, SelectionAlgorithm::MANUAL};
         add_coin(1U * COIN, 1, selection, /*fee=*/fee, /*long_term_fee=*/fee + fee_diff);
         add_coin(2U * COIN, 2, selection, fee, fee + fee_diff);
@@ -896,12 +897,12 @@ BOOST_AUTO_TEST_CASE(bump_fee_test)
         }
 
         selection.RecalculateWaste(min_viable_change, change_cost, change_fee);
-        Amount expected_waste = fee_diff * -2 + /*bump_fees=*/60_sats + /*excess = 100 - bump_fees*/40_sats;
+        Amount expected_waste = Amount{fee_diff} * -2 + /*bump_fees=*/60_sats + /*excess = 100 - bump_fees*/40_sats;
         BOOST_CHECK_EQUAL(expected_waste, selection.GetWaste());
 
         selection.SetBumpFeeDiscount(30_sats);
         selection.RecalculateWaste(min_viable_change, change_cost, change_fee);
-        expected_waste = fee_diff * -2 + /*bump_fees=*/60_sats - /*group_discount=*/30_sats + /*excess = 100 - bump_fees + group_discount*/70_sats;
+        expected_waste = Amount{fee_diff} * -2 + /*bump_fees=*/60_sats - /*group_discount=*/30_sats + /*excess = 100 - bump_fees + group_discount*/70_sats;
         BOOST_CHECK_EQUAL(expected_waste, selection.GetWaste());
     }
 }
@@ -932,7 +933,7 @@ BOOST_AUTO_TEST_CASE(effective_value_test)
     BOOST_CHECK_EQUAL(output3.GetEffectiveValue(), expected_ev3);
 
     // standard case, pass fees in constructor
-    const Amount fees{148_sats};
+    const UAmount fees{148_sats};
     COutput output4(COutPoint(tx.GetHash(), nInput), tx.vout.at(nInput), /*depth=*/1, input_bytes, /*solvable=*/true, /*safe=*/true, /*time=*/0, /*from_me=*/false, fees);
     BOOST_CHECK_EQUAL(output4.GetEffectiveValue(), expected_ev1);
 
@@ -941,7 +942,7 @@ BOOST_AUTO_TEST_CASE(effective_value_test)
     BOOST_CHECK_EQUAL(output5.GetEffectiveValue(), nValue); // The effective value should be equal to the absolute value if input_bytes is -1
 }
 
-static util::Result<SelectionResult> CoinGrinder(const Amount& target,
+static util::Result<SelectionResult> CoinGrinder(const UAmount& target,
                                                     const CoinSelectionParams& cs_params,
                                                     const node::NodeContext& m_node,
                                                     int max_selection_weight,
@@ -981,7 +982,7 @@ BOOST_AUTO_TEST_CASE(coin_grinder_tests)
         // #########################################################
         // 1) Insufficient funds, select all provided coins and fail
         // #########################################################
-        Amount target = 49.5_BTC;
+        UAmount target = 49.5_BTC;
         int max_selection_weight = 10'000; // high enough to not fail for this reason.
         const auto& res = CoinGrinder(target, dummy_params, m_node, max_selection_weight, [&](CWallet& wallet) {
             CoinsResult available_coins;
@@ -999,7 +1000,7 @@ BOOST_AUTO_TEST_CASE(coin_grinder_tests)
         // ###########################
         // 2) Test max weight exceeded
         // ###########################
-        Amount target = 29.5_BTC;
+        UAmount target = 29.5_BTC;
         int max_selection_weight = 3000;
         const auto& res = CoinGrinder(target, dummy_params, m_node, max_selection_weight, [&](CWallet& wallet) {
             CoinsResult available_coins;
@@ -1017,7 +1018,7 @@ BOOST_AUTO_TEST_CASE(coin_grinder_tests)
         // ###############################################################################################################
         // 3) Test that the lowest-weight solution is found when some combinations would exceed the allowed weight
         // ################################################################################################################
-        Amount target = 25.33_BTC;
+        UAmount target = 25.33_BTC;
         int max_selection_weight = 10'000; // WU
         const auto& res = CoinGrinder(target, dummy_params, m_node, max_selection_weight, [&](CWallet& wallet) {
             CoinsResult available_coins;
@@ -1046,7 +1047,7 @@ BOOST_AUTO_TEST_CASE(coin_grinder_tests)
         // #################################################################################################################
         // 4) Test that two less valuable UTXOs with a combined lower weight are preferred over a more valuable heavier UTXO
         // #################################################################################################################
-        Amount target = 1.9_BTC;
+        UAmount target = 1.9_BTC;
         int max_selection_weight = 400'000; // WU
         const auto& res = CoinGrinder(target, dummy_params, m_node, max_selection_weight, [&](CWallet& wallet) {
             CoinsResult available_coins;
@@ -1068,7 +1069,7 @@ BOOST_AUTO_TEST_CASE(coin_grinder_tests)
         // ###############################################################################################################
         // 5) Test finding a solution in a UTXO pool with mixed weights
         // ################################################################################################################
-        Amount target = 30L * COIN;
+        UAmount target = 30U * COIN;
         int max_selection_weight = 400'000; // WU
         const auto& res = CoinGrinder(target, dummy_params, m_node, max_selection_weight, [&](CWallet& wallet) {
             CoinsResult available_coins;
@@ -1097,7 +1098,7 @@ BOOST_AUTO_TEST_CASE(coin_grinder_tests)
         // #################################################################################################################
         // 6) Test that the lightest solution among many clones is found
         // #################################################################################################################
-        Amount target = 9.9_BTC;
+        UAmount target = 9.9_BTC;
         int max_selection_weight = 400'000; // WU
         const auto& res = CoinGrinder(target, dummy_params, m_node, max_selection_weight, [&](CWallet& wallet) {
             CoinsResult available_coins;
@@ -1136,7 +1137,7 @@ BOOST_AUTO_TEST_CASE(coin_grinder_tests)
         // #################################################################################################################
         // 7) Test that lots of tiny UTXOs can be skipped if they are too heavy while there are enough funds in lookahead
         // #################################################################################################################
-        Amount target = 1.9_BTC;
+        UAmount target = 1.9_BTC;
         int max_selection_weight = 40000; // WU
         const auto& res = CoinGrinder(target, dummy_params, m_node, max_selection_weight, [&](CWallet& wallet) {
             CoinsResult available_coins;
@@ -1162,7 +1163,7 @@ BOOST_AUTO_TEST_CASE(coin_grinder_tests)
         // #################################################################################################################
         // 8) Test input set that has a solution will not find a solution before reaching the attempt limit
         // #################################################################################################################
-        Amount target = 8 * COIN;
+        UAmount target = 8U * COIN;
         int max_selection_weight = 3200; // WU
         dummy_params.m_min_change_target = 0_sats;
         const auto& result_a = CoinGrinder(target, dummy_params, m_node, max_selection_weight, [&](CWallet& wallet) {
@@ -1194,7 +1195,7 @@ BOOST_AUTO_TEST_CASE(coin_grinder_tests)
     }
 }
 
-static util::Result<SelectionResult> select_coins(const Amount& target, const CoinSelectionParams& cs_params, const CCoinControl& cc, std::function<CoinsResult(CWallet&)> coin_setup, const node::NodeContext& m_node)
+static util::Result<SelectionResult> select_coins(const UAmount& target, const CoinSelectionParams& cs_params, const CCoinControl& cc, std::function<CoinsResult(CWallet&)> coin_setup, const node::NodeContext& m_node)
 {
     std::unique_ptr<CWallet> wallet = NewWallet(m_node);
     auto available_coins = coin_setup(*wallet);
@@ -1217,7 +1218,7 @@ static bool has_coin(const OutputSet& set, Amount amount)
 
 BOOST_AUTO_TEST_CASE(check_max_selection_weight)
 {
-    const Amount target = 49.5_BTC;
+    const UAmount target = 49.5_BTC;
     CCoinControl cc;
 
     FastRandomContext rand;
@@ -1256,7 +1257,7 @@ BOOST_AUTO_TEST_CASE(check_max_selection_weight)
 
         BOOST_CHECK(result);
         // Verify that the 50 BTC UTXO was selected, and result is below max_weight
-        BOOST_CHECK(has_coin(result->GetInputSet(), Amount(50 * COIN)));
+        BOOST_CHECK(has_coin(result->GetInputSet(), Amount(50U * COIN)));
         BOOST_CHECK_LE(result->GetWeight(), max_weight);
     }
 
@@ -1324,7 +1325,7 @@ BOOST_AUTO_TEST_CASE(SelectCoins_effective_value_test)
         add_coin(available_coins, *dummyWallet, 100000_sats); // 0.001 BTC
     }
 
-    Amount target{99900_sats}; // 0.000999 BTC
+    UAmount target{99900_sats}; // 0.000999 BTC
 
     FastRandomContext rand;
     CoinSelectionParams cs_params{

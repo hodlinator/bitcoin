@@ -10,15 +10,15 @@
 
 
 namespace wallet {
-Amount GetRequiredFee(const CWallet& wallet, unsigned int nTxBytes)
+UAmount GetRequiredFee(const CWallet& wallet, unsigned int nTxBytes)
 {
-    return GetRequiredFeeRate(wallet).GetFee(static_cast<int32_t>(nTxBytes));
+    return GetRequiredFeeRate(wallet).GetFee(static_cast<int32_t>(nTxBytes)).TruncateToUnsigned();
 }
 
 
-Amount GetMinimumFee(const CWallet& wallet, unsigned int nTxBytes, const CCoinControl& coin_control, FeeCalculation* feeCalc)
+UAmount GetMinimumFee(const CWallet& wallet, unsigned int nTxBytes, const CCoinControl& coin_control, FeeCalculation* feeCalc)
 {
-    return GetMinimumFeeRate(wallet, coin_control, feeCalc).GetFee(static_cast<int32_t>(nTxBytes));
+    return GetMinimumFeeRate(wallet, coin_control, feeCalc).GetFee(static_cast<int32_t>(nTxBytes)).TruncateToUnsigned();
 }
 
 CFeeRate GetRequiredFeeRate(const CWallet& wallet)

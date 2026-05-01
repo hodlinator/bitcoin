@@ -56,7 +56,7 @@ BOOST_FIXTURE_TEST_CASE(SubtractFee, TestChain100Setup)
         BOOST_CHECK_EQUAL(txr.tx->vout.size(), 1);
         BOOST_CHECK_EQUAL(txr.tx->vout[0].nValue, recipient.nAmount + leftover_input_amount - txr.fee);
         BOOST_CHECK_GT(txr.fee, 0_sats);
-        return txr.fee.AssertToUnsigned();
+        return txr.fee;
     };
 
     // Send full input amount to recipient, check that only nonzero fee is

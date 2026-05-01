@@ -926,7 +926,7 @@ static RPCMethod getblocktemplate()
 
     UniValue transactions(UniValue::VARR);
     std::map<Txid, int64_t> setTxIndex;
-    std::vector<Amount> tx_fees{block_template->getTxFees()};
+    std::vector<UAmount> tx_fees{block_template->getTxFees()};
     std::vector<int64_t> tx_sigops{block_template->getTxSigops()};
 
     int i = 0;
@@ -953,7 +953,7 @@ static RPCMethod getblocktemplate()
         entry.pushKV("depends", std::move(deps));
 
         int index_in_template = i - 2;
-        entry.pushKV("fee", tx_fees.at(index_in_template).Int());
+        entry.pushKV("fee", tx_fees.at(index_in_template).UInt());
         int64_t nTxSigOps{tx_sigops.at(index_in_template)};
         if (fPreSegWit) {
             CHECK_NONFATAL(nTxSigOps % WITNESS_SCALE_FACTOR == 0);

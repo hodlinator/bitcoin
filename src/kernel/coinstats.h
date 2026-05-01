@@ -49,15 +49,15 @@ struct CCoinsStats {
     // Following values are only available from coinstats index
 
     //! Total cumulative amount of block subsidies up to and including this block
-    Amount total_subsidy{0_sats};
+    UAmount total_subsidy{0_sats};
     //! The unspendable coinbase amount from the genesis block
-    Amount total_unspendables_genesis_block{0_sats};
+    UAmount total_unspendables_genesis_block{0_sats};
     //! The two unspendable coinbase outputs total amount caused by BIP30
-    Amount total_unspendables_bip30{0_sats};
+    UAmount total_unspendables_bip30{0_sats};
     //! Total cumulative amount of outputs sent to unspendable scripts (OP_RETURN for example) up to and including this block
-    Amount total_unspendables_scripts{0_sats};
+    UAmount total_unspendables_scripts{0_sats};
     //! Total cumulative amount of coins lost due to unclaimed miner rewards up to and including this block
-    Amount total_unspendables_unclaimed_rewards{0_sats};
+    UAmount total_unspendables_unclaimed_rewards{0_sats};
 
     // Despite containing amounts the following values use a uint256 type to prevent overflowing
 

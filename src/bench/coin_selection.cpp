@@ -78,7 +78,7 @@ static void CoinSelection(benchmark::Bench& bench)
     for (const auto& wtx : wtxs) {
         const auto txout = wtx->tx->vout.at(0);
         OutputType outtype;
-        int input_bytes;
+        unsigned input_bytes;
         int y{det_rand.randrange(100)};
         if (y < 35) {
             outtype = OutputType::LEGACY;
@@ -93,17 +93,17 @@ static void CoinSelection(benchmark::Bench& bench)
             outtype = OutputType::BECH32M;
             input_bytes = 58;
         }
-        Amount fees = 20_sats * input_bytes;
+        UAmount fees = 20_sats * input_bytes;
         available_coins.coins[outtype].emplace_back(COutPoint(wtx->GetHash(), 0), txout, /*depth=*/6 * 24, /*input_bytes=*/input_bytes, /*solvable=*/true, /*safe=*/true, wtx->GetTxTime(), /*from_me=*/true, /*fees=*/fees);
     }
 
     const CoinEligibilityFilter filter_standard(/*conf_mine=*/1, /*conf_theirs=*/6, /*max_ancestors=*/0);
 
     constexpr size_t NUM_TARGETS{10};
-    std::vector<Amount> targets;
+    std::vector<UAmount> targets;
     targets.reserve(NUM_TARGETS);
     for (size_t i{0}; i < NUM_TARGETS; ++i) {
-        targets.push_back(Amount{10'000'000 + det_rand.randrange(90'000'000)});
+        targets.push_back(UAmount{10'000'000U + det_rand.randrange(90'000'000)});
     }
 
     std::optional<FastRandomContext> rng;

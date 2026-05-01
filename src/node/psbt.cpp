@@ -10,6 +10,7 @@
 #include <policy/settings.h>
 #include <tinyformat.h>
 
+#include <limits>
 #include <numeric>
 
 namespace node {
@@ -27,7 +28,7 @@ PSBTAnalysis AnalyzePSBT(PartiallySignedTransaction psbtx)
 
     bool calc_fee = true;
 
-    Amount in_amt{0_sats};
+    UAmount in_amt{0_sats};
 
     result.inputs.resize(psbtx.inputs.size());
 
@@ -105,10 +106,10 @@ PSBTAnalysis AnalyzePSBT(PartiallySignedTransaction psbtx)
 
     if (calc_fee) {
         // Get the output amount
-        Amount out_amt = std::accumulate(psbtx.outputs.begin(), psbtx.outputs.end(), Amount(0_sats),
-            [](Amount a, const PSBTOutput& b) {
+        UAmount out_amt = std::accumulate(psbtx.outputs.begin(), psbtx.outputs.end(), UAmount(0_sats),
+            [](UAmount a, const PSBTOutput& b) {
                 if (!MoneyRange(a) || !MoneyRange(b.amount) || !MoneyRange(a + b.amount)) {
-                    return Amount(-1);
+                    return UAmount{std::numeric_limits<UAmount::inner_type>::max()};
                 }
                 return a += b.amount;
             }
@@ -119,12 +120,12 @@ PSBTAnalysis AnalyzePSBT(PartiallySignedTransaction psbtx)
         }
 
         // Get the fee
-        const Amount fee = in_amt - out_amt;
-        if (fee < 0_sats) {
+        const std::optional<UAmount> fee{(in_amt - out_amt).TryToUnsigned()};
+        if (!fee) {
             result.SetInvalid("PSBT is not valid. Output amount higher than input amount");
             return result;
         }
-        result.fee = fee;
+        result.fee = *fee;
 
         // Estimate the size
         CCoinsViewCache view{&CoinsViewEmpty::Get()};
@@ -150,7 +151,7 @@ PSBTAnalysis AnalyzePSBT(PartiallySignedTransaction psbtx)
             size_t size(GetVirtualTransactionSize(ctx, GetTransactionSigOpCost(ctx, view, STANDARD_SCRIPT_VERIFY_FLAGS), ::nBytesPerSigOp));
             result.estimated_vsize = size;
             // Estimate fee rate
-            CFeeRate feerate(fee, size);
+            CFeeRate feerate(*fee, size);
             result.estimated_feerate = feerate;
         }
 

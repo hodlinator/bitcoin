@@ -12,7 +12,7 @@ using Proxy = import "/mp/proxy.capnp";
 $Proxy.include("interfaces/mining.h");
 $Proxy.includeTypes("ipc/capnp/mining-types.h");
 
-const maxMoney :Int64 = 2100000000000000;
+const maxMoney :UInt64 = 2100000000000000;
 const maxDouble :Float64 = 1.7976931348623157e308;
 const defaultBlockReservedWeight :UInt32 = 8000;
 const defaultCoinbaseOutputMaxAdditionalSigops :UInt32 = 400;
@@ -32,7 +32,7 @@ interface BlockTemplate $Proxy.wrap("interfaces::BlockTemplate") {
     destroy @0 (context :Proxy.Context) -> ();
     getBlockHeader @1 (context: Proxy.Context) -> (result: Data);
     getBlock @2 (context: Proxy.Context) -> (result: Data);
-    getTxFees @3 (context: Proxy.Context) -> (result: List(Int64));
+    getTxFees @3 (context: Proxy.Context) -> (result: List(UInt64));
     getTxSigops @4 (context: Proxy.Context) -> (result: List(Int64));
     getCoinbaseTx @5 (context: Proxy.Context) -> (result: CoinbaseTx);
     getCoinbaseMerklePath @6 (context: Proxy.Context) -> (result: List(Data));
@@ -49,7 +49,7 @@ struct BlockCreateOptions $Proxy.wrap("node::BlockCreateOptions") {
 
 struct BlockWaitOptions $Proxy.wrap("node::BlockWaitOptions") {
     timeout @0 : Float64 = .maxDouble $Proxy.name("timeout");
-    feeThreshold @1 : Int64 = .maxMoney $Proxy.name("fee_threshold");
+    feeThreshold @1 : UInt64 = .maxMoney $Proxy.name("fee_threshold");
 }
 
 struct BlockCheckOptions $Proxy.wrap("node::BlockCheckOptions") {
@@ -62,7 +62,7 @@ struct CoinbaseTx $Proxy.wrap("node::CoinbaseTx") {
     sequence @1 :UInt32 $Proxy.name("sequence");
     scriptSigPrefix @2 :Data $Proxy.name("script_sig_prefix");
     witness @3 :Data $Proxy.name("witness");
-    blockRewardRemaining @4 :Int64 $Proxy.name("block_reward_remaining");
+    blockRewardRemaining @4 :UInt64 $Proxy.name("block_reward_remaining");
     requiredOutputs @5 :List(Data) $Proxy.name("required_outputs");
     lockTime @6 :UInt32 $Proxy.name("lock_time");
 }

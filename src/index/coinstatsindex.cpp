@@ -48,13 +48,13 @@ struct DBVal {
     uint64_t transaction_output_count{0};
     uint64_t bogo_size{0};
     UAmount total_amount{0_sats};
-    Amount total_subsidy{0_sats};
+    UAmount total_subsidy{0_sats};
     arith_uint256 total_prevout_spent_amount{0};
     arith_uint256 total_new_outputs_ex_coinbase_amount{0};
     arith_uint256 total_coinbase_amount{0};
-    Amount total_unspendables_genesis_block{0_sats};
-    Amount total_unspendables_bip30{0_sats};
-    Amount total_unspendables_scripts{0_sats};
+    UAmount total_unspendables_genesis_block{0_sats};
+    UAmount total_unspendables_bip30{0_sats};
+    UAmount total_unspendables_scripts{0_sats};
     UAmount total_unspendables_unclaimed_rewards{0_sats};
 
     SERIALIZE_METHODS(DBVal, obj)
@@ -107,7 +107,7 @@ CoinStatsIndex::CoinStatsIndex(std::unique_ptr<interfaces::Chain> chain, size_t 
 
 bool CoinStatsIndex::CustomAppend(const interfaces::BlockInfo& block)
 {
-    const Amount block_subsidy{GetBlockSubsidy(block.height, Params().GetConsensus())};
+    const UAmount block_subsidy{GetBlockSubsidy(block.height, Params().GetConsensus())};
     m_total_subsidy += block_subsidy;
 
     // Ignore genesis block
@@ -182,8 +182,8 @@ bool CoinStatsIndex::CustomAppend(const interfaces::BlockInfo& block)
     // new outputs + coinbase + current unspendable amount this means
     // the miner did not claim the full block reward. Unclaimed block
     // rewards are also unspendable.
-    const Amount temp_total_unspendable_amount{m_total_unspendables_genesis_block + m_total_unspendables_bip30 + m_total_unspendables_scripts + m_total_unspendables_unclaimed_rewards};
-    const arith_uint256 unclaimed_rewards{(m_total_prevout_spent_amount + m_total_subsidy.Int()) - (m_total_new_outputs_ex_coinbase_amount + m_total_coinbase_amount + temp_total_unspendable_amount.Int())};
+    const UAmount temp_total_unspendable_amount{m_total_unspendables_genesis_block + m_total_unspendables_bip30 + m_total_unspendables_scripts + m_total_unspendables_unclaimed_rewards};
+    const arith_uint256 unclaimed_rewards{(m_total_prevout_spent_amount + m_total_subsidy.UInt()) - (m_total_new_outputs_ex_coinbase_amount + m_total_coinbase_amount + temp_total_unspendable_amount.UInt())};
     assert(unclaimed_rewards <= arith_uint256(std::numeric_limits<Amount::inner_type>::max()));
     m_total_unspendables_unclaimed_rewards += UAmount{unclaimed_rewards.GetLow64()};
 

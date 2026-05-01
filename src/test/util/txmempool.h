@@ -18,7 +18,7 @@ CTxMemPool::Options MemPoolOptionsForTest(const node::NodeContext& node);
 
 struct TestMemPoolEntryHelper {
     // Default values
-    Amount nFee{0_sats};
+    UAmount nFee{0_sats};
     NodeSeconds time{};
     unsigned int nHeight{1};
     uint64_t m_sequence{0};
@@ -30,7 +30,7 @@ struct TestMemPoolEntryHelper {
     CTxMemPoolEntry FromTx(const CTransactionRef& tx) const;
 
     // Change the default value
-    TestMemPoolEntryHelper& Fee(Amount _fee) { nFee = _fee; return *this; }
+    TestMemPoolEntryHelper& Fee(UAmount _fee) { nFee = _fee; return *this; }
     TestMemPoolEntryHelper& Time(NodeSeconds tp) { time = tp; return *this; }
     TestMemPoolEntryHelper& Height(unsigned int _height) { nHeight = _height; return *this; }
     TestMemPoolEntryHelper& Sequence(uint64_t _seq) { m_sequence = _seq; return *this; }

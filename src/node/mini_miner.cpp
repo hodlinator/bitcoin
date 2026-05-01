@@ -306,7 +306,7 @@ std::map<Txid, uint32_t> MiniMiner::Linearize()
     return m_inclusion_order;
 }
 
-std::map<COutPoint, Amount> MiniMiner::CalculateBumpFees(const CFeeRate& target_feerate)
+std::map<COutPoint, UAmount> MiniMiner::CalculateBumpFees(const CFeeRate& target_feerate)
 {
     if (!m_ready_to_calculate) return {};
     // Build a block template until the target feerate is hit.
@@ -379,7 +379,7 @@ std::map<COutPoint, Amount> MiniMiner::CalculateBumpFees(const CFeeRate& target_
             const Amount bump_fee{std::max(bump_fee_with_ancestors, bump_fee_individual)};
             Assume(bump_fee >= 0_sats);
             for (const auto& outpoint : outpoints) {
-                m_bump_fees.emplace(outpoint, bump_fee);
+                m_bump_fees.emplace(outpoint, bump_fee.AssertToUnsigned());
             }
         }
     }

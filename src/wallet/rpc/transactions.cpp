@@ -68,7 +68,7 @@ static void WalletTxToJSON(const CWallet& wallet, const CWalletTx& wtx, UniValue
 
 struct tallyitem
 {
-    Amount nAmount{0_sats};
+    UAmount nAmount{0_sats};
     int nConf{std::numeric_limits<int>::max()};
     std::vector<Txid> txids;
     tallyitem() = default;
@@ -138,7 +138,7 @@ static UniValue ListReceived(const CWallet& wallet, const UniValue& params, cons
         if (it == mapTally.end() && !fIncludeEmpty)
             return;
 
-        Amount nAmount{0_sats};
+        UAmount nAmount{0_sats};
         int nConf = std::numeric_limits<int>::max();
         if (it != mapTally.end()) {
             nAmount = (*it).second.nAmount;
@@ -176,7 +176,7 @@ static UniValue ListReceived(const CWallet& wallet, const UniValue& params, cons
 
     if (by_label) {
         for (const auto& entry : label_tally) {
-            Amount nAmount = entry.second.nAmount;
+            UAmount nAmount = entry.second.nAmount;
             int nConf = entry.second.nConf;
             UniValue obj(UniValue::VOBJ);
             obj.pushKV("amount",        ValueFromAmount(nAmount));
@@ -310,7 +310,7 @@ static void ListTransactions(const CWallet& wallet, const CWalletTx& wtx, int nM
                              bool include_change = false)
     EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet)
 {
-    Amount nFee{0_sats};
+    UAmount nFee{0_sats};
     std::list<COutputEntry> listReceived;
     std::list<COutputEntry> listSent;
 
@@ -740,8 +740,8 @@ RPCMethod gettransaction()
     }
     const CWalletTx& wtx = it->second;
 
-    Amount nCredit = CachedTxGetCredit(*pwallet, wtx, /*avoid_reuse=*/false);
-    Amount nDebit = CachedTxGetDebit(*pwallet, wtx, /*avoid_reuse=*/false);
+    UAmount nCredit = CachedTxGetCredit(*pwallet, wtx, /*avoid_reuse=*/false);
+    UAmount nDebit = CachedTxGetDebit(*pwallet, wtx, /*avoid_reuse=*/false);
     Amount nNet = nCredit - nDebit;
     Amount nFee = (CachedTxIsFromMe(*pwallet, wtx) ? wtx.tx->GetValueOut() - nDebit : 0_sats);
 

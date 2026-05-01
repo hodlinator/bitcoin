@@ -779,7 +779,7 @@ BITCOINKERNEL_API btck_ScriptPubkey* BITCOINKERNEL_WARN_UNUSED_RESULT btck_scrip
  */
 BITCOINKERNEL_API int BITCOINKERNEL_WARN_UNUSED_RESULT btck_script_pubkey_verify(
     const btck_ScriptPubkey* script_pubkey,
-    int64_t amount,
+    uint64_t amount,
     const btck_Transaction* tx_to,
     const btck_PrecomputedTransactionData* precomputed_txdata,
     unsigned int input_index,

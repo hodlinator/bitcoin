@@ -29,7 +29,7 @@ static void AddTx(const CTransactionRef& tx, CTxMemPool& pool, FastRandomContext
     bool spendsCoinbase = false;
     unsigned int sigOpCost = 4;
     LockPoints lp;
-    TryAddToMempool(pool, CTxMemPoolEntry(tx, Amount{det_rand.randrange(10000)+1000}, nTime, nHeight, sequence, spendsCoinbase, sigOpCost, lp));
+    TryAddToMempool(pool, CTxMemPoolEntry(tx, UAmount{det_rand.randrange(10000U)+1000U}, nTime, nHeight, sequence, spendsCoinbase, sigOpCost, lp));
 }
 
 struct Available {

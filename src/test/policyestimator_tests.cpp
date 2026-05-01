@@ -23,13 +23,13 @@ BOOST_AUTO_TEST_CASE(BlockPolicyEstimates)
     CTxMemPool& mpool = *Assert(m_node.mempool);
     m_node.validation_signals->RegisterValidationInterface(&feeEst);
     TestMemPoolEntryHelper entry;
-    Amount basefee(2000_sats);
-    Amount deltaFee(100_sats);
-    std::vector<Amount> feeV;
+    constexpr UAmount basefee(2000_sats);
+    constexpr Amount deltaFee(100_sats);
+    std::vector<UAmount> feeV;
     feeV.reserve(10);
 
     // Populate vectors of increasing fees
-    for (int j = 0; j < 10; j++) {
+    for (unsigned j = 0; j < 10; j++) {
         feeV.push_back(basefee * (j+1));
     }
 

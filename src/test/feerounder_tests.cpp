@@ -17,16 +17,12 @@ BOOST_AUTO_TEST_CASE(FeeRounder)
     FeeFilterRounder fee_rounder{CFeeRate{1000_sats}, rng};
 
     // check that 1000 rounds to 974 or 1071
-    std::set<Amount> results;
+    std::set<UAmount> results;
     while (results.size() < 2) {
         results.emplace(fee_rounder.round(1000_sats));
     }
     BOOST_CHECK_EQUAL(*results.begin(), 974_sats);
     BOOST_CHECK_EQUAL(*++results.begin(), 1071_sats);
-
-    // check that negative amounts rounds to 0
-    BOOST_CHECK_EQUAL(fee_rounder.round(-0_sats), 0_sats);
-    BOOST_CHECK_EQUAL(fee_rounder.round(-1_sats), 0_sats);
 
     // check that MAX_MONEY rounds to 9170997
     BOOST_CHECK_EQUAL(fee_rounder.round(MAX_MONEY), 9170997_sats);

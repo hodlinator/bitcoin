@@ -16,6 +16,7 @@
 #include <util/byte_units.h>
 #include <util/strencodings.h>
 
+#include <limits>
 #include <map>
 #include <string>
 #include <variant>

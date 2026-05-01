@@ -100,16 +100,16 @@ static feebumper::Result CheckFeeRate(const CWallet& wallet, const CMutableTrans
         return feebumper::Result::INVALID_PARAMETER;
     }
 
-    Amount requiredFee = GetRequiredFee(wallet, maxTxSize);
-    if (new_total_fee < requiredFee) {
+    UAmount requiredFee = GetRequiredFee(wallet, maxTxSize);
+    if (new_total_fee < Amount{requiredFee}) {
         errors.push_back(Untranslated(strprintf("Insufficient total fee (cannot be less than required fee %s)",
             FormatMoney(requiredFee))));
         return feebumper::Result::INVALID_PARAMETER;
     }
 
     // Check that in all cases the new fee doesn't violate maxTxFee
-    const Amount max_tx_fee = wallet.m_default_max_tx_fee;
-    if (new_total_fee > max_tx_fee) {
+    const UAmount max_tx_fee = wallet.m_default_max_tx_fee;
+    if (new_total_fee > Amount{max_tx_fee}) {
         errors.push_back(Untranslated(strprintf("Specified or calculated fee %s is too high (cannot be higher than -maxtxfee %s)",
             FormatMoney(new_total_fee), FormatMoney(max_tx_fee))));
         return feebumper::Result::WALLET_ERROR;
@@ -159,7 +159,7 @@ bool TransactionCanBeBumped(const CWallet& wallet, const Txid& txid)
 }
 
 Result CreateRateBumpTransaction(CWallet& wallet, const Txid& txid, const CCoinControl& coin_control, std::vector<bilingual_str>& errors,
-                                 Amount& old_fee, Amount& new_fee, CMutableTransaction& mtx, bool require_mine, const std::vector<CTxOut>& outputs, std::optional<uint32_t> original_change_index)
+                                 UAmount& old_fee, UAmount& new_fee, CMutableTransaction& mtx, bool require_mine, const std::vector<CTxOut>& outputs, std::optional<uint32_t> original_change_index)
 {
     // For now, cannot specify both new outputs to use and an output index to send change
     if (!outputs.empty() && original_change_index.has_value()) {
@@ -188,7 +188,7 @@ Result CreateRateBumpTransaction(CWallet& wallet, const Txid& txid, const CCoinC
     // Retrieve all of the UTXOs and add them to coin control
     // While we're here, calculate the input amount
     std::map<COutPoint, Coin> coins;
-    Amount input_value{0_sats};
+    UAmount input_value{0_sats};
     std::vector<CTxOut> spent_outputs;
     for (const CTxIn& txin : wtx.tx->vin) {
         coins[txin.prevout]; // Create empty map entry keyed by prevout.
@@ -238,12 +238,13 @@ Result CreateRateBumpTransaction(CWallet& wallet, const Txid& txid, const CCoinC
     }
 
     // Calculate the old output amount.
-    Amount output_value{0_sats};
+    UAmount output_value{0_sats};
     for (const auto& old_output : wtx.tx->vout) {
         output_value += old_output.nValue;
     }
 
-    old_fee = input_value - output_value;
+    assert(input_value >= output_value);
+    old_fee = (input_value - output_value).AssertToUnsigned();
 
     // Fill in recipients (and preserve a single change key if there
     // is one). If outputs vector is non-empty, replace original

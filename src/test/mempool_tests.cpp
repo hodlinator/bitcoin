@@ -401,7 +401,7 @@ BOOST_AUTO_TEST_CASE(MempoolAncestryTests)
     for (uint64_t i = 0; i < 5; i++) {
         CTransactionRef& tyi = *ty[i];
         tyi = make_tx(/*output_values=*/{v}, /*inputs=*/i > 0 ? std::vector<CTransactionRef>{*ty[i - 1]} : std::vector<CTransactionRef>{});
-        v -= 50 * CENT;
+        v -= 50U * CENT;
         TryAddToMempool(pool, entry.Fee(10000_sats).FromTx(tyi));
         pool.GetTransactionAncestry(tyi->GetHash(), ancestors, clustersize);
         BOOST_CHECK_EQUAL(ancestors, i+1);

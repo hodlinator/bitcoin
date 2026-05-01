@@ -109,7 +109,7 @@ struct BlockWaitOptions {
      * implementation is able to be much more efficient, skipping expensive
      * checks and only returning new templates when the chain tip changes.
      */
-    Amount fee_threshold{MAX_MONEY};
+    UAmount fee_threshold{MAX_MONEY};
 };
 
 struct BlockCheckOptions {
@@ -161,7 +161,7 @@ struct CoinbaseTx {
      * Currently there are no non-zero required_outputs, so block_reward_remaining
      * is the entire block reward. See also required_outputs.
      */
-    Amount block_reward_remaining{0_sats};
+    UAmount block_reward_remaining{0_sats};
     /*
      * To be included as the last outputs in the coinbase transaction.
      * Currently this is only the witness commitment OP_RETURN, but future

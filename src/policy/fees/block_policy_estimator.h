@@ -335,7 +335,7 @@ public:
     explicit FeeFilterRounder(const CFeeRate& min_incremental_fee, FastRandomContext& rng);
 
     /** Quantize a minimum fee for privacy purpose before broadcast. */
-    Amount round(Amount currentMinFee) EXCLUSIVE_LOCKS_REQUIRED(!m_insecure_rand_mutex);
+    UAmount round(UAmount currentMinFee) EXCLUSIVE_LOCKS_REQUIRED(!m_insecure_rand_mutex);
 
 private:
     const std::set<double> m_fee_set;

@@ -132,14 +132,14 @@ std::string TxStateString(const T& state)
  */
 struct CachableAmount
 {
-    std::optional<Amount> m_avoid_reuse_value;
-    std::optional<Amount> m_all_value;
+    std::optional<UAmount> m_avoid_reuse_value;
+    std::optional<UAmount> m_all_value;
     inline void Reset()
     {
         m_avoid_reuse_value.reset();
         m_all_value.reset();
     }
-    void Set(bool avoid_reuse, Amount value)
+    void Set(bool avoid_reuse, UAmount value)
     {
         if (avoid_reuse) {
             m_avoid_reuse_value = value;
@@ -147,7 +147,7 @@ struct CachableAmount
             m_all_value = value;
         }
     }
-    Amount Get(bool avoid_reuse)
+    UAmount Get(bool avoid_reuse)
     {
         if (avoid_reuse) {
             Assert(m_avoid_reuse_value.has_value());
@@ -248,7 +248,7 @@ public:
      */
     mutable bool m_is_cache_empty{true};
     mutable bool fChangeCached;
-    mutable Amount nChangeCached{0_sats};
+    mutable UAmount nChangeCached{0_sats};
 
     CWalletTx(CTransactionRef tx, const TxState& state) : tx(std::move(tx)), m_state(state)
     {

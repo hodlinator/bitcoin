@@ -293,6 +293,19 @@ UniValue ValueFromAmount(const Amount amount)
             strprintf("%s%d.%08d", amount < 0_sats ? "-" : "", quotient, remainder));
 }
 
+UniValue ValueFromAmount(UAmount amount)
+{
+    static_assert(COIN > 1_sats);
+    int64_t quotient = amount / COIN;
+    int64_t remainder = amount % COIN;
+    return UniValue(UniValue::VNUM, strprintf("%d.%08d", quotient, remainder));
+}
+
+UniValue ValueFromAmount(UAmountLiteral amount)
+{
+    return ValueFromAmount(UAmount{amount});
+}
+
 std::string FormatScript(const CScript& script)
 {
     std::string ret;
@@ -443,8 +456,8 @@ void TxToUniv(const CTransaction& tx, const uint256& block_hash, UniValue& entry
     // If available, use Undo data to calculate the fee. Note that txundo == nullptr
     // for coinbase transactions and for transactions where undo data is unavailable.
     const bool have_undo = txundo != nullptr;
-    Amount amt_total_in{0_sats};
-    Amount amt_total_out{0_sats};
+    UAmount amt_total_in{0_sats};
+    UAmount amt_total_out{0_sats};
 
     for (unsigned int i = 0; i < tx.vin.size(); i++) {
         const CTxIn& txin = tx.vin[i];

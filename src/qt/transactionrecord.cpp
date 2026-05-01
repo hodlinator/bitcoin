@@ -28,8 +28,8 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
 {
     QList<TransactionRecord> parts;
     int64_t nTime = wtx.time;
-    Amount nCredit = wtx.credit;
-    Amount nDebit = wtx.debit;
+    UAmount nCredit = wtx.credit;
+    UAmount nDebit = wtx.debit;
     Amount nNet = nCredit - nDebit;
     Txid hash = wtx.tx->GetHash();
     std::map<std::string, std::string> mapValue = wtx.value_map;

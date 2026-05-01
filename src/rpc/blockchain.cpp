@@ -1151,11 +1151,11 @@ static RPCMethod gettxoutsetinfo()
                 prev_stats = maybe_prev_stats.value();
             }
 
-            Amount block_total_unspendable_amount = stats.total_unspendables_genesis_block +
+            UAmount block_total_unspendable_amount = stats.total_unspendables_genesis_block +
                                                      stats.total_unspendables_bip30 +
                                                      stats.total_unspendables_scripts +
                                                      stats.total_unspendables_unclaimed_rewards;
-            Amount prev_block_total_unspendable_amount = prev_stats.total_unspendables_genesis_block +
+            UAmount prev_block_total_unspendable_amount = prev_stats.total_unspendables_genesis_block +
                                                           prev_stats.total_unspendables_bip30 +
                                                           prev_stats.total_unspendables_scripts +
                                                           prev_stats.total_unspendables_unclaimed_rewards;
@@ -1927,7 +1927,7 @@ static T CalculateTruncatedMedian(std::vector<T>& scores)
     }
 }
 
-void CalculatePercentilesByWeight(Amount result[NUM_GETBLOCKSTATS_PERCENTILES], std::vector<std::pair<Amount, int64_t>>& scores, int64_t total_weight)
+void CalculatePercentilesByWeight(UAmount result[NUM_GETBLOCKSTATS_PERCENTILES], std::vector<std::pair<UAmount, uint64_t>>& scores, int64_t total_weight)
 {
     if (scores.empty()) {
         return;
@@ -1941,7 +1941,7 @@ void CalculatePercentilesByWeight(Amount result[NUM_GETBLOCKSTATS_PERCENTILES], 
     };
 
     int64_t next_percentile_index = 0;
-    int64_t cumulative_weight = 0;
+    uint64_t cumulative_weight = 0;
     for (const auto& element : scores) {
         cumulative_weight += element.second;
         while (next_percentile_index < NUM_GETBLOCKSTATS_PERCENTILES && cumulative_weight >= weights[next_percentile_index]) {
@@ -2064,10 +2064,10 @@ static RPCMethod getblockstats()
     const bool do_calculate_sw = do_all || SetHasKeys(stats, "swtxs", "swtotal_size", "swtotal_weight");
 
     UAmount maxfee{0_sats};
-    Amount maxfeerate{0_sats};
+    UAmount maxfeerate{0_sats};
     UAmount minfee{MAX_MONEY};
-    Amount minfeerate{MAX_MONEY};
-    Amount total_out{0_sats};
+    UAmount minfeerate{MAX_MONEY};
+    UAmount total_out{0_sats};
     UAmount totalfee{0_sats};
     int64_t inputs = 0;
     int64_t maxtxsize = 0;
@@ -2082,14 +2082,14 @@ static RPCMethod getblockstats()
     int64_t utxo_size_inc = 0;
     int64_t utxo_size_inc_actual = 0;
     std::vector<UAmount> fee_array;
-    std::vector<std::pair<Amount, int64_t>> feerate_array;
+    std::vector<std::pair<UAmount, uint64_t>> feerate_array;
     std::vector<int64_t> txsize_array;
 
     for (size_t i = 0; i < block.vtx.size(); ++i) {
         const auto& tx = block.vtx.at(i);
         outputs += tx->vout.size();
 
-        Amount tx_total_out{0_sats};
+        UAmount tx_total_out{0_sats};
         if (loop_outputs) {
             for (const CTxOut& out : tx->vout) {
                 tx_total_out += out.nValue;
@@ -2140,7 +2140,7 @@ static RPCMethod getblockstats()
         }
 
         if (loop_inputs) {
-            Amount tx_total_in{0_sats};
+            UAmount tx_total_in{0_sats};
             const auto& txundo = blockUndo.vtxundo.at(i - 1);
             for (const Coin& coin: txundo.vprevout) {
                 const CTxOut& prevoutput = coin.out;
@@ -2161,7 +2161,7 @@ static RPCMethod getblockstats()
             totalfee += txfee;
 
             // New feerate uses satoshis per virtual byte instead of per serialized byte
-            Amount feerate = weight ? (txfee * unsigned{WITNESS_SCALE_FACTOR}) / weight : 0_sats;
+            UAmount feerate = weight ? (txfee * unsigned{WITNESS_SCALE_FACTOR}) / weight : 0_sats;
             if (do_feerate_percentiles) {
                 feerate_array.emplace_back(feerate, weight);
             }
@@ -2170,12 +2170,12 @@ static RPCMethod getblockstats()
         }
     }
 
-    Amount feerate_percentiles[NUM_GETBLOCKSTATS_PERCENTILES] = { 0_sats, 0_sats, 0_sats, 0_sats, 0_sats };
+    UAmount feerate_percentiles[NUM_GETBLOCKSTATS_PERCENTILES] = { 0_sats, 0_sats, 0_sats, 0_sats, 0_sats };
     CalculatePercentilesByWeight(feerate_percentiles, feerate_array, total_weight);
 
     UniValue feerates_res(UniValue::VARR);
     for (int64_t i = 0; i < NUM_GETBLOCKSTATS_PERCENTILES; i++) {
-        feerates_res.push_back(feerate_percentiles[i].Int());
+        feerates_res.push_back(feerate_percentiles[i].UInt());
     }
 
     UniValue ret_all(UniValue::VOBJ);
@@ -2187,7 +2187,7 @@ static RPCMethod getblockstats()
     ret_all.pushKV("height", pindex.nHeight);
     ret_all.pushKV("ins", inputs);
     ret_all.pushKV("maxfee", maxfee.UInt());
-    ret_all.pushKV("maxfeerate", maxfeerate.Int());
+    ret_all.pushKV("maxfeerate", maxfeerate.UInt());
     ret_all.pushKV("maxtxsize", maxtxsize);
     ret_all.pushKV("medianfee", CalculateTruncatedMedian(fee_array).UInt());
     ret_all.pushKV("mediantime", pindex.GetMedianTimePast());
@@ -2201,7 +2201,7 @@ static RPCMethod getblockstats()
     ret_all.pushKV("swtotal_weight", swtotal_weight);
     ret_all.pushKV("swtxs", swtxs);
     ret_all.pushKV("time", pindex.GetBlockTime());
-    ret_all.pushKV("total_out", total_out.Int());
+    ret_all.pushKV("total_out", total_out.UInt());
     ret_all.pushKV("total_size", total_size);
     ret_all.pushKV("total_weight", total_weight);
     ret_all.pushKV("totalfee", totalfee.UInt());
@@ -2422,7 +2422,7 @@ static RPCMethod scantxoutset()
 
         std::set<CScript> needles;
         std::map<CScript, std::string> descriptors;
-        Amount total_in{0_sats};
+        UAmount total_in{0_sats};
 
         // loop through the scan objects
         for (const UniValue& scanobject : request.params[1].get_array().getValues()) {
@@ -2826,7 +2826,7 @@ static RPCMethod getdescriptoractivity()
 
     const auto AddSpend = [&](
             const CScript& spk,
-            const Amount val,
+            const UAmount val,
             const CTransactionRef& tx,
             int vin,
             const CTxIn& txin,
@@ -2922,7 +2922,7 @@ static RPCMethod getdescriptoractivity()
 
             for (size_t vin_idx = 0; vin_idx < tx->vin.size(); ++vin_idx) {
                 CScript scriptPubKey;
-                Amount value{0_sats};
+                UAmount value{0_sats};
                 const auto& txin = tx->vin.at(vin_idx);
                 std::optional<Coin> coin = coins_view.GetCoin(txin.prevout);
 

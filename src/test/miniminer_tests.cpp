@@ -16,9 +16,9 @@
 
 BOOST_FIXTURE_TEST_SUITE(miniminer_tests, TestingSetup)
 
-const Amount low_fee{     500_sats};
-const Amount med_fee{   5'000_sats};
-const Amount high_fee{100'000_sats};
+constexpr UAmountLiteral low_fee{     500_sats};
+constexpr UAmountLiteral med_fee{   5'000_sats};
+constexpr UAmountLiteral high_fee{100'000_sats};
 
 
 static inline CTransactionRef make_tx(const std::vector<COutPoint>& inputs, size_t num_outputs)
@@ -39,7 +39,7 @@ static inline CTransactionRef make_tx(const std::vector<COutPoint>& inputs, size
 }
 
 static inline bool sanity_check(const std::vector<CTransactionRef>& transactions,
-                                const std::map<COutPoint, Amount>& bumpfees)
+                                const std::map<COutPoint, UAmount>& bumpfees)
 {
     // No negative bumpfees.
     for (const auto& [outpoint, fee] : bumpfees) {
@@ -54,7 +54,7 @@ static inline bool sanity_check(const std::vector<CTransactionRef>& transactions
     for (const auto& tx : transactions) {
         // If tx has multiple outputs, they must all have the same bumpfee (if they exist).
         if (tx->vout.size() > 1) {
-            std::set<Amount> distinct_bumpfees;
+            std::set<UAmount> distinct_bumpfees;
             for (size_t i{0}; i < tx->vout.size(); ++i) {
                 const auto bumpfee = bumpfees.find(COutPoint{tx->GetHash(), static_cast<uint32_t>(i)});
                 if (bumpfee != bumpfees.end()) distinct_bumpfees.insert(bumpfee->second);
@@ -80,9 +80,9 @@ BOOST_FIXTURE_TEST_CASE(miniminer_negative, TestChain100Setup)
     TestMemPoolEntryHelper entry;
 
     // Create a transaction that will be prioritised to have a negative modified fee.
-    const Amount positive_base_fee{1000_sats};
+    const UAmount positive_base_fee{1000_sats};
     const Amount negative_fee_delta{-50000_sats};
-    const Amount negative_modified_fees{positive_base_fee + negative_fee_delta};
+    const Amount negative_modified_fees{Amount{positive_base_fee} + negative_fee_delta};
     BOOST_CHECK(negative_modified_fees < 0_sats);
     const auto tx_mod_negative = make_tx({COutPoint{m_coinbase_txns[4]->GetHash(), 0}}, /*num_outputs=*/1);
     TryAddToMempool(pool, entry.Fee(positive_base_fee).FromTx(tx_mod_negative));
@@ -130,11 +130,11 @@ BOOST_FIXTURE_TEST_CASE(miniminer_1p1c, TestChain100Setup)
     TryAddToMempool(pool, entry.Fee(low_fee).FromTx(tx4));
     const auto tx5 = make_tx({COutPoint{tx4->GetHash(), 0}}, /*num_outputs=*/1);
     TryAddToMempool(pool, entry.Fee(low_fee).FromTx(tx5));
-    const Amount tx5_delta{CENT/100};
+    const UAmount tx5_delta{CENT/100U};
     // Make tx5's modified fee much higher than its base fee. This should cause it to pass
     // the fee-related checks despite being low-feerate.
-    pool.PrioritiseTransaction(tx5->GetHash(), tx5_delta);
-    const Amount tx5_mod_fee{low_fee + tx5_delta};
+    pool.PrioritiseTransaction(tx5->GetHash(), tx5_delta.TruncateToSigned());
+    const UAmount tx5_mod_fee{low_fee + tx5_delta};
 
     // Create a high-feerate parent tx6, low-feerate child tx7
     const auto tx6 = make_tx({COutPoint{m_coinbase_txns[3]->GetHash(), 0}}, /*num_outputs=*/2);
@@ -218,7 +218,7 @@ BOOST_FIXTURE_TEST_CASE(miniminer_1p1c, TestChain100Setup)
 
         // Check tx0 bumpfee: no other bumper.
         const TxDimensions& tx0_dimensions = tx_dims.find(tx0->GetHash())->second;
-        Amount bumpfee0 = Find(bump_fees, COutPoint{tx0->GetHash(), 1});
+        UAmount bumpfee0 = Find(bump_fees, COutPoint{tx0->GetHash(), 1});
         if (target_feerate <= tx0_dimensions.feerate) {
             BOOST_CHECK_EQUAL(bumpfee0, 0_sats);
         } else {
@@ -230,7 +230,7 @@ BOOST_FIXTURE_TEST_CASE(miniminer_1p1c, TestChain100Setup)
         const TxDimensions& tx2_dimensions = tx_dims.find(tx2->GetHash())->second;
         const TxDimensions& tx3_dimensions = tx_dims.find(tx3->GetHash())->second;
         const CFeeRate tx2_feerate = CFeeRate(tx2_dimensions.mod_fee + tx3_dimensions.mod_fee, tx2_dimensions.vsize + tx3_dimensions.vsize);
-        Amount bumpfee2 = Find(bump_fees, COutPoint{tx2->GetHash(), 1});
+        UAmount bumpfee2 = Find(bump_fees, COutPoint{tx2->GetHash(), 1});
         if (target_feerate <= tx2_feerate) {
             // As long as target feerate is below tx3's ancestor feerate, there is no bump fee.
             BOOST_CHECK_EQUAL(bumpfee2, 0_sats);
@@ -250,7 +250,7 @@ BOOST_FIXTURE_TEST_CASE(miniminer_1p1c, TestChain100Setup)
         const TxDimensions& tx4_dimensions = tx_dims.find(tx4->GetHash())->second;
         const TxDimensions& tx5_dimensions = tx_dims.find(tx5->GetHash())->second;
         const CFeeRate tx4_feerate = CFeeRate(tx4_dimensions.mod_fee + tx5_dimensions.mod_fee, tx4_dimensions.vsize + tx5_dimensions.vsize);
-        Amount bumpfee4 = Find(bump_fees, COutPoint{tx4->GetHash(), 1});
+        UAmount bumpfee4 = Find(bump_fees, COutPoint{tx4->GetHash(), 1});
         if (target_feerate <= tx4_feerate) {
             // As long as target feerate is below tx5's ancestor feerate, there is no bump fee.
             BOOST_CHECK_EQUAL(bumpfee4, 0_sats);
@@ -280,7 +280,7 @@ BOOST_FIXTURE_TEST_CASE(miniminer_1p1c, TestChain100Setup)
 
             // Check tx0 bumpfee: no other bumper.
             const TxDimensions& tx0_dimensions = tx_dims.find(tx0->GetHash())->second;
-            Amount it0_spent = Find(bump_fees, COutPoint{tx0->GetHash(), 0});
+            UAmount it0_spent = Find(bump_fees, COutPoint{tx0->GetHash(), 0});
             if (target_feerate <= tx0_dimensions.feerate) {
                 BOOST_CHECK_EQUAL(it0_spent, 0_sats);
             } else {
@@ -327,7 +327,7 @@ BOOST_FIXTURE_TEST_CASE(miniminer_1p1c, TestChain100Setup)
         const int32_t tx7_vsize{tx_dims.at(tx7->GetHash()).vsize};
 
         miniminer_info.emplace_back(tx0,/*vsize_self=*/tx0_vsize,/*vsize_ancestor=*/tx0_vsize,/*fee_self=*/med_fee,/*fee_ancestor=*/med_fee);
-        miniminer_info.emplace_back(tx1,               tx1_vsize,       tx0_vsize + tx1_vsize,             med_fee,               2*med_fee);
+        miniminer_info.emplace_back(tx1,               tx1_vsize,       tx0_vsize + tx1_vsize,             med_fee,              2U*med_fee);
         miniminer_info.emplace_back(tx2,               tx2_vsize,                   tx2_vsize,             low_fee,                 low_fee);
         miniminer_info.emplace_back(tx3,               tx3_vsize,       tx2_vsize + tx3_vsize,            high_fee,      low_fee + high_fee);
         miniminer_info.emplace_back(tx4,               tx4_vsize,                   tx4_vsize,             low_fee,                 low_fee);
@@ -552,14 +552,14 @@ BOOST_FIXTURE_TEST_CASE(miniminer_overlap, TestChain100Setup)
     }
     // Check linearization order
     std::vector<node::MiniMinerMempoolEntry> miniminer_info;
-    miniminer_info.emplace_back(tx0,/*vsize_self=*/tx_vsizes[0],                     /*vsize_ancestor=*/tx_vsizes[0], /*fee_self=*/low_fee,   /*fee_ancestor=*/low_fee);
-    miniminer_info.emplace_back(tx1,               tx_vsizes[1],                                        tx_vsizes[1],              med_fee,                    med_fee);
-    miniminer_info.emplace_back(tx2,               tx_vsizes[2],                                        tx_vsizes[2],             high_fee,                   high_fee);
-    miniminer_info.emplace_back(tx3,               tx_vsizes[3], tx_vsizes[0]+tx_vsizes[1]+tx_vsizes[2]+tx_vsizes[3],             high_fee, low_fee+med_fee+2*high_fee);
-    miniminer_info.emplace_back(tx4,               tx_vsizes[4],                                        tx_vsizes[4],             high_fee,                   high_fee);
-    miniminer_info.emplace_back(tx5,               tx_vsizes[5],                           tx_vsizes[4]+tx_vsizes[5],              low_fee,         low_fee + high_fee);
-    miniminer_info.emplace_back(tx6,               tx_vsizes[6],              tx_vsizes[4]+tx_vsizes[5]+tx_vsizes[6],              med_fee,   high_fee+low_fee+med_fee);
-    miniminer_info.emplace_back(tx7,               tx_vsizes[7],              tx_vsizes[4]+tx_vsizes[5]+tx_vsizes[7],             high_fee,  high_fee+low_fee+high_fee);
+    miniminer_info.emplace_back(tx0,/*vsize_self=*/tx_vsizes[0],                     /*vsize_ancestor=*/tx_vsizes[0], /*fee_self=*/low_fee,    /*fee_ancestor=*/low_fee);
+    miniminer_info.emplace_back(tx1,               tx_vsizes[1],                                        tx_vsizes[1],              med_fee,                     med_fee);
+    miniminer_info.emplace_back(tx2,               tx_vsizes[2],                                        tx_vsizes[2],             high_fee,                    high_fee);
+    miniminer_info.emplace_back(tx3,               tx_vsizes[3], tx_vsizes[0]+tx_vsizes[1]+tx_vsizes[2]+tx_vsizes[3],             high_fee, low_fee+med_fee+2U*high_fee);
+    miniminer_info.emplace_back(tx4,               tx_vsizes[4],                                        tx_vsizes[4],             high_fee,                    high_fee);
+    miniminer_info.emplace_back(tx5,               tx_vsizes[5],                           tx_vsizes[4]+tx_vsizes[5],              low_fee,          low_fee + high_fee);
+    miniminer_info.emplace_back(tx6,               tx_vsizes[6],              tx_vsizes[4]+tx_vsizes[5]+tx_vsizes[6],              med_fee,    high_fee+low_fee+med_fee);
+    miniminer_info.emplace_back(tx7,               tx_vsizes[7],              tx_vsizes[4]+tx_vsizes[5]+tx_vsizes[7],             high_fee,   high_fee+low_fee+high_fee);
 
     std::map<Txid, std::set<Txid>> descendant_caches;
     descendant_caches.emplace(tx0->GetHash(), std::set<Txid>{tx0->GetHash(), tx3->GetHash()});
@@ -680,12 +680,12 @@ BOOST_FIXTURE_TEST_CASE(manual_ctor, TestChain100Setup)
 
         std::vector<node::MiniMinerMempoolEntry> miniminer_info;
         miniminer_info.emplace_back(grandparent_zero_fee,          /*vsize_self=*/tx_vsize,/*vsize_ancestor=*/tx_vsize, /*fee_self=*/0_sats,/*fee_ancestor=*/0_sats);
-        miniminer_info.emplace_back(parent_high_feerate,                          tx_vsize,                 2*tx_vsize, high_fee,      high_fee);
-        miniminer_info.emplace_back(grandparent_double_low_feerate,               tx_vsize,                   tx_vsize, 2*low_fee,     2*low_fee);
-        miniminer_info.emplace_back(parent_med_feerate,                           tx_vsize,                 2*tx_vsize, med_fee,       2*low_fee+med_fee);
-        miniminer_info.emplace_back(grandparent_low_feerate,                      tx_vsize,                   tx_vsize, low_fee,       low_fee);
-        miniminer_info.emplace_back(parent_double_low_feerate,                    tx_vsize,                 2*tx_vsize, 2*low_fee,     3*low_fee);
-        miniminer_info.emplace_back(child,                                     child_vsize,     6*tx_vsize+child_vsize, low_fee,       high_fee+med_fee+6*low_fee);
+        miniminer_info.emplace_back(parent_high_feerate,                          tx_vsize,                 2*tx_vsize, high_fee,           high_fee);
+        miniminer_info.emplace_back(grandparent_double_low_feerate,               tx_vsize,                   tx_vsize, 2U*low_fee,         2U*low_fee);
+        miniminer_info.emplace_back(parent_med_feerate,                           tx_vsize,                 2*tx_vsize, med_fee,            2U*low_fee+med_fee);
+        miniminer_info.emplace_back(grandparent_low_feerate,                      tx_vsize,                   tx_vsize, low_fee,            low_fee);
+        miniminer_info.emplace_back(parent_double_low_feerate,                    tx_vsize,                 2*tx_vsize, 2U*low_fee,         3U*low_fee);
+        miniminer_info.emplace_back(child,                                     child_vsize,     6*tx_vsize+child_vsize, low_fee,            high_fee+med_fee+6U*low_fee);
         std::map<Txid, std::set<Txid>> descendant_caches;
         descendant_caches.emplace(grandparent_zero_fee->GetHash(), std::set<Txid>{grandparent_zero_fee->GetHash(), parent_high_feerate->GetHash(), child->GetHash()});
         descendant_caches.emplace(grandparent_low_feerate->GetHash(), std::set<Txid>{grandparent_low_feerate->GetHash(), parent_double_low_feerate->GetHash(), child->GetHash()});

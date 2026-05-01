@@ -99,20 +99,20 @@ struct {
  * The Branch and Bound algorithm is described in detail in Murch's Master Thesis:
  * https://murch.one/wp-content/uploads/2016/11/erhardt2016coinselection.pdf
  *
- * @param const std::vector<OutputGroup>& utxo_pool The set of UTXO groups that we are choosing from.
+ * @param utxo_pool The set of UTXO groups that we are choosing from.
  *        These UTXO groups will be sorted in descending order by effective value and the OutputGroups'
  *        values are their effective values.
- * @param const Amount& selection_target This is the value that we want to select. It is the lower
+ * @param selection_target This is the value that we want to select. It is the lower
  *        bound of the range.
- * @param const Amount& cost_of_change This is the cost of creating and spending a change output.
+ * @param cost_of_change This is the cost of creating and spending a change output.
  *        This plus selection_target is the upper bound of the range.
- * @param int max_selection_weight The maximum allowed weight for a selection result to be valid.
+ * @param max_selection_weight The maximum allowed weight for a selection result to be valid.
  * @returns The result of this coin selection algorithm, or std::nullopt
  */
 
 static const size_t TOTAL_TRIES = 100000;
 
-util::Result<SelectionResult> SelectCoinsBnB(std::vector<OutputGroup>& utxo_pool, const Amount& selection_target, const Amount& cost_of_change,
+util::Result<SelectionResult> SelectCoinsBnB(std::vector<OutputGroup>& utxo_pool, const UAmount& selection_target, const UAmount& cost_of_change,
                                              int max_selection_weight)
 {
     std::sort(utxo_pool.begin(), utxo_pool.end(), descending);
@@ -388,15 +388,15 @@ util::Result<SelectionResult> SelectCoinsBnB(std::vector<OutputGroup>& utxo_pool
  * branch can be skipped, or both the inclusion and omission branch can be skipped after evaluating the candidate input
  * set in the node.
  *
- * @param std::vector<OutputGroup>& utxo_pool The UTXOs that we are choosing from. These UTXOs will be sorted in
+ * @param utxo_pool The UTXOs that we are choosing from. These UTXOs will be sorted in
  *        descending order by effective value, with lower weight preferred as a tie-breaker. (We can think of an output
  *        group with multiple as a heavier UTXO with the combined amount here.)
- * @param const Amount& selection_target This is the minimum amount that we need for the transaction without considering change.
- * @param const Amount& change_target The minimum budget for creating a change output, by which we increase the selection_target.
- * @param int max_selection_weight The maximum allowed weight for a selection result to be valid.
+ * @param selection_target This is the minimum amount that we need for the transaction without considering change.
+ * @param change_target The minimum budget for creating a change output, by which we increase the selection_target.
+ * @param max_selection_weight The maximum allowed weight for a selection result to be valid.
  * @returns The result of this coin selection algorithm, or std::nullopt
  */
-util::Result<SelectionResult> CoinGrinder(std::vector<OutputGroup>& utxo_pool, const Amount& selection_target, Amount change_target, int max_selection_weight)
+util::Result<SelectionResult> CoinGrinder(std::vector<OutputGroup>& utxo_pool, const UAmount& selection_target, UAmount change_target, int max_selection_weight)
 {
     std::sort(utxo_pool.begin(), utxo_pool.end(), descending_effval_weight);
     // The sum of UTXO amounts after this UTXO index, e.g. lookahead[5] = Σ(UTXO[6+].amount)
@@ -417,7 +417,7 @@ util::Result<SelectionResult> CoinGrinder(std::vector<OutputGroup>& utxo_pool, c
         min_group_weight = std::min(min_group_weight, utxo_pool[index].m_weight);
     }
 
-    const Amount total_target = selection_target + change_target;
+    const UAmount total_target = selection_target + change_target;
     if (total_available < total_target) {
         // Insufficient funds
         return util::Error();
@@ -528,7 +528,7 @@ util::Result<SelectionResult> CoinGrinder(std::vector<OutputGroup>& utxo_pool, c
                 best_selection_weight = curr_weight;
                 best_selection_amount = curr_amount;
             }
-        } else if (!best_selection.empty() && curr_weight + int64_t{min_tail_weight[curr_tail]} * ((total_target - curr_amount + utxo_pool[curr_tail].GetSelectionAmount() - 1_sats) / utxo_pool[curr_tail].GetSelectionAmount()) > best_selection_weight) {
+        } else if (!best_selection.empty() && curr_weight + int64_t{min_tail_weight[curr_tail]} * ((Amount{total_target} - curr_amount + utxo_pool[curr_tail].GetSelectionAmount() - 1_sats) / utxo_pool[curr_tail].GetSelectionAmount()) > best_selection_weight) {
             // Compare minimal tail weight and last selected amount with the amount missing to gauge whether a better weight is still possible.
             if (utxo_pool[curr_tail].m_weight <= min_tail_weight[curr_tail]) {
                 should_cut = true;
@@ -607,7 +607,7 @@ public:
     }
 };
 
-util::Result<SelectionResult> SelectCoinsSRD(const std::vector<OutputGroup>& utxo_pool, Amount target_value, Amount change_fee, FastRandomContext& rng,
+util::Result<SelectionResult> SelectCoinsSRD(const std::vector<OutputGroup>& utxo_pool, UAmount target_value, UAmount change_fee, FastRandomContext& rng,
                                              int max_selection_weight)
 {
     SelectionResult result(target_value, SelectionAlgorithm::SRD);
@@ -674,8 +674,8 @@ util::Result<SelectionResult> SelectCoinsSRD(const std::vector<OutputGroup>& utx
  * @param[in]   iterations      Maximum number of tries.
  */
 static void ApproximateBestSubset(FastRandomContext& insecure_rand, const std::vector<OutputGroup>& groups,
-                                  const Amount& nTotalLower, const Amount& nTargetValue,
-                                  std::vector<char>& vfBest, Amount& nBest, int max_selection_weight, int iterations = 1000)
+                                  const UAmount& nTotalLower, const UAmount& nTargetValue,
+                                  std::vector<char>& vfBest, UAmount& nBest, int max_selection_weight, int iterations = 1000)
 {
     std::vector<char> vfIncluded;
 
@@ -710,7 +710,7 @@ static void ApproximateBestSubset(FastRandomContext& insecure_rand, const std::v
                         // approximation.
                         if (nTotal < nBest)
                         {
-                            nBest = nTotal;
+                            nBest = nTotal.AssertToUnsigned();
                             vfBest = vfIncluded;
                         }
                         nTotal -= groups[i].GetSelectionAmount();
@@ -723,8 +723,8 @@ static void ApproximateBestSubset(FastRandomContext& insecure_rand, const std::v
     }
 }
 
-util::Result<SelectionResult> KnapsackSolver(std::vector<OutputGroup>& groups, const Amount& nTargetValue,
-                                             Amount change_target, FastRandomContext& rng, int max_selection_weight)
+util::Result<SelectionResult> KnapsackSolver(std::vector<OutputGroup>& groups, const UAmount& nTargetValue,
+                                             UAmount change_target, FastRandomContext& rng, int max_selection_weight)
 {
     SelectionResult result(nTargetValue, SelectionAlgorithm::KNAPSACK);
 
@@ -777,11 +777,11 @@ util::Result<SelectionResult> KnapsackSolver(std::vector<OutputGroup>& groups, c
     // Solve subset sum by stochastic approximation
     std::sort(applicable_groups.begin(), applicable_groups.end(), descending);
     std::vector<char> vfBest;
-    Amount nBest{nTotalLower};
+    UAmount nBest{nTotalLower.AssertToUnsigned()};
 
-    ApproximateBestSubset(rng, applicable_groups, nTotalLower, nTargetValue, vfBest, nBest, max_selection_weight);
+    ApproximateBestSubset(rng, applicable_groups, nTotalLower.AssertToUnsigned(), nTargetValue, vfBest, nBest, max_selection_weight);
     if (nBest != nTargetValue && nTotalLower >= nTargetValue + change_target) {
-        ApproximateBestSubset(rng, applicable_groups, nTotalLower, nTargetValue + change_target, vfBest, nBest, max_selection_weight);
+        ApproximateBestSubset(rng, applicable_groups, nTotalLower.AssertToUnsigned(), nTargetValue + change_target, vfBest, nBest, max_selection_weight);
     }
 
     // If we have a bigger coin and (either the stochastic approximation didn't find a good solution,
@@ -832,7 +832,7 @@ void OutputGroup::Insert(const std::shared_ptr<COutput>& output, size_t ancestor
 
     fee += coin.GetFee();
 
-    coin.long_term_fee = coin.input_bytes < 0 ? 0_sats : m_long_term_feerate.GetFee(coin.input_bytes);
+    coin.long_term_fee = coin.input_bytes < 0 ? 0_sats : m_long_term_feerate.GetFee(coin.input_bytes).AssertToUnsigned();
     long_term_fee += coin.long_term_fee;
 
     effective_value += coin.GetEffectiveValue();
@@ -880,25 +880,24 @@ void OutputGroupTypeMap::Push(const OutputGroup& group, OutputType type, bool in
     }
 }
 
-Amount GenerateChangeTarget(const Amount payment_value, const Amount change_fee, FastRandomContext& rng)
+UAmount GenerateChangeTarget(const UAmount payment_value, const UAmount change_fee, FastRandomContext& rng)
 {
-    if (payment_value <= CHANGE_LOWER / 2) {
+    if (payment_value <= CHANGE_LOWER / 2U) {
         return change_fee + CHANGE_LOWER;
     } else {
         // random value between 50ksat and min (payment_value * 2, 1milsat)
-        const auto upper_bound = std::min(payment_value * 2, CHANGE_UPPER);
-        return change_fee + Amount{rng.randrange((upper_bound - CHANGE_LOWER).Int())} + CHANGE_LOWER;
+        const auto upper_bound = std::min(payment_value * 2U, CHANGE_UPPER);
+        return change_fee + Amount{rng.randrange((upper_bound - CHANGE_LOWER).Int())}.AssertToUnsigned() + CHANGE_LOWER;
     }
 }
 
-void SelectionResult::SetBumpFeeDiscount(const Amount discount)
+void SelectionResult::SetBumpFeeDiscount(const UAmount discount)
 {
     // Overlapping ancestry can only lower the fees, not increase them
-    assert (discount >= 0_sats);
     bump_fee_group_discount = discount;
 }
 
-void SelectionResult::RecalculateWaste(const Amount min_viable_change, const Amount change_cost, const Amount change_fee)
+void SelectionResult::RecalculateWaste(const UAmount min_viable_change, const UAmount change_cost, const UAmount change_fee)
 {
     // This function should not be called with empty inputs as that would mean the selection failed
     assert(!m_selected_inputs.empty());
@@ -951,9 +950,9 @@ Amount SelectionResult::GetWaste() const
     return *Assert(m_waste);
 }
 
-Amount SelectionResult::GetSelectedValue() const
+UAmount SelectionResult::GetSelectedValue() const
 {
-    return std::accumulate(m_selected_inputs.cbegin(), m_selected_inputs.cend(), Amount{0_sats}, [](Amount sum, const auto& coin) { return sum + coin->txout.nValue; });
+    return std::accumulate(m_selected_inputs.cbegin(), m_selected_inputs.cend(), UAmount{0_sats}, [](UAmount sum, const auto& coin) { return sum + coin->txout.nValue; });
 }
 
 Amount SelectionResult::GetSelectedEffectiveValue() const
@@ -963,7 +962,7 @@ Amount SelectionResult::GetSelectedEffectiveValue() const
 
 Amount SelectionResult::GetTotalBumpFees() const
 {
-    return std::accumulate(m_selected_inputs.cbegin(), m_selected_inputs.cend(), Amount{0_sats}, [](Amount sum, const auto& coin) { return sum + coin->ancestor_bump_fees; }) - bump_fee_group_discount;
+    return std::accumulate(m_selected_inputs.cbegin(), m_selected_inputs.cend(), UAmount{0_sats}, [](UAmount sum, const auto& coin) { return sum + coin->ancestor_bump_fees; }) - bump_fee_group_discount;
 }
 
 void SelectionResult::Clear()
@@ -1045,7 +1044,7 @@ std::string GetAlgorithmName(const SelectionAlgorithm algo)
     assert(false);
 }
 
-Amount SelectionResult::GetChange(const Amount min_viable_change, const Amount change_fee) const
+Amount SelectionResult::GetChange(const UAmount min_viable_change, const UAmount change_fee) const
 {
     // change = SUM(inputs) - SUM(outputs) - fees
     // 1) With SFFO we don't pay any fees

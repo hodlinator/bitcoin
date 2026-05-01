@@ -192,7 +192,7 @@ RPCMethod listaddressgroupings()
     LOCK(pwallet->cs_wallet);
 
     UniValue jsonGroupings(UniValue::VARR);
-    const std::map<CTxDestination, Amount> balances{GetAddressBalances(*pwallet)};
+    const std::map<CTxDestination, UAmount> balances{GetAddressBalances(*pwallet)};
     for (const std::set<CTxDestination>& grouping : GetAddressGroupings(*pwallet)) {
         UniValue jsonGrouping(UniValue::VARR);
         for (const CTxDestination& address : grouping)
@@ -200,7 +200,7 @@ RPCMethod listaddressgroupings()
             UniValue addressInfo(UniValue::VARR);
             addressInfo.push_back(EncodeDestination(address));
             const auto it{balances.find(address)};
-            Amount balance{it != balances.end() ? it->second : 0_sats};
+            UAmount balance{it != balances.end() ? it->second : 0_sats};
             addressInfo.push_back(ValueFromAmount(balance));
             {
                 const auto* address_book_entry = pwallet->FindAddressBookEntry(address);

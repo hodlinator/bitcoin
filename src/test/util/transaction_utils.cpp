@@ -91,7 +91,7 @@ void BulkTransaction(CMutableTransaction& tx, int32_t target_weight)
     assert(GetTransactionWeight(CTransaction(tx)) <= target_weight + 3);
 }
 
-bool SignSignature(const SigningProvider &provider, const CScript& fromPubKey, CMutableTransaction& txTo, unsigned int nIn, const Amount& amount, int nHashType, SignatureData& sig_data)
+bool SignSignature(const SigningProvider &provider, const CScript& fromPubKey, CMutableTransaction& txTo, unsigned int nIn, const UAmount& amount, int nHashType, SignatureData& sig_data)
 {
     assert(nIn < txTo.vin.size());
 

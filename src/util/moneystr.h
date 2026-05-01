@@ -18,6 +18,8 @@
  * JSON but use AmountFromValue and ValueFromAmount for that.
  */
 std::string FormatMoney(Amount n);
+std::string FormatMoney(UAmount n);
+inline std::string FormatMoney(UAmountLiteral n) { return FormatMoney(UAmount{n}); }
 /** Parse an amount denoted in full coins. E.g. "0.0034" supplied on the command line. **/
 std::optional<UAmount> ParseMoney(const std::string& str);
 

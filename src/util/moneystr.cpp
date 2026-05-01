@@ -10,6 +10,7 @@
 #include <util/strencodings.h>
 #include <util/string.h>
 
+#include <compare>
 #include <cstdint>
 #include <optional>
 
@@ -38,6 +39,25 @@ std::string FormatMoney(const Amount n)
 
     if (n < 0_sats)
         str.insert(uint32_t{0}, 1, '-');
+    return str;
+}
+
+std::string FormatMoney(const UAmount n)
+{
+    // Note: not using straight sprintf here because we do NOT want
+    // localized number formatting.
+    static_assert(COIN > 1_sats);
+    int64_t quotient = n / COIN;
+    int64_t remainder = n % COIN;
+    std::string str = strprintf("%d.%08d", quotient, remainder);
+
+    // Right-trim excess zeros before the decimal point:
+    int nTrim = 0;
+    for (int i = str.size()-1; (str[i] == '0' && IsDigit(str[i-2])); --i)
+        ++nTrim;
+    if (nTrim)
+        str.erase(str.size()-nTrim, nTrim);
+
     return str;
 }
 
@@ -82,7 +102,7 @@ std::optional<UAmount> ParseMoney(const std::string& money_string)
     if (nUnits < 0 || static_cast<uint64_t>(nUnits) > COIN.UInt())
         return std::nullopt;
     int64_t nWhole = LocaleIndependentAtoi<int64_t>(strWhole);
-    Amount value = nWhole * COIN + Amount{nUnits};
+    Amount value{nWhole * int64_t(COIN.UInt()) + nUnits};
 
     if (!MoneyRange(value)) {
         return std::nullopt;

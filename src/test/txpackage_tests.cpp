@@ -25,7 +25,7 @@ using namespace util::hex_literals;
 
 // A fee amount that is above 1sat/vB but below 5sat/vB for most transactions created within these
 // unit tests.
-constexpr Amount low_fee_amt{200_sats};
+constexpr UAmount low_fee_amt{200_sats};
 
 struct TxPackageTest : TestChain100Setup {
 // Create placeholder transactions that have no meaning.
@@ -457,10 +457,10 @@ BOOST_AUTO_TEST_CASE(package_submission_tests)
         auto it_child = submit_parent_child.m_tx_results.find(tx_child->GetWitnessHash());
         BOOST_CHECK(it_parent != submit_parent_child.m_tx_results.end());
         BOOST_CHECK(it_parent->second.m_state.IsValid());
-        BOOST_CHECK(it_parent->second.m_effective_feerate == CFeeRate(1 * COIN, GetVirtualTransactionSize(*tx_parent)));
+        BOOST_CHECK(it_parent->second.m_effective_feerate == CFeeRate(1U * COIN, GetVirtualTransactionSize(*tx_parent)));
         BOOST_CHECK_EQUAL(it_parent->second.m_wtxids_fee_calculations.value().size(), 1);
         BOOST_CHECK_EQUAL(it_parent->second.m_wtxids_fee_calculations.value().front(), tx_parent->GetWitnessHash());
-        BOOST_CHECK(it_child->second.m_effective_feerate == CFeeRate(1 * COIN, GetVirtualTransactionSize(*tx_child)));
+        BOOST_CHECK(it_child->second.m_effective_feerate == CFeeRate(1U * COIN, GetVirtualTransactionSize(*tx_child)));
         BOOST_CHECK_EQUAL(it_child->second.m_wtxids_fee_calculations.value().size(), 1);
         BOOST_CHECK_EQUAL(it_child->second.m_wtxids_fee_calculations.value().front(), tx_child->GetWitnessHash());
 
@@ -546,7 +546,7 @@ BOOST_AUTO_TEST_CASE(package_single_tx)
     LOCK(cs_main);
     auto expected_pool_size{m_node.mempool->size()};
 
-    const Amount high_fee{1000_sats};
+    const UAmount high_fee{1000_sats};
 
     // No unconfirmed parents
     CKey single_key = GenerateRandomKey();
@@ -591,7 +591,7 @@ BOOST_AUTO_TEST_CASE(package_single_tx)
     auto mtx_child = CreateValidMempoolTransaction(/*input_transaction=*/tx_parent, /*input_vout=*/0,
                                                    /*input_height=*/101, /*input_signing_key=*/parent_key,
                                                    /*output_destination=*/child_locking_script,
-                                                   /*output_amount=*/(50 * COIN - 2 * high_fee).AssertToUnsigned(), /*submit=*/false);
+                                                   /*output_amount=*/(50 * COIN - 2U * high_fee).AssertToUnsigned(), /*submit=*/false);
     CTransactionRef tx_child = MakeTransactionRef(mtx_child);
     Package package_just_child{tx_child};
     const auto result_just_child = ProcessNewPackage(m_node.chainman->ActiveChainstate(), *m_node.mempool, package_just_child, /*test_accept=*/false, /*client_maxfeerate=*/{});
@@ -855,7 +855,7 @@ BOOST_AUTO_TEST_CASE(package_witness_swap_tests)
             BOOST_CHECK_EQUAL(ptx_parent2_v2->GetWitnessHash(), it_parent2->second.m_other_wtxid.value());
 
             // package feerate should include parent3 and child. It should not include parent1 or parent2_v1.
-            const CFeeRate expected_feerate(1 * COIN, GetVirtualTransactionSize(*ptx_parent3) + GetVirtualTransactionSize(*ptx_mixed_child));
+            const CFeeRate expected_feerate(1U * COIN, GetVirtualTransactionSize(*ptx_parent3) + GetVirtualTransactionSize(*ptx_mixed_child));
             BOOST_CHECK(it_parent3->second.m_effective_feerate.value() == expected_feerate);
             BOOST_CHECK(it_child->second.m_effective_feerate.value() == expected_feerate);
             std::vector<Wtxid> expected_wtxids({ptx_parent3->GetWitnessHash(), ptx_mixed_child->GetWitnessHash()});
@@ -953,8 +953,8 @@ BOOST_AUTO_TEST_CASE(package_cpfp_tests)
     // The mempool minimum feerate is 5sat/vB, but this package just pays 800 satoshis total.
     // The child fees would be able to pay for itself, but isn't enough for the entire package.
     Package package_still_too_low;
-    const Amount parent_fee{200_sats};
-    const Amount child_fee{600_sats};
+    const UAmount parent_fee{200_sats};
+    const UAmount child_fee{600_sats};
     auto mtx_parent_cheap = CreateValidMempoolTransaction(/*input_transaction=*/m_coinbase_txns[1], /*input_vout=*/0,
                                                           /*input_height=*/0, /*input_signing_key=*/coinbaseKey,
                                                           /*output_destination=*/parent_spk,
@@ -999,7 +999,7 @@ BOOST_AUTO_TEST_CASE(package_cpfp_tests)
 
     // Package feerate includes the modified fees of the transactions.
     // This means a child with its fee delta from prioritisetransaction can pay for a parent.
-    m_node.mempool->PrioritiseTransaction(tx_child_cheap->GetHash(), 1 * COIN);
+    m_node.mempool->PrioritiseTransaction(tx_child_cheap->GetHash(), 1U * COIN);
     // Now that the child's fees have "increased" by 1 BTC, the cheap package should succeed.
     {
         const auto submit_prioritised_package = ProcessNewPackage(m_node.chainman->ActiveChainstate(), *m_node.mempool,
@@ -1007,7 +1007,7 @@ BOOST_AUTO_TEST_CASE(package_cpfp_tests)
         if (auto err_prioritised{CheckPackageMempoolAcceptResult(package_still_too_low, submit_prioritised_package, /*expect_valid=*/true, m_node.mempool.get())}) {
             BOOST_ERROR(err_prioritised.value());
         } else {
-            const CFeeRate expected_feerate(1 * COIN + parent_fee + child_fee,
+            const CFeeRate expected_feerate(1U * COIN + parent_fee + child_fee,
                 GetVirtualTransactionSize(*tx_parent_cheap) + GetVirtualTransactionSize(*tx_child_cheap));
             BOOST_CHECK_EQUAL(submit_prioritised_package.m_tx_results.size(), package_still_too_low.size());
             auto it_parent = submit_prioritised_package.m_tx_results.find(tx_parent_cheap->GetWitnessHash());
@@ -1032,7 +1032,7 @@ BOOST_AUTO_TEST_CASE(package_cpfp_tests)
     // included in the package feerate. It's also important that the low-fee child doesn't prevent
     // the parent from being accepted.
     Package package_rich_parent;
-    const Amount high_parent_fee{1 * COIN};
+    const UAmount high_parent_fee{1U * COIN};
     auto mtx_parent_rich = CreateValidMempoolTransaction(/*input_transaction=*/m_coinbase_txns[2], /*input_vout=*/0,
                                                          /*input_height=*/0, /*input_signing_key=*/coinbaseKey,
                                                          /*output_destination=*/parent_spk,
@@ -1086,7 +1086,7 @@ BOOST_AUTO_TEST_CASE(package_rbf_tests)
     CKey grandchild_key{GenerateRandomKey()};
     CScript child_spk = GetScriptForDestination(WitnessV0KeyHash(grandchild_key.GetPubKey()));
 
-    const Amount coinbase_value{50 * COIN};
+    const UAmount coinbase_value{50U * COIN};
     // Test that de-duplication works. This is not actually package rbf.
     {
         // 1 parent paying 200sat, 1 child paying 300sat

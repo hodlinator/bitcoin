@@ -115,7 +115,7 @@ static std::string InputAmountsToString(const SelectionResult& selection)
 static void TestBnBSuccess(std::string test_title, std::vector<OutputGroup>& utxo_pool, const UAmount& selection_target, const std::vector<UAmount>& expected_input_amounts, size_t expected_attempts, const CoinSelectionParams& cs_params = default_cs_params, const int custom_spending_vsize = P2WPKH_INPUT_VSIZE, const int max_selection_weight = MAX_STANDARD_TX_WEIGHT)
 {
     SelectionResult expected_result(0_sats, SelectionAlgorithm::BNB);
-    Amount expected_amount{0_sats};
+    UAmount expected_amount{0_sats};
     for (UAmount input_amount : expected_input_amounts) {
         OutputGroup group = MakeCoin(input_amount, true, cs_params, custom_spending_vsize);
         expected_amount += group.m_value;
@@ -242,7 +242,7 @@ BOOST_AUTO_TEST_CASE(bnb_feerate_sensitivity_test)
     TestBnBSuccess("Prefer two light inputs over two heavy inputs at high feerates", high_feerate_pool, /*selection_target=*/13U * CENT, /*expected_input_amounts=*/{3U * CENT, 10U * CENT}, /*expected_attempts=*/9, high_feerate_params);
 }
 
-static void TestSRDSuccess(std::string test_title, std::vector<OutputGroup>& utxo_pool, const Amount& selection_target, const CoinSelectionParams& cs_params = default_cs_params, const int max_selection_weight = MAX_STANDARD_TX_WEIGHT)
+static void TestSRDSuccess(std::string test_title, std::vector<OutputGroup>& utxo_pool, const UAmount& selection_target, const CoinSelectionParams& cs_params = default_cs_params, const int max_selection_weight = MAX_STANDARD_TX_WEIGHT)
 {
     Amount expected_min_amount = selection_target + cs_params.m_change_fee + CHANGE_LOWER;
 
@@ -253,7 +253,7 @@ static void TestSRDSuccess(std::string test_title, std::vector<OutputGroup>& utx
     BOOST_CHECK_MESSAGE(result->GetWeight() <= max_selection_weight, strprintf("Selected weight is higher than permitted in SRD-Success: %s. Expected %d, but got %d", test_title, max_selection_weight, result->GetWeight()));
 }
 
-static void TestSRDFail(std::string test_title, std::vector<OutputGroup>& utxo_pool, const Amount& selection_target, const CoinSelectionParams& cs_params = default_cs_params, int max_selection_weight = MAX_STANDARD_TX_WEIGHT, const bool expect_max_weight_exceeded = false)
+static void TestSRDFail(std::string test_title, std::vector<OutputGroup>& utxo_pool, const UAmount& selection_target, const CoinSelectionParams& cs_params = default_cs_params, int max_selection_weight = MAX_STANDARD_TX_WEIGHT, const bool expect_max_weight_exceeded = false)
 {
     const auto result = SelectCoinsSRD(utxo_pool, selection_target, cs_params.m_change_fee, cs_params.rng_fast, max_selection_weight);
     BOOST_CHECK_MESSAGE(!result, "SRD-Fail: " + test_title);
@@ -268,32 +268,32 @@ BOOST_AUTO_TEST_CASE(srd_test)
 
         const CoinSelectionParams cs_params = init_cs_params(feerate);
 
-        TestSRDFail("Empty UTXO pool", utxo_pool, /*selection_target=*/1 * CENT, cs_params);
+        TestSRDFail("Empty UTXO pool", utxo_pool, /*selection_target=*/1U * CENT, cs_params);
 
         AddCoins(utxo_pool, {1U * CENT, 3U * CENT, 5U * CENT}, cs_params);
 
         TestSRDSuccess("Select 21k sats", utxo_pool, /*selection_target=*/21'000_sats, cs_params);
-        TestSRDSuccess("Select 1 CENT", utxo_pool, /*selection_target=*/1 * CENT, cs_params);
+        TestSRDSuccess("Select 1 CENT", utxo_pool, /*selection_target=*/1U * CENT, cs_params);
         TestSRDSuccess("Select 3.125 CENT", utxo_pool, /*selection_target=*/3'125'000_sats, cs_params);
-        TestSRDSuccess("Select 4 CENT", utxo_pool, /*selection_target=*/4 * CENT, cs_params);
-        TestSRDSuccess("Select 7 CENT", utxo_pool, /*selection_target=*/7 * CENT, cs_params);
+        TestSRDSuccess("Select 4 CENT", utxo_pool, /*selection_target=*/4U * CENT, cs_params);
+        TestSRDSuccess("Select 7 CENT", utxo_pool, /*selection_target=*/7U * CENT, cs_params);
 
         // The minimum change amount for SRD is the feerate dependent `change_fee` plus CHANGE_LOWER
-        TestSRDSuccess("Create minimum change", utxo_pool, /*selection_target=*/9 * CENT - cs_params.m_change_fee - CHANGE_LOWER, cs_params);
-        TestSRDFail("Undershoot minimum change by one sat", utxo_pool, /*selection_target=*/9 * CENT - cs_params.m_change_fee - CHANGE_LOWER + 1_sats, cs_params);
-        TestSRDFail("Spend more than available", utxo_pool, /*selection_target=*/9 * CENT + 1_sats, cs_params);
-        TestSRDFail("Spend everything", utxo_pool, /*selection_target=*/9 * CENT, cs_params);
+        TestSRDSuccess("Create minimum change", utxo_pool, /*selection_target=*/(9 * CENT - cs_params.m_change_fee - CHANGE_LOWER).AssertToUnsigned(), cs_params);
+        TestSRDFail("Undershoot minimum change by one sat", utxo_pool, /*selection_target=*/(9 * CENT - cs_params.m_change_fee - CHANGE_LOWER + 1_sats).AssertToUnsigned(), cs_params);
+        TestSRDFail("Spend more than available", utxo_pool, /*selection_target=*/9U * CENT + 1_sats, cs_params);
+        TestSRDFail("Spend everything", utxo_pool, /*selection_target=*/9U * CENT, cs_params);
 
         AddDuplicateCoins(utxo_pool, /*count=*/100, /*amount=*/5U * CENT, cs_params);
         AddDuplicateCoins(utxo_pool, /*count=*/3, /*amount=*/7U * CENT, cs_params);
-        TestSRDSuccess("Select most valuable UTXOs for acceptable weight", utxo_pool, /*selection_target=*/20 * CENT, cs_params, /*max_selection_weight=*/4 * 4 * (P2WPKH_INPUT_VSIZE - 1 ));
-        TestSRDFail("No acceptable weight possible", utxo_pool, /*selection_target=*/25 * CENT, cs_params, /*max_selection_weight=*/4 * 3 * P2WPKH_INPUT_VSIZE, /*expect_max_weight_exceeded=*/true);
+        TestSRDSuccess("Select most valuable UTXOs for acceptable weight", utxo_pool, /*selection_target=*/20U * CENT, cs_params, /*max_selection_weight=*/4 * 4 * (P2WPKH_INPUT_VSIZE - 1 ));
+        TestSRDFail("No acceptable weight possible", utxo_pool, /*selection_target=*/25U * CENT, cs_params, /*max_selection_weight=*/4 * 3 * P2WPKH_INPUT_VSIZE, /*expect_max_weight_exceeded=*/true);
 
         // Create UTXO pool with UTXOs of same effective value but different weights
         std::vector<OutputGroup> mixed_weight_pool;
         AddDuplicateCoins(mixed_weight_pool, /*count=*/100, /*amount=*/5U * CENT, cs_params);
         mixed_weight_pool.push_back(MakeCoin(5U * CENT, true, cs_params, /*custom_spending_vsize=*/P2WPKH_INPUT_VSIZE - 1));
-        TestSRDSuccess("Tie-break same effective value with lower weight", utxo_pool, /*selection_target=*/9 * CENT, cs_params,
+        TestSRDSuccess("Tie-break same effective value with lower weight", utxo_pool, /*selection_target=*/9U * CENT, cs_params,
         /*max_selection_weight=*/4 * 3 * (P2WPKH_INPUT_VSIZE - 1));
     }
 }

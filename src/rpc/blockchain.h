@@ -44,7 +44,7 @@ UniValue blockToJSON(node::BlockManager& blockman, const CBlock& block, const CB
 UniValue blockheaderToJSON(const CBlockIndex& tip, const CBlockIndex& blockindex, uint256 pow_limit) LOCKS_EXCLUDED(cs_main);
 
 /** Used by getblockstats to get feerates at different percentiles by weight  */
-void CalculatePercentilesByWeight(Amount result[NUM_GETBLOCKSTATS_PERCENTILES], std::vector<std::pair<Amount, int64_t>>& scores, int64_t total_weight);
+void CalculatePercentilesByWeight(UAmount result[NUM_GETBLOCKSTATS_PERCENTILES], std::vector<std::pair<UAmount, uint64_t>>& scores, int64_t total_weight);
 
 /**
  * Helper to create UTXO snapshots given a chainstate and a file handle.

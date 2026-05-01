@@ -21,7 +21,7 @@ bool CheckTransaction(const CTransaction& tx, TxValidationState& state)
     }
 
     // Check for negative or overflow output values (see CVE-2010-5139)
-    Amount nValueOut{0_sats};
+    UAmount nValueOut{0_sats};
     for (const auto& txout : tx.vout)
     {
         if (txout.nValue > MAX_MONEY)

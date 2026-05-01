@@ -285,8 +285,8 @@ public:
     bool createBumpTransaction(const Txid& txid,
         const CCoinControl& coin_control,
         std::vector<bilingual_str>& errors,
-        Amount& old_fee,
-        Amount& new_fee,
+        UAmount& old_fee,
+        UAmount& new_fee,
         CMutableTransaction& mtx) override
     {
         std::vector<CTxOut> outputs; // just an empty list of new recipients for now
@@ -392,11 +392,11 @@ public:
         balances = getBalances();
         return true;
     }
-    Amount getBalance() override { return GetBalance(*m_wallet).m_mine_trusted; }
-    Amount getAvailableBalance(const CCoinControl& coin_control) override
+    UAmount getBalance() override { return GetBalance(*m_wallet).m_mine_trusted; }
+    UAmount getAvailableBalance(const CCoinControl& coin_control) override
     {
         LOCK(m_wallet->cs_wallet);
-        Amount total_amount{0_sats};
+        UAmount total_amount{0_sats};
         // Fetch selected coins total amount
         if (coin_control.HasSelected()) {
             FastRandomContext rng{};
@@ -424,12 +424,12 @@ public:
         LOCK(m_wallet->cs_wallet);
         return m_wallet->IsMine(txout);
     }
-    Amount getDebit(const CTxIn& txin) override
+    UAmount getDebit(const CTxIn& txin) override
     {
         LOCK(m_wallet->cs_wallet);
         return m_wallet->GetDebit(txin);
     }
-    Amount getCredit(const CTxOut& txout) override
+    UAmount getCredit(const CTxOut& txout) override
     {
         LOCK(m_wallet->cs_wallet);
         return OutputGetCredit(*m_wallet, txout);
@@ -464,14 +464,14 @@ public:
         }
         return result;
     }
-    Amount getRequiredFee(unsigned int tx_bytes) override { return GetRequiredFee(*m_wallet, tx_bytes); }
-    Amount getMinimumFee(unsigned int tx_bytes,
+    UAmount getRequiredFee(unsigned int tx_bytes) override { return GetRequiredFee(*m_wallet, tx_bytes); }
+    UAmount getMinimumFee(unsigned int tx_bytes,
         const CCoinControl& coin_control,
         int* returned_target,
         FeeReason* reason) override
     {
         FeeCalculation fee_calc;
-        Amount result{GetMinimumFee(*m_wallet, tx_bytes, coin_control, &fee_calc)};
+        UAmount result{GetMinimumFee(*m_wallet, tx_bytes, coin_control, &fee_calc)};
         if (returned_target) *returned_target = fee_calc.returnedTarget;
         if (reason) *reason = fee_calc.reason;
         return result;
@@ -486,7 +486,7 @@ public:
         return spk_man != nullptr;
     }
     OutputType getDefaultAddressType() override { return m_wallet->m_default_address_type; }
-    Amount getDefaultMaxTxFee() override { return m_wallet->m_default_max_tx_fee; }
+    UAmount getDefaultMaxTxFee() override { return m_wallet->m_default_max_tx_fee; }
     void remove() override
     {
         RemoveWallet(m_context, m_wallet, /*load_on_start=*/false);

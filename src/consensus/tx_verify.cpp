@@ -161,7 +161,7 @@ int64_t GetTransactionSigOpCost(const CTransaction& tx, const CCoinsViewCache& i
     return nSigOps;
 }
 
-bool Consensus::CheckTxInputs(const CTransaction& tx, TxValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, Amount& txfee)
+bool Consensus::CheckTxInputs(const CTransaction& tx, TxValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight, UAmount& txfee)
 {
     // are the actual inputs available?
     if (!inputs.HaveInputs(tx)) {
@@ -169,7 +169,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, TxValidationState& state, 
                          strprintf("%s: inputs missing/spent", __func__));
     }
 
-    Amount nValueIn{0_sats};
+    UAmount nValueIn{0_sats};
     for (unsigned int i = 0; i < tx.vin.size(); ++i) {
         const COutPoint &prevout = tx.vin[i].prevout;
         const Coin& coin = inputs.AccessCoin(prevout);
@@ -192,7 +192,7 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, TxValidationState& state, 
     // (`bad-txns-vout-toolarge`, `bad-txns-txouttotal-toolarge`):
     // * `MemPoolAccept::PreChecks`: `CheckTransaction()` is called before this method;
     // * `Chainstate::ConnectBlock`: `CheckTransaction()` is called via `CheckBlock()` before this method.
-    const Amount value_out = tx.GetValueOut();
+    const UAmount value_out = tx.GetValueOut();
     if (nValueIn < value_out) {
         return state.Invalid(TxValidationResult::TX_CONSENSUS, "bad-txns-in-belowout",
             strprintf("value in (%s) < value out (%s)", FormatMoney(nValueIn), FormatMoney(value_out)));
@@ -209,6 +209,6 @@ bool Consensus::CheckTxInputs(const CTransaction& tx, TxValidationState& state, 
         return state.Invalid(TxValidationResult::TX_CONSENSUS, "bad-txns-fee-outofrange");
     }
 
-    txfee = txfee_aux;
+    txfee = txfee_aux.AssertToUnsigned();
     return true;
 }

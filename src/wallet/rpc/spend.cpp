@@ -1108,8 +1108,8 @@ static RPCMethod bumpfee_helper(std::string method_name)
 
 
     std::vector<bilingual_str> errors;
-    Amount old_fee{0_sats};
-    Amount new_fee{0_sats};
+    UAmount old_fee{0_sats};
+    UAmount new_fee{0_sats};
     CMutableTransaction mtx;
     // Targeting feerate bump.
     [&](){
@@ -1463,7 +1463,7 @@ RPCMethod sendall()
             CMutableTransaction rawTx{ConstructTransaction(options["inputs"], recipient_key_value_pairs, options["locktime"], rbf, coin_control.m_version)};
             LOCK(pwallet->cs_wallet);
 
-            Amount total_input_value(0_sats);
+            UAmount total_input_value(0_sats);
             bool send_max{options.exists("send_max") ? options["send_max"].get_bool() : false};
             if (options.exists("inputs") && options.exists("send_max")) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Cannot combine send_max with specific inputs.");
@@ -1491,7 +1491,7 @@ RPCMethod sendall()
                 CoinFilterParams coins_params;
                 coins_params.min_amount = 0_sats;
                 for (const COutput& output : AvailableCoins(*pwallet, &coin_control, fee_rate, coins_params).All()) {
-                    if (send_max && fee_rate.GetFee(output.input_bytes) > output.txout.nValue) {
+                    if (send_max && fee_rate.GetFee(output.input_bytes).TruncateToUnsigned() > output.txout.nValue) {
                         continue;
                     }
                     // we are spending an unconfirmed TRUC transaction, so lower max weight
@@ -1518,9 +1518,9 @@ RPCMethod sendall()
             }
             const Amount fee_from_size{fee_rate.GetFee(tx_size.vsize)};
             const std::optional<Amount> total_bump_fees{pwallet->chain().calculateCombinedBumpFee(outpoints_spent, fee_rate)};
-            Amount effective_value = total_input_value - fee_from_size - total_bump_fees.value_or(0_sats);
+            Amount effective_value = total_input_value - fee_from_size - total_bump_fees.value_or(Amount{0_sats});
 
-            if (fee_from_size > pwallet->m_default_max_tx_fee) {
+            if (fee_from_size.TruncateToUnsigned() > pwallet->m_default_max_tx_fee) {
                 throw JSONRPCError(RPC_WALLET_ERROR, TransactionErrorString(TransactionError::MAX_FEE_EXCEEDED).original);
             }
 
@@ -1537,7 +1537,7 @@ RPCMethod sendall()
                 throw JSONRPCError(RPC_WALLET_ERROR, "Transaction too large.");
             }
 
-            Amount output_amounts_claimed{0_sats};
+            UAmount output_amounts_claimed{0_sats};
             for (const CTxOut& out : rawTx.vout) {
                 output_amounts_claimed += out.nValue;
             }

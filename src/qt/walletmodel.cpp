@@ -465,8 +465,8 @@ bool WalletModel::bumpFee(Txid hash, Txid& new_hash)
 {
     CCoinControl coin_control;
     std::vector<bilingual_str> errors;
-    Amount old_fee{0_sats};
-    Amount new_fee{0_sats};
+    UAmount old_fee{0_sats};
+    UAmount new_fee{0_sats};
     CMutableTransaction mtx;
     if (!m_wallet->createBumpTransaction(hash, coin_control, errors, old_fee, new_fee, mtx)) {
         QMessageBox::critical(nullptr, tr("Fee bump error"), tr("Increasing transaction fee failed") + "<br />(" +

@@ -525,7 +525,7 @@ RPCMethod simulaterawtransaction()
 
     const auto& txs = request.params[0].get_array();
     Amount changes{0_sats};
-    std::map<COutPoint, Amount> new_utxos; // UTXO:s that were made available in transaction array
+    std::map<COutPoint, UAmount> new_utxos; // UTXO:s that were made available in transaction array
     std::set<COutPoint> spent;
 
     for (size_t i = 0; i < txs.size(); ++i) {

@@ -258,7 +258,7 @@ FUZZ_TARGET(tx_pool_standard, .init = initialize_tx_pool)
     outpoints_rbf = outpoints_supply;
 
     // The sum of the values of all spendable outpoints
-    constexpr Amount SUPPLY_TOTAL{COINBASE_MATURITY * 50 * COIN};
+    constexpr UAmount SUPPLY_TOTAL{COINBASE_MATURITY * 50U * COIN};
 
     SetMempoolConstraints(*node.args, fuzzed_data_provider);
     auto tx_pool_{MakeMempool(fuzzed_data_provider, node)};
@@ -277,7 +277,7 @@ FUZZ_TARGET(tx_pool_standard, .init = initialize_tx_pool)
     {
         {
             // Total supply is the mempool fee + all outpoints
-            Amount supply_now{WITH_LOCK(tx_pool.cs, return tx_pool.GetTotalFee())};
+            UAmount supply_now{WITH_LOCK(tx_pool.cs, return tx_pool.GetTotalFee())};
             for (const auto& op : outpoints_supply) {
                 supply_now += GetAmount(op);
             }
@@ -293,7 +293,7 @@ FUZZ_TARGET(tx_pool_standard, .init = initialize_tx_pool)
             const auto num_in = fuzzed_data_provider.ConsumeIntegralInRange<int>(1, outpoints_rbf.size());
             const auto num_out = fuzzed_data_provider.ConsumeIntegralInRange<unsigned>(1, outpoints_rbf.size() * 2);
 
-            Amount amount_in{0_sats};
+            UAmount amount_in{0_sats};
             for (int i = 0; i < num_in; ++i) {
                 // Pop random outpoint
                 auto pop = outpoints_rbf.begin();

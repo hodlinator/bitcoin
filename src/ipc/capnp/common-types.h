@@ -129,19 +129,19 @@ decltype(auto) CustomReadField(TypeList<UniValue>, Priority<1>, InvokeContext& i
 
 //! Overload CustomBuildField and CustomReadField to serialize Amount
 template <typename Value, typename Output>
-void CustomBuildField(TypeList<Amount>, Priority<1>, InvokeContext& invoke_context, Value&& value, Output&& output)
+void CustomBuildField(TypeList<UAmount>, Priority<1>, InvokeContext& invoke_context, Value&& value, Output&& output)
 {
-    const Amount::inner_type& source{value.Int()};
-    Amount::inner_type dest{output.get()};
+    const UAmount::inner_type& source{value.UInt()};
+    UAmount::inner_type dest{output.get()};
     // Assumes both ends are using the same byte order.
     memcpy(&dest, &source, sizeof(source));
 }
 
 template <typename Input, typename ReadDest>
-decltype(auto) CustomReadField(TypeList<Amount>, Priority<1>, InvokeContext& invoke_context, Input&& input,
+decltype(auto) CustomReadField(TypeList<UAmount>, Priority<1>, InvokeContext& invoke_context, Input&& input,
                                ReadDest&& read_dest)
 {
-    const Amount::inner_type& source{input.get()};
+    const UAmount::inner_type& source{input.get()};
     return read_dest.construct(source);
 }
 

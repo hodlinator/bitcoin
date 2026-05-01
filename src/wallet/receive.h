@@ -16,43 +16,43 @@ bool InputIsMine(const CWallet& wallet, const CTxIn& txin) EXCLUSIVE_LOCKS_REQUI
 /** Returns whether all of the inputs belong to the wallet*/
 bool AllInputsMine(const CWallet& wallet, const CTransaction& tx);
 
-Amount OutputGetCredit(const CWallet& wallet, const CTxOut& txout);
-Amount TxGetCredit(const CWallet& wallet, const CTransaction& tx);
+UAmount OutputGetCredit(const CWallet& wallet, const CTxOut& txout);
+UAmount TxGetCredit(const CWallet& wallet, const CTransaction& tx);
 
 bool ScriptIsChange(const CWallet& wallet, const CScript& script) EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet);
 bool OutputIsChange(const CWallet& wallet, const CTxOut& txout) EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet);
-Amount OutputGetChange(const CWallet& wallet, const CTxOut& txout) EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet);
-Amount TxGetChange(const CWallet& wallet, const CTransaction& tx);
+UAmount OutputGetChange(const CWallet& wallet, const CTxOut& txout) EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet);
+UAmount TxGetChange(const CWallet& wallet, const CTransaction& tx);
 
-Amount CachedTxGetCredit(const CWallet& wallet, const CWalletTx& wtx, bool avoid_reuse)
+UAmount CachedTxGetCredit(const CWallet& wallet, const CWalletTx& wtx, bool avoid_reuse)
     EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet);
-Amount CachedTxGetDebit(const CWallet& wallet, const CWalletTx& wtx, bool avoid_reuse);
-Amount CachedTxGetChange(const CWallet& wallet, const CWalletTx& wtx);
+UAmount CachedTxGetDebit(const CWallet& wallet, const CWalletTx& wtx, bool avoid_reuse);
+UAmount CachedTxGetChange(const CWallet& wallet, const CWalletTx& wtx);
 struct COutputEntry
 {
     CTxDestination destination;
-    Amount amount;
+    UAmount amount;
     int vout;
 };
 void CachedTxGetAmounts(const CWallet& wallet, const CWalletTx& wtx,
                         std::list<COutputEntry>& listReceived,
                         std::list<COutputEntry>& listSent,
-                        Amount& nFee,
+                        UAmount& nFee,
                         bool include_change);
 bool CachedTxIsFromMe(const CWallet& wallet, const CWalletTx& wtx);
 bool CachedTxIsTrusted(const CWallet& wallet, const CWalletTx& wtx, std::set<Txid>& trusted_parents) EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet);
 bool CachedTxIsTrusted(const CWallet& wallet, const CWalletTx& wtx);
 
 struct Balance {
-    Amount m_mine_trusted{0_sats};           //!< Trusted, at depth=GetBalance.min_depth or more
-    Amount m_mine_untrusted_pending{0_sats}; //!< Untrusted, but in mempool (pending)
-    Amount m_mine_immature{0_sats};          //!< Immature coinbases in the main chain
-    Amount m_mine_used{0_sats};              //!< Trusted/untrusted/immature funds in utxos that have already been spent from (only populated if AVOID REUSE wallet flag is set)
-    Amount m_mine_nonmempool{0_sats};        //!< Coins spent by wallet txs that are not in the mempool
+    UAmount m_mine_trusted{0_sats};           //!< Trusted, at depth=GetBalance.min_depth or more
+    UAmount m_mine_untrusted_pending{0_sats}; //!< Untrusted, but in mempool (pending)
+    UAmount m_mine_immature{0_sats};          //!< Immature coinbases in the main chain
+    UAmount m_mine_used{0_sats};              //!< Trusted/untrusted/immature funds in utxos that have already been spent from (only populated if AVOID REUSE wallet flag is set)
+    UAmount m_mine_nonmempool{0_sats};        //!< Coins spent by wallet txs that are not in the mempool
 };
 Balance GetBalance(const CWallet& wallet, int min_depth = 0, bool avoid_reuse = true, bool include_nonmempool = false);
 
-std::map<CTxDestination, Amount> GetAddressBalances(const CWallet& wallet);
+std::map<CTxDestination, UAmount> GetAddressBalances(const CWallet& wallet);
 std::set<std::set<CTxDestination>> GetAddressGroupings(const CWallet& wallet) EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet);
 } // namespace wallet
 

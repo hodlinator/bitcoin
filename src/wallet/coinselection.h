@@ -20,9 +20,9 @@
 
 namespace wallet {
 //! lower bound for randomly-chosen target change amount
-static constexpr Amount CHANGE_LOWER{50000_sats};
+static constexpr UAmount CHANGE_LOWER{50000_sats};
 //! upper bound for randomly-chosen target change amount
-static constexpr Amount CHANGE_UPPER{1000000_sats};
+static constexpr UAmount CHANGE_UPPER{1000000_sats};
 
 /** A UTXO under consideration for use in funding a new transaction. */
 struct COutput {
@@ -31,7 +31,7 @@ private:
     std::optional<Amount> effective_value;
 
     /** The fee required to spend this output at the transaction's target feerate and to bump its unconfirmed ancestors to the target feerate. */
-    std::optional<Amount> fee;
+    std::optional<UAmount> fee;
 
 public:
     /** The outpoint identifying this UTXO */
@@ -67,10 +67,10 @@ public:
     bool from_me;
 
     /** The fee required to spend this output at the consolidation feerate. */
-    Amount long_term_fee{0_sats};
+    UAmount long_term_fee{0_sats};
 
     /** The fee necessary to bump this UTXO's ancestor transactions to the target feerate */
-    Amount ancestor_bump_fees{0_sats};
+    UAmount ancestor_bump_fees{0_sats};
 
     COutput(const COutPoint& outpoint, const CTxOut& txout, int depth, int input_bytes, bool solvable, bool safe, int64_t time, bool from_me, const std::optional<CFeeRate> feerate = std::nullopt)
         : outpoint{outpoint},
@@ -84,12 +84,12 @@ public:
     {
         if (feerate) {
             // base fee without considering potential unconfirmed ancestors
-            fee = input_bytes < 0 ? 0_sats : feerate.value().GetFee(input_bytes);
+            fee = input_bytes < 0 ? 0_sats : feerate.value().GetFee(input_bytes).AssertToUnsigned();
             effective_value = txout.nValue - fee.value();
         }
     }
 
-    COutput(const COutPoint& outpoint, const CTxOut& txout, int depth, int input_bytes, bool solvable, bool safe, int64_t time, bool from_me, const Amount fees)
+    COutput(const COutPoint& outpoint, const CTxOut& txout, int depth, int input_bytes, bool solvable, bool safe, int64_t time, bool from_me, const UAmount fees)
         : COutput(outpoint, txout, depth, input_bytes, solvable, safe, time, from_me)
     {
         // if input_bytes is unknown, then fees should be 0, if input_bytes is known, then the fees should be a positive integer or 0 (input_bytes known and fees = 0 only happens in the tests)
@@ -105,9 +105,8 @@ public:
         return outpoint < rhs.outpoint;
     }
 
-    void ApplyBumpFee(Amount bump_fee)
+    void ApplyBumpFee(UAmount bump_fee)
     {
-        assert(bump_fee >= 0_sats);
         ancestor_bump_fees = bump_fee;
         assert(fee);
         *fee += bump_fee;
@@ -115,7 +114,7 @@ public:
         effective_value = txout.nValue - fee.value();
     }
 
-    Amount GetFee() const
+    UAmount GetFee() const
     {
         assert(fee.has_value());
         return fee.value();
@@ -140,7 +139,7 @@ struct CoinSelectionParams {
     int change_spend_size = 0;
     /** Mininmum change to target in Knapsack solver and CoinGrinder:
      * select coins to cover the payment and at least this value of change. */
-    Amount m_min_change_target{0_sats};
+    UAmount m_min_change_target{0_sats};
     /** Minimum amount for creating a change output.
      * If change budget is smaller than min_change then we forgo creation of change output.
      */
@@ -176,7 +175,7 @@ struct CoinSelectionParams {
     std::optional<int> m_max_tx_weight{std::nullopt};
 
     CoinSelectionParams(FastRandomContext& rng_fast, int change_output_size, int change_spend_size,
-                        Amount min_change_target, CFeeRate effective_feerate,
+                        UAmount min_change_target, CFeeRate effective_feerate,
                         CFeeRate long_term_feerate, CFeeRate discard_feerate, int tx_noinputs_size, bool avoid_partial,
                         std::optional<int> max_tx_weight = std::nullopt)
         : rng_fast{rng_fast},
@@ -234,7 +233,7 @@ struct OutputGroup
      * our own UTXOs more. */
     bool m_from_me{true};
     /** The total value of the UTXOs in sum. */
-    Amount m_value{0_sats};
+    UAmount m_value{0_sats};
     /** The minimum number of confirmations the UTXOs in the group have. Unconfirmed is 0. */
     int m_depth{999};
     /** The aggregated count of unconfirmed ancestors of all UTXOs in this
@@ -245,9 +244,9 @@ struct OutputGroup
     /** The value of the UTXOs after deducting the cost of spending them at the effective feerate. */
     Amount effective_value{0_sats};
     /** The fee to spend these UTXOs at the effective feerate. */
-    Amount fee{0_sats};
+    UAmount fee{0_sats};
     /** The fee to spend these UTXOs at the long term feerate. */
-    Amount long_term_fee{0_sats};
+    UAmount long_term_fee{0_sats};
     /** The feerate for spending a created change output eventually (i.e. not urgently, and thus at
      * a lower feerate). Calculated using long term fee estimate. This is used to decide whether
      * it could be economical to create a change output. */
@@ -307,7 +306,7 @@ typedef std::map<CoinEligibilityFilter, OutputGroupTypeMap> FilteredOutputGroups
  * @param[in]   payment_value   Average payment value of the transaction output(s).
  * @param[in]   change_fee      Fee for creating a change output.
  */
-[[nodiscard]] Amount GenerateChangeTarget(Amount payment_value, Amount change_fee, FastRandomContext& rng);
+[[nodiscard]] UAmount GenerateChangeTarget(UAmount payment_value, UAmount change_fee, FastRandomContext& rng);
 
 enum class SelectionAlgorithm : uint8_t
 {
@@ -333,7 +332,7 @@ private:
     /** Set of inputs selected by the algorithm to use in the transaction */
     OutputSet m_selected_inputs;
     /** The target the algorithm selected for. Equal to the recipient amount plus non-input fees */
-    Amount m_target;
+    UAmount m_target;
     /** The algorithm used to produce this result */
     SelectionAlgorithm m_algo;
     /** Whether the input values for calculations should be the effective value (true) or normal value (false) */
@@ -347,7 +346,7 @@ private:
     /** Total weight of the selected inputs */
     int m_weight{0};
     /** How much individual inputs overestimated the bump fees for the shared ancestry */
-    Amount bump_fee_group_discount{0_sats};
+    UAmount bump_fee_group_discount{0_sats};
 
     template<typename T>
     void InsertInputs(const T& inputs)
@@ -361,13 +360,13 @@ private:
     }
 
 public:
-    explicit SelectionResult(const Amount target, SelectionAlgorithm algo)
+    explicit SelectionResult(const UAmount target, SelectionAlgorithm algo)
         : m_target(target), m_algo(algo) {}
 
     SelectionResult() = delete;
 
     /** Get the sum of the input values */
-    [[nodiscard]] Amount GetSelectedValue() const;
+    [[nodiscard]] UAmount GetSelectedValue() const;
 
     [[nodiscard]] Amount GetSelectedEffectiveValue() const;
 
@@ -379,7 +378,7 @@ public:
     void AddInputs(const OutputSet& inputs, bool subtract_fee_outputs);
 
     /** How much individual inputs overestimated the bump fees for shared ancestries */
-    void SetBumpFeeDiscount(Amount discount);
+    void SetBumpFeeDiscount(UAmount discount);
 
     /** Calculates and stores the waste for this result given the cost of change
      * and the opportunity cost of spending these inputs now vs in the future.
@@ -393,7 +392,7 @@ public:
      *                              used if there is change, in which case it must be non-negative.
      * @param[in] change_fee        The fee for creating a change output
      */
-    void RecalculateWaste(Amount min_viable_change, Amount change_cost, Amount change_fee);
+    void RecalculateWaste(UAmount min_viable_change, UAmount change_cost, UAmount change_fee);
     [[nodiscard]] Amount GetWaste() const;
 
     /** Tracks that algorithm was able to exhaustively search the entire combination space before hitting limit of tries */
@@ -440,19 +439,19 @@ public:
      * @returns Amount for change output, 0 when there is no change.
      *
      */
-    Amount GetChange(Amount min_viable_change, Amount change_fee) const;
+    Amount GetChange(UAmount min_viable_change, UAmount change_fee) const;
 
-    Amount GetTarget() const { return m_target; }
+    UAmount GetTarget() const { return m_target; }
 
     SelectionAlgorithm GetAlgo() const { return m_algo; }
 
     int GetWeight() const { return m_weight; }
 };
 
-util::Result<SelectionResult> SelectCoinsBnB(std::vector<OutputGroup>& utxo_pool, const Amount& selection_target, const Amount& cost_of_change,
+util::Result<SelectionResult> SelectCoinsBnB(std::vector<OutputGroup>& utxo_pool, const UAmount& selection_target, const UAmount& cost_of_change,
                                              int max_selection_weight);
 
-util::Result<SelectionResult> CoinGrinder(std::vector<OutputGroup>& utxo_pool, const Amount& selection_target, Amount change_target, int max_selection_weight);
+util::Result<SelectionResult> CoinGrinder(std::vector<OutputGroup>& utxo_pool, const UAmount& selection_target, UAmount change_target, int max_selection_weight);
 
 /** Select coins by Single Random Draw (SRD). SRD selects eligible OutputGroups from a shuffled
  * ordering until the effective value of the input set suffices to create the recipient outputs and a
@@ -468,12 +467,12 @@ util::Result<SelectionResult> CoinGrinder(std::vector<OutputGroup>& utxo_pool, c
  * @param[in]  max_selection_weight The maximum allowed weight for a selection result to be valid
  * @returns If successful, a valid SelectionResult, otherwise, util::Error
  */
-util::Result<SelectionResult> SelectCoinsSRD(const std::vector<OutputGroup>& utxo_pool, Amount target_value, Amount change_fee, FastRandomContext& rng,
+util::Result<SelectionResult> SelectCoinsSRD(const std::vector<OutputGroup>& utxo_pool, UAmount target_value, UAmount change_fee, FastRandomContext& rng,
                                              int max_selection_weight);
 
 // Original coin selection algorithm as a fallback
-util::Result<SelectionResult> KnapsackSolver(std::vector<OutputGroup>& groups, const Amount& nTargetValue,
-                                             Amount change_target, FastRandomContext& rng, int max_selection_weight);
+util::Result<SelectionResult> KnapsackSolver(std::vector<OutputGroup>& groups, const UAmount& nTargetValue,
+                                             UAmount change_target, FastRandomContext& rng, int max_selection_weight);
 } // namespace wallet
 
 #endif // BITCOIN_WALLET_COINSELECTION_H

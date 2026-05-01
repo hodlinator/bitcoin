@@ -282,7 +282,7 @@ struct Peer {
     /** The feerate in the most recent BIP133 `feefilter` message sent to the peer.
      *  It is *not* a p2p protocol violation for the peer to send us
      *  transactions with a lower fee rate than this. See BIP133. */
-    Amount m_fee_filter_sent GUARDED_BY(NetEventsInterface::g_msgproc_mutex){0_sats};
+    UAmount m_fee_filter_sent GUARDED_BY(NetEventsInterface::g_msgproc_mutex){0_sats};
     /** Timestamp after which we will send the next BIP133 `feefilter` message
       * to the peer. */
     std::chrono::microseconds m_next_send_feefilter GUARDED_BY(NetEventsInterface::g_msgproc_mutex){0};
@@ -316,7 +316,7 @@ struct Peer {
         uint64_t m_last_inv_sequence GUARDED_BY(m_tx_inventory_mutex){1};
 
         /** Minimum fee rate with which to filter transaction announcements to this node. See BIP133. */
-        std::atomic<Amount> m_fee_filter_received{0_sats};
+        std::atomic<UAmount> m_fee_filter_received{0_sats};
     };
 
     /* Initializes a TxRelay struct for this peer. Can be called at most once for a peer. */
@@ -5000,7 +5000,7 @@ void PeerManagerImpl::ProcessMessage(Peer& peer, CNode& pfrom, const std::string
         vRecv >> newFeeFilter;
         if (MoneyRange(newFeeFilter)) {
             if (auto tx_relay = peer.GetTxRelay(); tx_relay != nullptr) {
-                tx_relay->m_fee_filter_received = newFeeFilter;
+                tx_relay->m_fee_filter_received = newFeeFilter.AssertToUnsigned();
             }
             LogDebug(BCLog::NET, "received: feefilter of %s from peer=%d\n", CFeeRate(newFeeFilter).ToString(), pfrom.GetId());
         }
@@ -5511,14 +5511,15 @@ void PeerManagerImpl::MaybeSendFeefilter(CNode& pto, Peer& peer, std::chrono::mi
     // transactions to us, regardless of feefilter state.
     if (pto.IsBlockOnlyConn()) return;
 
-    Amount currentFilter = m_mempool.GetMinFee().GetFeePerK();
+    assert(m_mempool.GetMinFee().GetFeePerK() >= 0_sats);
+    UAmount currentFilter{m_mempool.GetMinFee().GetFeePerK().AssertToUnsigned()};
 
     if (m_chainman.IsInitialBlockDownload()) {
         // Received tx-inv messages are discarded when the active
         // chainstate is in IBD, so tell the peer to not send them.
         currentFilter = MAX_MONEY;
     } else {
-        static const Amount MAX_FILTER{m_fee_filter_rounder.round(MAX_MONEY)};
+        static const UAmount MAX_FILTER{m_fee_filter_rounder.round(MAX_MONEY)};
         if (peer.m_fee_filter_sent == MAX_FILTER) {
             // Send the current filter if we sent MAX_FILTER previously
             // and made it out of IBD.
@@ -5526,9 +5527,9 @@ void PeerManagerImpl::MaybeSendFeefilter(CNode& pto, Peer& peer, std::chrono::mi
         }
     }
     if (current_time > peer.m_next_send_feefilter) {
-        Amount filterToSend = m_fee_filter_rounder.round(currentFilter);
+        UAmount filterToSend = m_fee_filter_rounder.round(currentFilter);
         // We always have a fee filter of at least the min relay fee
-        filterToSend = std::max(filterToSend, m_mempool.m_opts.min_relay_feerate.GetFeePerK());
+        filterToSend = std::max(filterToSend, m_mempool.m_opts.min_relay_feerate.GetFeePerK().AssertToUnsigned());
         if (filterToSend != peer.m_fee_filter_sent) {
             MakeAndPushMessage(pto, NetMsgType::FEEFILTER, filterToSend);
             peer.m_fee_filter_sent = filterToSend;
@@ -5538,7 +5539,7 @@ void PeerManagerImpl::MaybeSendFeefilter(CNode& pto, Peer& peer, std::chrono::mi
     // If the fee filter has changed substantially and it's still more than MAX_FEEFILTER_CHANGE_DELAY
     // until scheduled broadcast, then move the broadcast to within MAX_FEEFILTER_CHANGE_DELAY.
     else if (current_time + MAX_FEEFILTER_CHANGE_DELAY < peer.m_next_send_feefilter &&
-                (currentFilter < 3 * peer.m_fee_filter_sent / 4 || currentFilter > 4 * peer.m_fee_filter_sent / 3)) {
+                (currentFilter < 3U * peer.m_fee_filter_sent / 4U || currentFilter > 4U * peer.m_fee_filter_sent / 3U)) {
         peer.m_next_send_feefilter = current_time + m_rng.randrange<std::chrono::microseconds>(MAX_FEEFILTER_CHANGE_DELAY);
     }
 }

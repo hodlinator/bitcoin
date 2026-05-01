@@ -37,7 +37,8 @@ private:
 public:
     /** Fee rate of 0 satoshis per 0 vB */
     CFeeRate() = default;
-    explicit CFeeRate(const Amount m_feerate_kvb) : m_feerate{m_feerate_kvb, 1000} {}
+    template <typename T>
+    explicit CFeeRate(const T m_feerate_kvb) : m_feerate{Amount{m_feerate_kvb}, 1000} {}
 
     /**
      * Construct a fee rate from a fee in satoshis and a vsize in vB.
@@ -45,6 +46,8 @@ public:
      * Passing any virtual_bytes less than or equal to 0 will result in 0 fee rate per 0 size.
      */
     CFeeRate(const Amount& nFeePaid, int32_t virtual_bytes);
+    CFeeRate(const UAmount& nFeePaid, int32_t virtual_bytes) : CFeeRate{nFeePaid.TruncateToSigned(), virtual_bytes} {}
+    CFeeRate(const UAmountLiteral& nFeePaid, int32_t virtual_bytes) : CFeeRate{UAmount{nFeePaid}, virtual_bytes} {}
 
     /**
      * Return the fee in satoshis for the given vsize in vbytes.
@@ -58,7 +61,7 @@ public:
     /**
      * Return the fee in satoshis for a vsize of 1000 vbytes
      */
-    Amount GetFeePerK() const { return Amount(m_feerate.EvaluateFeeDown(1000)); }
+    Amount GetFeePerK() const { return m_feerate.EvaluateFeeDown(1000); }
     friend std::strong_ordering operator<=>(const CFeeRate& a, const CFeeRate& b) noexcept
     {
         return ByRatio{a.m_feerate} <=> ByRatio{b.m_feerate};

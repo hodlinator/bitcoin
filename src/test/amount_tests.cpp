@@ -136,6 +136,9 @@ BOOST_AUTO_TEST_CASE(BinaryOperatorTest)
     BOOST_CHECK_LT(0_sats, Amount{1});
     BOOST_CHECK_GT(Amount{0_sats}, -1_sats);
     BOOST_CHECK_LT(Amount{0_sats}, 1_sats);
+
+    BOOST_CHECK_EQUAL(-1 * 1_sats, Amount{-1});
+    BOOST_CHECK_EQUAL(-1 * COIN, Amount{-100'000'000});
 }
 
 BOOST_AUTO_TEST_CASE(ToStringTest)

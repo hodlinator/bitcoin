@@ -170,7 +170,7 @@ struct TestChain100Setup : public TestingSetup {
     * @param fee_output           The index of the output to take the fee from.
     * @return The transaction and the fee it pays
     */
-    std::pair<CMutableTransaction, Amount> CreateValidTransaction(const std::vector<CTransactionRef>& input_transactions,
+    std::pair<CMutableTransaction, UAmount> CreateValidTransaction(const std::vector<CTransactionRef>& input_transactions,
                                                                    const std::vector<COutPoint>& inputs,
                                                                    int input_height,
                                                                    const std::vector<CKey>& input_signing_keys,
@@ -210,7 +210,7 @@ struct TestChain100Setup : public TestingSetup {
                                                       int input_height,
                                                       CKey input_signing_key,
                                                       CScript output_destination,
-                                                      UAmount output_amount = UAmount(1U * COIN),
+                                                      UAmount output_amount = UAmount{1U * COIN},
                                                       bool submit = true);
 
     /** Create transactions spending from m_coinbase_txns. These transactions will only spend coins

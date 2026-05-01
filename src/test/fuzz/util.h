@@ -164,6 +164,7 @@ template <typename WeakEnumType, size_t size>
 [[nodiscard]] Amount ConsumeMoney(FuzzedDataProvider& provider, const Amount& min, const UAmountLiteral& max) noexcept;
 [[nodiscard]] UAmount ConsumeMoney(FuzzedDataProvider& provider, const UAmount& min, const UAmount& max) noexcept;
 [[nodiscard]] UAmount ConsumeMoney(FuzzedDataProvider& provider, const UAmountLiteral& min, const UAmount& max) noexcept;
+[[nodiscard]] UAmount ConsumeMoney(FuzzedDataProvider& provider, const UAmountLiteral& min, const UAmountLiteral& max) noexcept;
 
 [[nodiscard]] NodeSeconds ConsumeTime(FuzzedDataProvider& fuzzed_data_provider, const std::optional<int64_t>& min = std::nullopt, const std::optional<int64_t>& max = std::nullopt) noexcept;
 

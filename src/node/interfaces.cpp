@@ -371,7 +371,7 @@ public:
         LOCK(::cs_main);
         return chainman().ActiveChainstate().CoinsTip().GetCoin(output);
     }
-    TransactionError broadcastTransaction(CTransactionRef tx, Amount max_tx_fee, std::string& err_string) override
+    TransactionError broadcastTransaction(CTransactionRef tx, UAmount max_tx_fee, std::string& err_string) override
     {
         return BroadcastTransaction(*m_context,
                                     std::move(tx),
@@ -683,7 +683,7 @@ public:
         return m_node.mempool->HasDescendants(txid);
     }
     bool broadcastTransaction(const CTransactionRef& tx,
-        const Amount& max_tx_fee,
+        const UAmount& max_tx_fee,
         TxBroadcast broadcast_method,
         std::string& err_string) override
     {
@@ -700,10 +700,10 @@ public:
         m_node.mempool->GetTransactionAncestry(txid, ancestors, cluster_count, ancestorsize, ancestorfees);
     }
 
-    std::map<COutPoint, Amount> calculateIndividualBumpFees(const std::vector<COutPoint>& outpoints, const CFeeRate& target_feerate) override
+    std::map<COutPoint, UAmount> calculateIndividualBumpFees(const std::vector<COutPoint>& outpoints, const CFeeRate& target_feerate) override
     {
         if (!m_node.mempool) {
-            std::map<COutPoint, Amount> bump_fees;
+            std::map<COutPoint, UAmount> bump_fees;
             for (const auto& outpoint : outpoints) {
                 bump_fees.emplace(outpoint, 0_sats);
             }
@@ -897,7 +897,7 @@ public:
         return m_block_template->block;
     }
 
-    std::vector<Amount> getTxFees() override
+    std::vector<UAmount> getTxFees() override
     {
         return m_block_template->vTxFees;
     }

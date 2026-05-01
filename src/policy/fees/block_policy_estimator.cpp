@@ -757,7 +757,7 @@ CFeeRate CBlockPolicyEstimator::estimateRawFee(int confTarget, double successThr
     if (median < 0)
         return CFeeRate(0_sats);
 
-    return CFeeRate{Amount{llround(median)}};
+    return CFeeRate{UAmount{static_cast<unsigned long long>(llround(median))}};
 }
 
 unsigned int CBlockPolicyEstimator::HighestTargetTracked(FeeEstimateHorizon horizon) const
@@ -952,7 +952,7 @@ CFeeRate CBlockPolicyEstimator::estimateSmartFee(int confTarget, FeeCalculation 
 
     if (median < 0) return CFeeRate(0_sats); // error condition
 
-    return CFeeRate{Amount{llround(median)}};
+    return CFeeRate{UAmount{static_cast<uint64_t>(llround(median))}};
 }
 
 void CBlockPolicyEstimator::Flush() {
@@ -1088,9 +1088,10 @@ static std::set<double> MakeFeeSet(const CFeeRate& min_incremental_fee,
 {
     std::set<double> fee_set;
 
-    const Amount min_fee_limit{std::max(Amount(1), min_incremental_fee.GetFeePerK() / 2)};
+    Assume(min_incremental_fee.GetFeePerK() >= 0_sats);
+    const UAmount min_fee_limit{std::max<UAmount>(1_sats, (min_incremental_fee.GetFeePerK() / 2).TruncateToUnsigned())};
     fee_set.insert(0);
-    for (double bucket_boundary = min_fee_limit.Int();
+    for (double bucket_boundary = min_fee_limit.UInt();
          bucket_boundary <= max_filter_fee_rate;
          bucket_boundary *= fee_filter_spacing) {
 
@@ -1106,14 +1107,14 @@ FeeFilterRounder::FeeFilterRounder(const CFeeRate& minIncrementalFee, FastRandom
 {
 }
 
-Amount FeeFilterRounder::round(Amount currentMinFee)
+UAmount FeeFilterRounder::round(UAmount currentMinFee)
 {
     AssertLockNotHeld(m_insecure_rand_mutex);
-    std::set<double>::iterator it = m_fee_set.lower_bound(currentMinFee.Int());
+    std::set<double>::iterator it = m_fee_set.lower_bound(currentMinFee.UInt());
     if (it == m_fee_set.end() ||
         (it != m_fee_set.begin() &&
          WITH_LOCK(m_insecure_rand_mutex, return insecure_rand.rand32()) % 3 != 0)) {
         --it;
     }
-    return Amount{static_cast<Amount::inner_type>(*it)};
+    return UAmount{static_cast<UAmount::inner_type>(*it)};
 }
