@@ -491,7 +491,7 @@ FUZZ_TARGET(clusterlin_depgraph_sim)
             // Iterate decreasing command until an applicable branch is found.
             if (num_tx_sim < TestBitSet::Size() && command-- == 0) {
                 // AddTransaction.
-                auto fee = provider.ConsumeIntegralInRange<int64_t>(-0x8000000000000, 0x7ffffffffffff);
+                Amount fee{provider.ConsumeIntegralInRange<int64_t>(-0x8000000000000, 0x7ffffffffffff)};
                 auto size = provider.ConsumeIntegralInRange<int32_t>(1, 0x3fffff);
                 FeeFrac feerate{fee, size};
                 // Apply to DepGraph.
@@ -1260,11 +1260,11 @@ FUZZ_TARGET(clusterlin_postlinearize_moved_leaf)
     // Construct an arbitrary graph and a fee from the fuzz input.
     SpanReader reader(buffer);
     DepGraph<TestBitSet> depgraph;
-    int32_t fee_inc{0};
+    Amount fee_inc{0_sats};
     try {
         uint64_t fee_inc_code;
         reader >> Using<DepGraphFormatter>(depgraph) >> VARINT(fee_inc_code);
-        fee_inc = fee_inc_code & 0x3ffff;
+        fee_inc = Amount{fee_inc_code & 0x3ffff};
     } catch (const std::ios_base::failure&) {}
     if (depgraph.TxCount() == 0) return;
 

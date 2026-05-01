@@ -123,7 +123,7 @@ BOOST_AUTO_TEST_CASE(feefrac_operators)
     BOOST_CHECK_EQUAL(FeeFrac(0x200000001_sats, 123456789).EvaluateFeeUp(98765432), 6871947731_sats);
 
     // Tests paths that use double arithmetic
-    FeeFrac busted{(static_cast<int64_t>(INT32_MAX)) + 1, INT32_MAX};
+    FeeFrac busted{Amount{static_cast<int64_t>(INT32_MAX) + 1}, INT32_MAX};
     BOOST_CHECK(!(ByRatioNegSize{busted} < ByRatioNegSize{busted}));
 
     FeeFrac max_fee{2100000000000000_sats, INT32_MAX};

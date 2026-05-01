@@ -73,13 +73,13 @@ FUZZ_TARGET(feefrac)
     int64_t f1 = provider.ConsumeIntegral<int64_t>();
     int32_t s1 = provider.ConsumeIntegral<int32_t>();
     if (s1 == 0) f1 = 0;
-    FeeFrac fr1(f1, s1);
+    FeeFrac fr1(Amount{f1}, s1);
     assert(fr1.IsEmpty() == (s1 == 0));
 
     int64_t f2 = provider.ConsumeIntegral<int64_t>();
     int32_t s2 = provider.ConsumeIntegral<int32_t>();
     if (s2 == 0) f2 = 0;
-    FeeFrac fr2(f2, s2);
+    FeeFrac fr2(Amount{f2}, s2);
     assert(fr2.IsEmpty() == (s2 == 0));
 
     // Feerate comparisons
@@ -89,11 +89,11 @@ FUZZ_TARGET(feefrac)
     assert((ByRatio{fr1} > ByRatio{fr2}) == std::is_gt(cmp_feerate));
 
     // Compare with manual invocation of FeeFrac::Mul.
-    auto cmp_mul = FeeFrac::Mul(f1, s2) <=> FeeFrac::Mul(f2, s1);
+    auto cmp_mul = FeeFrac::Mul(Amount{f1}, s2) <=> FeeFrac::Mul(Amount{f2}, s1);
     assert(cmp_mul == cmp_feerate);
 
     // Same, but using FeeFrac::MulFallback.
-    auto cmp_fallback = FeeFrac::MulFallback(f1, s2) <=> FeeFrac::MulFallback(f2, s1);
+    auto cmp_fallback = FeeFrac::MulFallback(Amount{f1}, s2) <=> FeeFrac::MulFallback(Amount{f2}, s1);
     assert(cmp_fallback == cmp_feerate);
 
     // Total order comparisons
@@ -190,12 +190,12 @@ FUZZ_TARGET(feefrac_mul_div)
     }
 
     // Verify the behavior of FeeFrac::Mul + FeeFrac::Div.
-    auto res = FeeFrac::Div(FeeFrac::Mul(mul64, mul32), div, round_down);
+    auto res = FeeFrac::Div(FeeFrac::Mul(Amount{mul64}, mul32), div, round_down);
     assert(res == 0 || (res < 0) == is_negative);
     assert(Abs256(res) == quot_abs);
 
     // Verify the behavior of FeeFrac::MulFallback + FeeFrac::DivFallback.
-    auto res_fallback = FeeFrac::DivFallback(FeeFrac::MulFallback(mul64, mul32), div, round_down);
+    auto res_fallback = FeeFrac::DivFallback(FeeFrac::MulFallback(Amount{mul64}, mul32), div, round_down);
     assert(res == res_fallback);
 
     // Compare approximately with floating-point.
@@ -215,15 +215,15 @@ FUZZ_TARGET(feefrac_mul_div)
     // Verify the behavior of FeeFrac::Evaluate{Down,Up}.
     if (mul32 >= 0) {
         auto res_fee = round_down ?
-            FeeFrac{mul64, div}.EvaluateFeeDown(mul32) :
-            FeeFrac{mul64, div}.EvaluateFeeUp(mul32);
+            FeeFrac{Amount{mul64}, div}.EvaluateFeeDown(mul32) :
+            FeeFrac{Amount{mul64}, div}.EvaluateFeeUp(mul32);
         assert(res == res_fee.Int());
 
         // Compare approximately with CFeeRate.
         if (mul64 < std::numeric_limits<int64_t>::max() / 1000 &&
             mul64 > std::numeric_limits<int64_t>::min() / 1000 &&
             quot_abs < arith_uint256{std::numeric_limits<int64_t>::max() / 1000}) {
-            CFeeRate feerate(mul64, div);
+            CFeeRate feerate(Amount{mul64}, div);
             Amount feerate_fee{feerate.GetFee(mul32)};
             Amount allowed_gap{static_cast<int64_t>(mul32 / 1000 + 3 + round_down)};
             assert(feerate_fee - res_fee >= -allowed_gap);

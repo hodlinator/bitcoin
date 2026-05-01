@@ -160,7 +160,7 @@ FUZZ_TARGET(coin_grinder_is_optimal)
         // Only make UTXOs with positive effective value
         const Amount input_fee = coin_params.m_effective_feerate.GetFee(n_input_bytes);
         // Ensure that each UTXO has at least an effective value of 1 sat
-        const Amount eff_value{ConsumeMoney(fuzzed_data_provider, 1_sats, MAX_MONEY + group_pos.size() - max_spendable - max_output_groups)};
+        const Amount eff_value{ConsumeMoney(fuzzed_data_provider, 1_sats, MAX_MONEY + Amount{group_pos.size()} - max_spendable - Amount{max_output_groups})};
         const Amount amount{eff_value + input_fee};
         std::vector<COutput> temp_utxo_pool;
 
@@ -257,7 +257,7 @@ FUZZ_TARGET(bnb_finds_min_waste)
         const int n_input_bytes{fuzzed_data_provider.ConsumeIntegralInRange<int>(1, 20'000)};
         const Amount input_fee = coin_params.m_effective_feerate.GetFee(n_input_bytes);
         // Ensure that each UTXO has at least an effective value of 1 sat
-        const Amount eff_value{ConsumeMoney(fuzzed_data_provider, 1_sats, MAX_MONEY + group_pos.size() - max_spendable - max_output_groups)};
+        const Amount eff_value{ConsumeMoney(fuzzed_data_provider, 1_sats, MAX_MONEY + Amount{group_pos.size()} - max_spendable - Amount{max_output_groups})};
         const Amount amount{eff_value + input_fee};
         std::vector<COutput> temp_utxo_pool;
 

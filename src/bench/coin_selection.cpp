@@ -62,13 +62,13 @@ static void CoinSelection(benchmark::Bench& bench)
         Amount amount{0_sats};
         int p{det_rand.randrange(100)};
         if (p < 50) {
-            amount = 10'000 + det_rand.randrange(90'000);
+            amount = Amount{10'000 + det_rand.randrange(90'000)};
         } else if (p < 75) {
-            amount = 100'000 + det_rand.randrange(900'000);
+            amount = Amount{100'000 + det_rand.randrange(900'000)};
         } else if (p < 95) {
-            amount = 1'000'000 + det_rand.randrange(9'000'000);
+            amount = Amount{1'000'000 + det_rand.randrange(9'000'000)};
         } else {
-            amount = 10'000'000 + det_rand.randrange(90'000'000);
+            amount = Amount{10'000'000 + det_rand.randrange(90'000'000)};
         }
         addCoin(amount, wtxs);
     }
@@ -103,7 +103,7 @@ static void CoinSelection(benchmark::Bench& bench)
     std::vector<Amount> targets;
     targets.reserve(NUM_TARGETS);
     for (size_t i{0}; i < NUM_TARGETS; ++i) {
-        targets.push_back(10'000'000 + det_rand.randrange(90'000'000));
+        targets.push_back(Amount{10'000'000 + det_rand.randrange(90'000'000)});
     }
 
     std::optional<FastRandomContext> rng;

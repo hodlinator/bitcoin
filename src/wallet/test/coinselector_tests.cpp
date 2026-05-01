@@ -692,7 +692,7 @@ BOOST_AUTO_TEST_CASE(SelectCoins_test)
         }
 
         // Generate a random fee rate in the range of 100 - 400
-        CFeeRate rate(rand.randrange(300) + 100);
+        CFeeRate rate(Amount{rand.randrange(300) + 100});
 
         // Generate a random target value between 1000 and wallet balance
         Amount target{rand.randrange(balance.Int() - 1000) + 1000};
@@ -866,7 +866,7 @@ BOOST_AUTO_TEST_CASE(bump_fee_test)
         const std::vector<std::shared_ptr<COutput>> inputs = selection.GetShuffledInputVector();
 
         for (size_t i = 0; i < inputs.size(); ++i) {
-            inputs[i]->ApplyBumpFee(20*(i+1));
+            inputs[i]->ApplyBumpFee(Amount{20*(i+1)});
         }
 
         selection.RecalculateWaste(min_viable_change, change_cost, change_fee);
@@ -892,7 +892,7 @@ BOOST_AUTO_TEST_CASE(bump_fee_test)
         const std::vector<std::shared_ptr<COutput>> inputs = selection.GetShuffledInputVector();
 
         for (size_t i = 0; i < inputs.size(); ++i) {
-            inputs[i]->ApplyBumpFee(20*(i+1));
+            inputs[i]->ApplyBumpFee(Amount{20*(i+1)});
         }
 
         selection.RecalculateWaste(min_viable_change, change_cost, change_fee);
@@ -1145,7 +1145,7 @@ BOOST_AUTO_TEST_CASE(coin_grinder_tests)
             add_coin(available_coins, wallet, Amount(1 * COIN), CFeeRate(5000_sats), 144, false, 0, true, 1000);
             for (int j = 0; j < 100; ++j) {
                 // make a 100 unique coins only differing by one sat
-                add_coin(available_coins, wallet, 0.01_BTC + j, CFeeRate(5000_sats), 144, false, 0, true, 110);
+                add_coin(available_coins, wallet, 0.01_BTC + Amount{j}, CFeeRate(5000_sats), 144, false, 0, true, 110);
             }
             return available_coins;
         });
@@ -1168,14 +1168,14 @@ BOOST_AUTO_TEST_CASE(coin_grinder_tests)
         const auto& result_a = CoinGrinder(target, dummy_params, m_node, max_selection_weight, [&](CWallet& wallet) {
             CoinsResult doppelgangers;
             for (int i = 0; i < 18; ++i) {
-                add_coin(doppelgangers, wallet, Amount(1 * COIN + i), CFeeRate(0_sats), 144, false, 0, true, 96 + i);
+                add_coin(doppelgangers, wallet, Amount(1 * COIN + Amount{i}), CFeeRate(0_sats), 144, false, 0, true, 96 + i);
             }
             return doppelgangers;
         });
         BOOST_CHECK(result_a);
         SelectionResult expected_result(0_sats, SelectionAlgorithm::CG);
         for (int i = 0; i < 8; ++i) {
-          add_coin(1 * COIN + i, 0, expected_result);
+          add_coin(1 * COIN + Amount{i}, 0, expected_result);
         }
         BOOST_CHECK(EquivalentResult(expected_result, *result_a));
         // Demonstrate a solution is found before the attempts limit is reached.
@@ -1186,7 +1186,7 @@ BOOST_AUTO_TEST_CASE(coin_grinder_tests)
         const auto& result_b = CoinGrinder(target, dummy_params, m_node, max_selection_weight, [&](CWallet& wallet) {
             CoinsResult doppelgangers;
             for (int i = 0; i < 19; ++i) {
-                add_coin(doppelgangers, wallet, Amount(1 * COIN + i), CFeeRate(0_sats), 144, false, 0, true, 96 + i);
+                add_coin(doppelgangers, wallet, 1 * COIN + Amount{i}, CFeeRate(0_sats), 144, false, 0, true, 96 + i);
             }
             return doppelgangers;
         });

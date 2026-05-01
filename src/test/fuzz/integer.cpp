@@ -84,7 +84,7 @@ FUZZ_TARGET(integer, .init = initialize_integer)
     (void)ComputeMerkleRoot(std::move(v256));
     (void)DecompressAmount(u64);
     {
-        if (std::optional<Amount> parsed = ParseMoney(FormatMoney(i64))) {
+        if (std::optional<Amount> parsed = ParseMoney(FormatMoney(Amount{i64}))) {
             assert(parsed->Int() == i64);
         }
     }
@@ -94,7 +94,7 @@ FUZZ_TARGET(integer, .init = initialize_integer)
         (void)GetVirtualTransactionSize(i64, i64, u32);
     }
     (void)HexDigit(ch);
-    (void)MoneyRange(i64);
+    (void)MoneyRange(Amount{i64});
     (void)ToString(i64);
     (void)IsDigit(ch);
     (void)IsSpace(ch);
@@ -123,7 +123,7 @@ FUZZ_TARGET(integer, .init = initialize_integer)
     (void)ToLower(ch);
     (void)ToUpper(ch);
     {
-        if (std::optional<Amount> parsed = ParseMoney(ValueFromAmount(i64).getValStr())) {
+        if (std::optional<Amount> parsed = ParseMoney(ValueFromAmount(Amount{i64}).getValStr())) {
             assert(parsed->Int() == i64);
         }
     }

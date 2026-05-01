@@ -24,7 +24,7 @@ public:
     Amount() = delete;
 
     template <typename T>
-    constexpr Amount(T v)
+    constexpr explicit Amount(const T v)
         requires(std::is_integral_v<T> && sizeof(T) <= sizeof(inner_type))
         : m_sats(v)
     {
@@ -32,16 +32,16 @@ public:
 
     constexpr auto operator<=>(const Amount& other) const noexcept = default;
 
-    constexpr Amount operator-() const noexcept { return {-m_sats}; }
+    constexpr Amount operator-() const noexcept { return Amount{-m_sats}; }
 
     constexpr Amount operator+(const Amount other) const noexcept
     {
-        return {m_sats + other.m_sats};
+        return Amount{m_sats + other.m_sats};
     }
 
     constexpr Amount operator-(const Amount other) const noexcept
     {
-        return {m_sats - other.m_sats};
+        return Amount{m_sats - other.m_sats};
     }
 
     constexpr inner_type operator/(const Amount other) const noexcept
@@ -76,28 +76,28 @@ public:
     constexpr Amount operator%(const T other) const noexcept
         requires(std::is_integral_v<T> && sizeof(T) <= sizeof(inner_type))
     {
-        return {m_sats % other};
+        return Amount{m_sats % other};
     }
 
     template <typename T>
     constexpr Amount operator*(const T other) const noexcept
         requires(std::is_integral_v<T> && sizeof(T) <= sizeof(inner_type))
     {
-        return {m_sats * other};
+        return Amount{m_sats * other};
     }
 
     template <typename T>
     friend constexpr Amount operator*(const T a, const Amount b) noexcept
         requires(std::is_integral_v<T> && sizeof(T) <= sizeof(inner_type))
     {
-        return {a * b.Int()};
+        return Amount{a * b.Int()};
     }
 
     template <typename T>
     friend constexpr Amount operator/(const Amount a, const T b) noexcept
         requires(std::is_integral_v<T> && sizeof(T) <= sizeof(inner_type))
     {
-        return {a.Int() / b};
+        return Amount{a.Int() / b};
     }
 
     constexpr const inner_type& Int() const noexcept { return m_sats; }
