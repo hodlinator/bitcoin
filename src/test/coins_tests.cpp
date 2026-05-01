@@ -568,19 +568,19 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization)
 }
 
 const static COutPoint OUTPOINT;
-constexpr Amount SPENT {-1};
-constexpr Amount ABSENT{-2};
-constexpr Amount VALUE1{100_sats};
-constexpr Amount VALUE2{200_sats};
-constexpr Amount VALUE3{300_sats};
+constexpr UAmount SPENT {std::numeric_limits<UAmount::inner_type>::max()};
+constexpr UAmount ABSENT{std::numeric_limits<UAmount::inner_type>::max() - 1};
+constexpr UAmount VALUE1{100_sats};
+constexpr UAmount VALUE2{200_sats};
+constexpr UAmount VALUE3{300_sats};
 
 struct CoinEntry {
     enum class State { CLEAN, DIRTY, FRESH, DIRTY_FRESH };
 
-    const Amount value;
+    const UAmount value;
     const State state;
 
-    constexpr CoinEntry(const Amount v, const State s) : value{v}, state{s} {}
+    constexpr CoinEntry(const UAmount v, const State s) : value{v}, state{s} {}
 
     bool operator==(const CoinEntry& o) const = default;
     friend std::ostream& operator<<(std::ostream& os, const CoinEntry& e) { return os << e.value << ", " << e.state; }
@@ -619,7 +619,7 @@ constexpr MaybeCoin VALUE3_DIRTY_FRESH{{VALUE3, CoinEntry::State::DIRTY_FRESH}};
 constexpr auto EX_OVERWRITE_UNSPENT{"Attempted to overwrite an unspent coin (when possible_overwrite is false)"};
 constexpr auto EX_FRESH_MISAPPLIED {"FRESH flag misapplied to coin that exists in parent cache"};
 
-static void SetCoinsValue(const Amount value, Coin& coin)
+static void SetCoinsValue(const UAmount value, Coin& coin)
 {
     assert(value != ABSENT);
     coin.Clear();
@@ -668,7 +668,7 @@ static void WriteCoinsViewEntry(CCoinsView& view, const MaybeCoin& cache_coin)
 class SingleEntryCacheTest
 {
 public:
-    SingleEntryCacheTest(const Amount base_value, const MaybeCoin& cache_coin)
+    SingleEntryCacheTest(const UAmount base_value, const MaybeCoin& cache_coin)
     {
         auto base_cache_coin{base_value == ABSENT ? MISSING : CoinEntry{base_value, CoinEntry::State::DIRTY}};
         WriteCoinsViewEntry(base, base_cache_coin);
@@ -682,7 +682,7 @@ public:
     CCoinsViewCacheTest cache{&base};
 };
 
-static void CheckAccessCoin(const Amount base_value, const MaybeCoin& cache_coin, const MaybeCoin& expected)
+static void CheckAccessCoin(const UAmount base_value, const MaybeCoin& cache_coin, const MaybeCoin& expected)
 {
     SingleEntryCacheTest test{base_value, cache_coin};
     auto& coin = test.cache.AccessCoin(OUTPOINT);
@@ -713,7 +713,7 @@ BOOST_AUTO_TEST_CASE(ccoins_access)
     }
 }
 
-static void CheckSpendCoins(const Amount base_value, const MaybeCoin& cache_coin, const MaybeCoin& expected)
+static void CheckSpendCoins(const UAmount base_value, const MaybeCoin& cache_coin, const MaybeCoin& expected)
 {
     SingleEntryCacheTest test{base_value, cache_coin};
     test.cache.SpendCoin(OUTPOINT);
@@ -743,7 +743,7 @@ BOOST_AUTO_TEST_CASE(ccoins_spend)
     }
 }
 
-static void CheckAddCoin(const Amount base_value, const MaybeCoin& cache_coin, const Amount modify_value, const CoinOrError& expected, const bool coinbase)
+static void CheckAddCoin(const UAmount base_value, const MaybeCoin& cache_coin, const UAmount modify_value, const CoinOrError& expected, const bool coinbase)
 {
     SingleEntryCacheTest test{base_value, cache_coin};
     bool possible_overwrite{coinbase};
@@ -1023,7 +1023,7 @@ void TestFlushBehavior(
     txid = Txid::FromUint256(m_rng.rand256());
     outp = COutPoint(txid, 0);
     coin = MakeCoin();
-    Amount coin_val = coin.out.nValue;
+    UAmount coin_val = coin.out.nValue;
     BOOST_CHECK(!base.HaveCoin(outp));
     BOOST_CHECK(!all_caches[0]->HaveCoin(outp));
     BOOST_CHECK(!all_caches[1]->HaveCoin(outp));
@@ -1091,11 +1091,11 @@ BOOST_AUTO_TEST_CASE(ccoins_addcoin_exception_keeps_usage_balanced)
 
     const COutPoint outpoint{Txid::FromUint256(m_rng.rand256()), m_rng.rand32()};
 
-    const Coin coin1{CTxOut{Amount{m_rng.randrange(10)}, CScript{} << m_rng.randbytes(CScriptBase::STATIC_SIZE + 1)}, 1, false};
+    const Coin coin1{CTxOut{UAmount{m_rng.randrange(10U)}, CScript{} << m_rng.randbytes(CScriptBase::STATIC_SIZE + 1)}, 1, false};
     cache.AddCoin(outpoint, Coin{coin1}, /*possible_overwrite=*/false);
     cache.SelfTest();
 
-    const Coin coin2{CTxOut{Amount{m_rng.randrange(20)}, CScript{} << m_rng.randbytes(CScriptBase::STATIC_SIZE + 2)}, 2, false};
+    const Coin coin2{CTxOut{UAmount{m_rng.randrange(20U)}, CScript{} << m_rng.randbytes(CScriptBase::STATIC_SIZE + 2)}, 2, false};
     BOOST_CHECK_THROW(cache.AddCoin(outpoint, Coin{coin2}, /*possible_overwrite=*/false), std::logic_error);
     cache.SelfTest();
 
@@ -1108,11 +1108,11 @@ BOOST_AUTO_TEST_CASE(ccoins_emplace_duplicate_keeps_usage_balanced)
 
     const COutPoint outpoint{Txid::FromUint256(m_rng.rand256()), m_rng.rand32()};
 
-    const Coin coin1{CTxOut{Amount{m_rng.randrange(10)}, CScript{} << m_rng.randbytes(CScriptBase::STATIC_SIZE + 1)}, 1, false};
+    const Coin coin1{CTxOut{UAmount{m_rng.randrange(10U)}, CScript{} << m_rng.randbytes(CScriptBase::STATIC_SIZE + 1)}, 1, false};
     cache.EmplaceCoinInternalDANGER(COutPoint{outpoint}, Coin{coin1});
     cache.SelfTest();
 
-    const Coin coin2{CTxOut{Amount{m_rng.randrange(20)}, CScript{} << m_rng.randbytes(CScriptBase::STATIC_SIZE + 2)}, 2, false};
+    const Coin coin2{CTxOut{UAmount{m_rng.randrange(20U)}, CScript{} << m_rng.randbytes(CScriptBase::STATIC_SIZE + 2)}, 2, false};
     cache.EmplaceCoinInternalDANGER(COutPoint{outpoint}, Coin{coin2});
     cache.SelfTest();
 
@@ -1131,7 +1131,7 @@ BOOST_AUTO_TEST_CASE(ccoins_reset_guard)
 
     const COutPoint outpoint{Txid::FromUint256(m_rng.rand256()), m_rng.rand32()};
 
-    const Coin coin{CTxOut{Amount{m_rng.randrange(10)}, CScript{} << m_rng.randbytes(CScriptBase::STATIC_SIZE + 1)}, 1, false};
+    const Coin coin{CTxOut{UAmount{m_rng.randrange(10U)}, CScript{} << m_rng.randbytes(CScriptBase::STATIC_SIZE + 1)}, 1, false};
     cache.EmplaceCoinInternalDANGER(COutPoint{outpoint}, Coin{coin});
     BOOST_CHECK_EQUAL(cache.GetDirtyCount(), 1U);
 
@@ -1176,7 +1176,7 @@ BOOST_AUTO_TEST_CASE(ccoins_peekcoin)
 
     // Populate the base view with a coin.
     const COutPoint outpoint{Txid::FromUint256(m_rng.rand256()), m_rng.rand32()};
-    const Coin coin{CTxOut{Amount{m_rng.randrange(10)}, CScript{}}, 1, false};
+    const Coin coin{CTxOut{UAmount{m_rng.randrange(10U)}, CScript{}}, 1, false};
     {
         CCoinsViewCache cache{&base};
         cache.AddCoin(outpoint, Coin{coin}, /*possible_overwrite=*/false);

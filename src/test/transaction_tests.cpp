@@ -395,7 +395,7 @@ BOOST_AUTO_TEST_CASE(test_Get)
     FillableSigningProvider keystore;
     CCoinsViewCache coins{&CoinsViewEmpty::Get()};
     std::vector<CMutableTransaction> dummyTransactions =
-        SetupDummyInputs(keystore, coins, {11*CENT, 50*CENT, 21*CENT, 22*CENT});
+        SetupDummyInputs(keystore, coins, {11U*CENT, 50U*CENT, 21U*CENT, 22U*CENT});
 
     CMutableTransaction t1;
     t1.vin.resize(3);
@@ -409,7 +409,7 @@ BOOST_AUTO_TEST_CASE(test_Get)
     t1.vin[2].prevout.n = 1;
     t1.vin[2].scriptSig << std::vector<unsigned char>(65, 0) << std::vector<unsigned char>(33, 4);
     t1.vout.resize(2);
-    t1.vout[0].nValue = 90*CENT;
+    t1.vout[0].nValue = 90U*CENT;
     t1.vout[0].scriptPubKey << OP_1;
 
     BOOST_CHECK(ValidateInputsStandardness(CTransaction(t1), coins).IsValid());
@@ -751,7 +751,7 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
     FillableSigningProvider keystore;
     CCoinsViewCache coins{&CoinsViewEmpty::Get()};
     std::vector<CMutableTransaction> dummyTransactions =
-        SetupDummyInputs(keystore, coins, {11*CENT, 50*CENT, 21*CENT, 22*CENT});
+        SetupDummyInputs(keystore, coins, {11U*CENT, 50U*CENT, 21U*CENT, 22U*CENT});
 
     CMutableTransaction t;
     t.vin.resize(1);
@@ -759,7 +759,7 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
     t.vin[0].prevout.n = 1;
     t.vin[0].scriptSig << std::vector<unsigned char>(65, 0);
     t.vout.resize(1);
-    t.vout[0].nValue = 90*CENT;
+    t.vout[0].nValue = 90U*CENT;
     CKey key = GenerateRandomKey();
     t.vout[0].scriptPubKey = GetScriptForDestination(PKHash(key.GetPubKey()));
 
@@ -777,7 +777,7 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
     CheckIsStandard(t);
 
     // Check dust with default relay fee:
-    Amount nDustThreshold = 182 * g_dust.GetFeePerK() / 1000;
+    UAmount nDustThreshold{(182 * g_dust.GetFeePerK() / 1000).AssertToUnsigned()};
     BOOST_CHECK_EQUAL(nDustThreshold, 546_sats);
 
     // Add dust outputs up to allowed maximum, still standard!
@@ -787,7 +787,7 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
     }
 
     // dust:
-    t.vout[0].nValue = nDustThreshold - 1_sats;
+    t.vout[0].nValue = (nDustThreshold - 1_sats).AssertToUnsigned();
     CheckIsNotStandard(t, "dust");
     // not dust:
     t.vout[0].nValue = nDustThreshold;
@@ -1130,7 +1130,7 @@ BOOST_AUTO_TEST_CASE(max_standard_legacy_sigops)
 
 BOOST_AUTO_TEST_CASE(checktxinputs_invalid_transactions_test)
 {
-    auto check_invalid{[](Amount input_value, Amount output_value, bool coinbase, int spend_height, TxValidationResult expected_result, std::string_view expected_reason) {
+    auto check_invalid{[](UAmount input_value, UAmount output_value, bool coinbase, int spend_height, TxValidationResult expected_result, std::string_view expected_reason) {
         CCoinsViewCache inputs{&CoinsViewEmpty::Get()};
 
         const COutPoint prevout{Txid::FromUint256(uint256::ONE), 0};
@@ -1154,13 +1154,13 @@ BOOST_AUTO_TEST_CASE(checktxinputs_invalid_transactions_test)
                   /*spend_height=*/2,
                   TxValidationResult::TX_CONSENSUS, /*expected_reason=*/"bad-txns-inputvalues-outofrange");
 
-    check_invalid(/*input_value=*/1 * COIN,
-                  /*output_value=*/2 * COIN,
+    check_invalid(/*input_value=*/1U * COIN,
+                  /*output_value=*/2U * COIN,
                   /*coinbase=*/false,
                   /*spend_height=*/2,
                   TxValidationResult::TX_CONSENSUS, /*expected_reason=*/"bad-txns-in-belowout");
 
-    check_invalid(/*input_value=*/1 * COIN,
+    check_invalid(/*input_value=*/1U * COIN,
                   /*output_value=*/0_sats,
                   /*coinbase=*/true,
                   /*spend_height=*/COINBASE_MATURITY,

@@ -263,7 +263,7 @@ FUZZ_TARGET(ephemeral_package_eval, .init = initialize_tx_pool)
                 const auto num_in = outpoint_to_rbf ? 2 :
                     last_tx ? fuzzed_data_provider.ConsumeIntegralInRange<int>(package_outpoints.size()/2 + 1, package_outpoints.size()) :
                     fuzzed_data_provider.ConsumeIntegralInRange<int>(1, 4);
-                const auto num_out = outpoint_to_rbf ? 1 : fuzzed_data_provider.ConsumeIntegralInRange<int>(1, 4);
+                const auto num_out = outpoint_to_rbf ? 1 : fuzzed_data_provider.ConsumeIntegralInRange<unsigned>(1, 4);
 
                 auto& outpoints = last_tx ? package_outpoints : mempool_outpoints;
 
@@ -295,8 +295,8 @@ FUZZ_TARGET(ephemeral_package_eval, .init = initialize_tx_pool)
                 }
 
                 const auto amount_fee{ConsumeMoney(fuzzed_data_provider, /*max=*/amount_in)};
-                const auto amount_out = (amount_in - amount_fee) / num_out;
-                for (int i = 0; i < num_out; ++i) {
+                const UAmount amount_out{(amount_in - amount_fee).AssertToUnsigned() / num_out};
+                for (unsigned i = 0; i < num_out; ++i) {
                     tx_mut.vout.emplace_back(amount_out, P2WSH_EMPTY);
                 }
 
@@ -378,10 +378,10 @@ FUZZ_TARGET(tx_package_eval, .init = initialize_tx_pool)
 
     // All RBF-spendable outpoints outside of the unsubmitted package
     std::set<COutPoint> mempool_outpoints;
-    std::unordered_map<COutPoint, Amount, SaltedOutpointHasher> outpoints_value;
+    std::unordered_map<COutPoint, UAmount, SaltedOutpointHasher> outpoints_value;
     for (const auto& outpoint : g_outpoints_coinbase_init_mature) {
         Assert(mempool_outpoints.insert(outpoint).second);
-        outpoints_value.insert_or_assign(outpoint, 50 * COIN);
+        outpoints_value.insert_or_assign(outpoint, 50U * COIN);
     }
 
     auto outpoints_updater = std::make_shared<OutpointsUpdater>(mempool_outpoints);
@@ -412,13 +412,13 @@ FUZZ_TARGET(tx_package_eval, .init = initialize_tx_pool)
                 // Note that this test currently only spends package outputs in last transaction.
                 bool last_tx = num_txs > 1 && txs.size() == num_txs - 1;
                 const auto num_in = last_tx ? package_outpoints.size()  : fuzzed_data_provider.ConsumeIntegralInRange<int>(1, mempool_outpoints.size());
-                auto num_out = fuzzed_data_provider.ConsumeIntegralInRange<int>(1, mempool_outpoints.size() * 2);
+                auto num_out = fuzzed_data_provider.ConsumeIntegralInRange<unsigned>(1, mempool_outpoints.size() * 2);
 
                 auto& outpoints = last_tx ? package_outpoints : mempool_outpoints;
 
                 Assert(!outpoints.empty());
 
-                Amount amount_in{0_sats};
+                UAmount amount_in{0_sats};
                 for (size_t i = 0; i < num_in; ++i) {
                     // Pop random outpoint. We erase them to avoid double-spending
                     // while in this loop, but later add them back (unless last_tx).
@@ -462,9 +462,9 @@ FUZZ_TARGET(tx_package_eval, .init = initialize_tx_pool)
                     amount_in -= 1000_sats;
                 }
 
-                const auto amount_fee{ConsumeMoney(fuzzed_data_provider, /*max=*/amount_in)};
-                const auto amount_out = (amount_in - amount_fee) / num_out;
-                for (int i = 0; i < num_out; ++i) {
+                const UAmount amount_fee{ConsumeMoney(fuzzed_data_provider, /*max=*/amount_in)};
+                const UAmount amount_out{(amount_in - amount_fee).AssertToUnsigned() / num_out};
+                for (unsigned i = 0; i < num_out; ++i) {
                     tx_mut.vout.emplace_back(amount_out, P2WSH_EMPTY);
                 }
                 auto tx = MakeTransactionRef(tx_mut);

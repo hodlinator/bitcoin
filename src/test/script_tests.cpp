@@ -120,7 +120,7 @@ static ScriptError_t ParseScriptError(const std::string& name)
 }
 
 struct ScriptTest : BasicTestingSetup {
-void DoTest(const CScript& scriptPubKey, const CScript& scriptSig, const CScriptWitness& scriptWitness, script_verify_flags flags, const std::string& message, int scriptError, Amount nValue = 0_sats)
+void DoTest(const CScript& scriptPubKey, const CScript& scriptSig, const CScriptWitness& scriptWitness, script_verify_flags flags, const std::string& message, int scriptError, UAmount nValue = 0_sats)
 {
     bool expect = (scriptError == SCRIPT_ERR_OK);
     if (flags & SCRIPT_VERIFY_CLEANSTACK) {
@@ -234,7 +234,7 @@ private:
     std::string comment;
     script_verify_flags flags;
     int scriptError{SCRIPT_ERR_OK};
-    Amount nValue;
+    UAmount nValue;
 
     void DoPush()
     {
@@ -252,7 +252,7 @@ private:
     }
 
 public:
-    TestBuilder(const CScript& script_, const std::string& comment_, script_verify_flags flags_, bool P2SH = false, WitnessMode wm = WitnessMode::NONE, int witnessversion = 0, Amount nValue_ = 0_sats) : script(script_), comment(comment_), flags(flags_), nValue(nValue_)
+    TestBuilder(const CScript& script_, const std::string& comment_, script_verify_flags flags_, bool P2SH = false, WitnessMode wm = WitnessMode::NONE, int witnessversion = 0, UAmount nValue_ = 0_sats) : script(script_), comment(comment_), flags(flags_), nValue(nValue_)
     {
         CScript scriptPubKey = script;
         if (wm == WitnessMode::PKH) {
@@ -921,7 +921,7 @@ BOOST_AUTO_TEST_CASE(script_json_test)
         std::string strTest = test.write();
         CScriptWitness witness;
         TaprootBuilder taprootBuilder;
-        Amount nValue{0_sats};
+        UAmount nValue{0_sats};
         unsigned int pos = 0;
         if (test.size() > 0 && test[pos].isArray()) {
             unsigned int i=0;
@@ -1644,7 +1644,7 @@ BOOST_AUTO_TEST_CASE(bip341_keypath_test_vectors)
         for (const auto& utxo_spent : vec["given"]["utxosSpent"].getValues()) {
             auto script_bytes = ParseHex(utxo_spent["scriptPubKey"].get_str());
             CScript script{script_bytes.begin(), script_bytes.end()};
-            Amount amount{utxo_spent["amountSats"].getInt<int>()};
+            UAmount amount{utxo_spent["amountSats"].getInt<uint64_t>()};
             utxos.emplace_back(amount, script);
         }
 

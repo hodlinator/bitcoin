@@ -30,7 +30,7 @@
 #include <vector>
 
 namespace wallet {
-static void addCoin(const Amount& nValue, std::vector<std::unique_ptr<CWalletTx>>& wtxs)
+static void addCoin(const UAmount& nValue, std::vector<std::unique_ptr<CWalletTx>>& wtxs)
 {
     static int nextLockTime = 0;
     CMutableTransaction tx;
@@ -59,16 +59,16 @@ static void CoinSelection(benchmark::Bench& bench)
 
     // Generate coin amounts biased towards smaller amounts
     for (int i = 0; i < 400; ++i) {
-        Amount amount{0_sats};
+        UAmount amount{0_sats};
         int p{det_rand.randrange(100)};
         if (p < 50) {
-            amount = Amount{10'000 + det_rand.randrange(90'000)};
+            amount = UAmount{10'000U + det_rand.randrange(90'000)};
         } else if (p < 75) {
-            amount = Amount{100'000 + det_rand.randrange(900'000)};
+            amount = UAmount{100'000U + det_rand.randrange(900'000)};
         } else if (p < 95) {
-            amount = Amount{1'000'000 + det_rand.randrange(9'000'000)};
+            amount = UAmount{1'000'000U + det_rand.randrange(9'000'000)};
         } else {
-            amount = Amount{10'000'000 + det_rand.randrange(90'000'000)};
+            amount = UAmount{10'000'000U + det_rand.randrange(90'000'000)};
         }
         addCoin(amount, wtxs);
     }
@@ -137,7 +137,7 @@ static void CoinSelection(benchmark::Bench& bench)
         });
 }
 
-static void add_coin(const Amount& nValue, uint32_t nInput, std::vector<OutputGroup>& set)
+static void add_coin(const UAmount& nValue, uint32_t nInput, std::vector<OutputGroup>& set)
 {
     CMutableTransaction tx;
     tx.vout.resize(nInput + 1);

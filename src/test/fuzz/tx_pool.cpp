@@ -291,7 +291,7 @@ FUZZ_TARGET(tx_pool_standard, .init = initialize_tx_pool)
             tx_mut.version = fuzzed_data_provider.ConsumeBool() ? TRUC_VERSION : CTransaction::CURRENT_VERSION;
             tx_mut.nLockTime = fuzzed_data_provider.ConsumeBool() ? 0 : fuzzed_data_provider.ConsumeIntegral<uint32_t>();
             const auto num_in = fuzzed_data_provider.ConsumeIntegralInRange<int>(1, outpoints_rbf.size());
-            const auto num_out = fuzzed_data_provider.ConsumeIntegralInRange<int>(1, outpoints_rbf.size() * 2);
+            const auto num_out = fuzzed_data_provider.ConsumeIntegralInRange<unsigned>(1, outpoints_rbf.size() * 2);
 
             Amount amount_in{0_sats};
             for (int i = 0; i < num_in; ++i) {
@@ -319,8 +319,8 @@ FUZZ_TARGET(tx_pool_standard, .init = initialize_tx_pool)
             bool add_sigops{fuzzed_data_provider.ConsumeBool()};
 
             const auto amount_fee{ConsumeMoney(fuzzed_data_provider, -1000_sats, amount_in)};
-            const auto amount_out = (amount_in - amount_fee) / num_out;
-            for (int i = 0; i < num_out; ++i) {
+            const UAmount amount_out{(amount_in - amount_fee).AssertToUnsigned() / num_out};
+            for (unsigned i = 0; i < num_out; ++i) {
                 if (i == 0 && add_sigops) {
                     tx_mut.vout.emplace_back(amount_out, CScript() << std::vector<unsigned char>(33, 0x02) << OP_CHECKSIG);
                 } else {

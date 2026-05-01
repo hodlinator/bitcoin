@@ -50,7 +50,7 @@ static CTransactionRef MakeTransactionSpending(const std::vector<COutPoint>& out
     tx.vout.resize(2);
     tx.vout[0].nValue = CENT;
     tx.vout[0].scriptPubKey = GetScriptForDestination(PKHash(key.GetPubKey()));
-    tx.vout[1].nValue = 3 * CENT;
+    tx.vout[1].nValue = 3U * CENT;
     tx.vout[1].scriptPubKey = GetScriptForDestination(WitnessV0KeyHash(key.GetPubKey()));
     return MakeTransactionRef(tx);
 }
@@ -437,7 +437,7 @@ BOOST_AUTO_TEST_CASE(DoS_mapOrphans)
     std::vector<CTransactionRef> orphans_added;
 
     // 50 orphan transactions:
-    for (int i = 0; i < 50; i++)
+    for (unsigned i = 0; i < 50; i++)
     {
         CMutableTransaction tx;
         tx.vin.resize(1);
@@ -454,7 +454,7 @@ BOOST_AUTO_TEST_CASE(DoS_mapOrphans)
     }
 
     // ... and 50 that depend on other orphans:
-    for (int i = 0; i < 50; i++)
+    for (unsigned i = 0; i < 50; i++)
     {
         const auto& txPrev = orphans_added[m_rng.randrange(orphans_added.size())];
 
@@ -480,7 +480,7 @@ BOOST_AUTO_TEST_CASE(DoS_mapOrphans)
 
         CMutableTransaction tx;
         tx.vout.resize(1);
-        tx.vout[0].nValue = 1*CENT;
+        tx.vout[0].nValue = 1U*CENT;
         tx.vout[0].scriptPubKey = GetScriptForDestination(PKHash(key.GetPubKey()));
         tx.vin.resize(2777);
         for (unsigned int j = 0; j < tx.vin.size(); j++)

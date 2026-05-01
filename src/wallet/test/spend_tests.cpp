@@ -43,8 +43,8 @@ BOOST_FIXTURE_TEST_CASE(SubtractFee, TestChain100Setup)
     // be uneconomical to add and spend the output), and make sure it pays the
     // leftover input amount which would have been change to the recipient
     // instead of the miner.
-    auto check_tx = [&wallet](Amount leftover_input_amount) {
-        CRecipient recipient{PubKeyDestination({}), 50 * COIN - leftover_input_amount, /*subtract_fee=*/true};
+    auto check_tx = [&wallet](UAmount leftover_input_amount) {
+        CRecipient recipient{PubKeyDestination({}), (50 * COIN - leftover_input_amount).AssertToUnsigned(), /*subtract_fee=*/true};
         CCoinControl coin_control;
         coin_control.m_feerate.emplace(10000_sats);
         coin_control.fOverrideFeeRate = true;
@@ -56,12 +56,12 @@ BOOST_FIXTURE_TEST_CASE(SubtractFee, TestChain100Setup)
         BOOST_CHECK_EQUAL(txr.tx->vout.size(), 1);
         BOOST_CHECK_EQUAL(txr.tx->vout[0].nValue, recipient.nAmount + leftover_input_amount - txr.fee);
         BOOST_CHECK_GT(txr.fee, 0_sats);
-        return txr.fee;
+        return txr.fee.AssertToUnsigned();
     };
 
     // Send full input amount to recipient, check that only nonzero fee is
     // subtracted (to_reduce == fee).
-    const Amount fee{check_tx(0_sats)};
+    const UAmount fee{check_tx(0_sats)};
 
     // Send slightly less than full input amount to recipient, check leftover
     // input amount is paid to recipient not the miner (to_reduce == fee - 123)
@@ -95,7 +95,7 @@ BOOST_FIXTURE_TEST_CASE(wallet_duplicated_preset_inputs_test, TestChain100Setup)
     // Try to create a tx that spends more than what preset inputs + wallet selected inputs are covering for.
     // The wallet can cover up to 200 BTC, and the tx target is 299 BTC.
     std::vector<CRecipient> recipients{{*Assert(wallet->GetNewDestination(OutputType::BECH32, "dummy")),
-                                           /*nAmount=*/299 * COIN, /*fSubtractFeeFromAmount=*/true}};
+                                           /*nAmount=*/299U * COIN, /*fSubtractFeeFromAmount=*/true}};
     CCoinControl coin_control;
     coin_control.m_allow_other_inputs = true;
     for (const auto& outpoint : preset_inputs) {

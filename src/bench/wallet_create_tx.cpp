@@ -74,15 +74,15 @@ void generateFakeBlock(const CChainParams& params,
     coinbase_tx.vin[0].prevout.SetNull();
     coinbase_tx.vout.resize(2);
     coinbase_tx.vout[0].scriptPubKey = coinbase_out_script;
-    coinbase_tx.vout[0].nValue = 48 * COIN;
+    coinbase_tx.vout[0].nValue = 48U * COIN;
     coinbase_tx.vin[0].scriptSig = CScript() << ++tip.tip_height << OP_0;
     coinbase_tx.vout[1].scriptPubKey = coinbase_out_script; // extra output
-    coinbase_tx.vout[1].nValue = 1 * COIN;
+    coinbase_tx.vout[1].nValue = 1U * COIN;
 
     // Fill the coinbase with outputs that don't belong to the wallet in order to benchmark
     // AvailableCoins' behavior with unnecessary TXOs
     for (int i = 0; i < 50; ++i) {
-        coinbase_tx.vout.emplace_back(1 * COIN / 50, CScript(OP_TRUE));
+        coinbase_tx.vout.emplace_back(1U * COIN / 50U, CScript(OP_TRUE));
     }
 
     block.vtx = {MakeTransactionRef(std::move(coinbase_tx))};
@@ -144,7 +144,7 @@ static void WalletCreateTx(benchmark::Bench& bench, const OutputType output_type
     wallet::CCoinControl coin_control;
     coin_control.m_allow_other_inputs = allow_other_inputs;
 
-    Amount target{0_sats};
+    UAmount target{0_sats};
     if (preset_inputs) {
         // Select inputs, each has 48 BTC
         wallet::CoinFilterParams filter_coins;
@@ -159,7 +159,7 @@ static void WalletCreateTx(benchmark::Bench& bench, const OutputType output_type
     }
 
     // If automatic coin selection is enabled, add the value of another UTXO to the target
-    if (coin_control.m_allow_other_inputs) target += 50 * COIN;
+    if (coin_control.m_allow_other_inputs) target += 50U * COIN;
     std::vector<wallet::CRecipient> recipients = {{dest, target, true}};
 
     bench.run([&] {

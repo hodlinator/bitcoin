@@ -210,7 +210,7 @@ struct TestChain100Setup : public TestingSetup {
                                                       int input_height,
                                                       CKey input_signing_key,
                                                       CScript output_destination,
-                                                      Amount output_amount = Amount(1 * COIN),
+                                                      UAmount output_amount = UAmount(1U * COIN),
                                                       bool submit = true);
 
     /** Create transactions spending from m_coinbase_txns. These transactions will only spend coins

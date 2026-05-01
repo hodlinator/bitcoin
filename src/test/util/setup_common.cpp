@@ -562,7 +562,7 @@ CMutableTransaction TestChain100Setup::CreateValidMempoolTransaction(CTransactio
                                                                      int input_height,
                                                                      CKey input_signing_key,
                                                                      CScript output_destination,
-                                                                     Amount output_amount,
+                                                                     UAmount output_amount,
                                                                      bool submit)
 {
     COutPoint input{input_transaction->GetHash(), input_vout};

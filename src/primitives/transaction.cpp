@@ -52,7 +52,7 @@ std::string CTxIn::ToString() const
     return str;
 }
 
-CTxOut::CTxOut(const Amount& nValueIn, CScript scriptPubKeyIn)
+CTxOut::CTxOut(const UAmount& nValueIn, CScript scriptPubKeyIn)
     : nValue{nValueIn}
     , scriptPubKey{std::move(scriptPubKeyIn)}
 {
@@ -95,9 +95,9 @@ Wtxid CTransaction::ComputeWitnessHash() const
 CTransaction::CTransaction(const CMutableTransaction& tx) : vin(tx.vin), vout(tx.vout), version{tx.version}, nLockTime{tx.nLockTime}, m_has_witness{ComputeHasWitness()}, hash{ComputeHash()}, m_witness_hash{ComputeWitnessHash()} {}
 CTransaction::CTransaction(CMutableTransaction&& tx) : vin(std::move(tx.vin)), vout(std::move(tx.vout)), version{tx.version}, nLockTime{tx.nLockTime}, m_has_witness{ComputeHasWitness()}, hash{ComputeHash()}, m_witness_hash{ComputeWitnessHash()} {}
 
-Amount CTransaction::GetValueOut() const
+UAmount CTransaction::GetValueOut() const
 {
-    Amount nValueOut{0_sats};
+    UAmount nValueOut{0_sats};
     for (const auto& tx_out : vout) {
         if (!MoneyRange(tx_out.nValue) || !MoneyRange(nValueOut + tx_out.nValue))
             throw std::runtime_error(std::string(__func__) + ": value out of range");

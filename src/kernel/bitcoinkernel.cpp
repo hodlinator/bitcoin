@@ -594,9 +594,9 @@ void btck_script_pubkey_destroy(btck_ScriptPubkey* script_pubkey)
     delete script_pubkey;
 }
 
-btck_TransactionOutput* btck_transaction_output_create(const btck_ScriptPubkey* script_pubkey, int64_t amount)
+btck_TransactionOutput* btck_transaction_output_create(const btck_ScriptPubkey* script_pubkey, uint64_t amount)
 {
-    return btck_TransactionOutput::create(Amount{amount}, btck_ScriptPubkey::get(script_pubkey));
+    return btck_TransactionOutput::create(UAmount{amount}, btck_ScriptPubkey::get(script_pubkey));
 }
 
 btck_TransactionOutput* btck_transaction_output_copy(const btck_TransactionOutput* output)
@@ -609,9 +609,9 @@ const btck_ScriptPubkey* btck_transaction_output_get_script_pubkey(const btck_Tr
     return btck_ScriptPubkey::ref(&btck_TransactionOutput::get(output).scriptPubKey);
 }
 
-int64_t btck_transaction_output_get_amount(const btck_TransactionOutput* output)
+uint64_t btck_transaction_output_get_amount(const btck_TransactionOutput* output)
 {
-    return btck_TransactionOutput::get(output).nValue.Int();
+    return btck_TransactionOutput::get(output).nValue.UInt();
 }
 
 void btck_transaction_output_destroy(btck_TransactionOutput* output)

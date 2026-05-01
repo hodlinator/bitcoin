@@ -185,10 +185,10 @@ BOOST_FIXTURE_TEST_CASE(handle_missing_inputs, TestChain100Setup)
     CKey wallet_key = GenerateRandomKey();
     CScript destination = GetScriptForDestination(PKHash(wallet_key.GetPubKey()));
     // Amount for spending coinbase in a 1-in-1-out tx, at depth n, each time deducting 1000 from the amount as fees.
-    Amount amount_depth_1{50 * COIN - 1000_sats};
-    Amount amount_depth_2{amount_depth_1 - 1000_sats};
+    constexpr UAmount amount_depth_1{(50 * COIN - 1000_sats).AssertToUnsigned()};
+    constexpr UAmount amount_depth_2{(amount_depth_1 - 1000_sats).AssertToUnsigned()};
     // Amount for spending coinbase in a 1-in-2-out tx, deducting 1000 in fees
-    Amount amount_split_half{25 * COIN - 500_sats};
+    constexpr UAmount amount_split_half{(25 * COIN - 500_sats).AssertToUnsigned()};
     int test_chain_height{100};
 
     TxValidationState state_orphan;
@@ -247,11 +247,11 @@ BOOST_FIXTURE_TEST_CASE(handle_missing_inputs, TestChain100Setup)
     {
         std::vector<CTransactionRef> parents;
         std::vector<COutPoint> outpoints;
-        int32_t num_parents{24};
-        for (int32_t i = 0; i < num_parents; ++i) {
+        uint32_t num_parents{24};
+        for (uint32_t i = 0; i < num_parents; ++i) {
             assert(coinbase_idx < m_coinbase_txns.size());
             auto mtx_parent = CreateValidMempoolTransaction(m_coinbase_txns[coinbase_idx++], /*input_vout=*/0, test_chain_height,
-                                                            coinbaseKey, destination, amount_depth_1 + Amount{i}, /*submit=*/false);
+                                                            coinbaseKey, destination, amount_depth_1 + UAmount{i}, /*submit=*/false);
             auto ptx_parent = MakeTransactionRef(mtx_parent);
             parents.emplace_back(ptx_parent);
             outpoints.emplace_back(ptx_parent->GetHash(), 0);
@@ -280,7 +280,7 @@ BOOST_FIXTURE_TEST_CASE(handle_missing_inputs, TestChain100Setup)
             txdownload_impl.ConnectedPeer(nodeid, DEFAULT_CONN);
 
             txdownload_impl.RecentRejectsReconsiderableFilter().insert(parents[0]->GetHash().ToUint256());
-            for (int32_t i = 1; i < num_parents; ++i) {
+            for (uint32_t i = 1; i < num_parents; ++i) {
                 txdownload_impl.RecentConfirmedTransactionsFilter().insert(parents[i]->GetHash().ToUint256());
             }
             const unsigned int expected_parents = 1;

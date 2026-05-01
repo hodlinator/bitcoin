@@ -7,7 +7,7 @@
 #include <script/signingprovider.h>
 #include <test/util/transaction_utils.h>
 
-CMutableTransaction BuildCreditingTransaction(const CScript& scriptPubKey, Amount nValue)
+CMutableTransaction BuildCreditingTransaction(const CScript& scriptPubKey, UAmount nValue)
 {
     CMutableTransaction txCredit;
     txCredit.version = 1;
@@ -41,7 +41,7 @@ CMutableTransaction BuildSpendingTransaction(const CScript& scriptSig, const CSc
     return txSpend;
 }
 
-std::vector<CMutableTransaction> SetupDummyInputs(FillableSigningProvider& keystoreRet, CCoinsViewCache& coinsRet, const std::array<Amount,4>& nValues)
+std::vector<CMutableTransaction> SetupDummyInputs(FillableSigningProvider& keystoreRet, CCoinsViewCache& coinsRet, const std::array<UAmount,4>& nValues)
 {
     std::vector<CMutableTransaction> dummyTransactions;
     dummyTransactions.resize(2);

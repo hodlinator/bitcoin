@@ -237,7 +237,7 @@ void MockMempoolMinFee(const CFeeRate& target_feerate, CTxMemPool& mempool)
     // achieve the exact target feerate.
     CMutableTransaction mtx{};
     mtx.vin.emplace_back(COutPoint{Txid::FromUint256(uint256{123}), 0});
-    mtx.vout.emplace_back(1 * COIN, GetScriptForDestination(WitnessV0ScriptHash(CScript() << OP_TRUE)));
+    mtx.vout.emplace_back(1U * COIN, GetScriptForDestination(WitnessV0ScriptHash(CScript() << OP_TRUE)));
     // Set a large size so that the fee evaluated at target_feerate (which is usually in sats/kvB) is an integer.
     // Otherwise, GetMinFee() may end up slightly different from target_feerate.
     BulkTransaction(mtx, 4000);

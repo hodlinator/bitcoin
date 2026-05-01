@@ -15,7 +15,7 @@ class CCoinsViewCache;
 
 // create crediting transaction
 // [1 coinbase input => 1 output with given scriptPubkey and value]
-CMutableTransaction BuildCreditingTransaction(const CScript& scriptPubKey, Amount nValue = 0_sats);
+CMutableTransaction BuildCreditingTransaction(const CScript& scriptPubKey, UAmount nValue = 0_sats);
 
 // create spending transaction
 // [1 input with referenced transaction outpoint, scriptSig, scriptWitness =>
@@ -25,7 +25,7 @@ CMutableTransaction BuildSpendingTransaction(const CScript& scriptSig, const CSc
 // Helper: create two dummy transactions, each with two outputs.
 // The first has nValues[0] and nValues[1] outputs paid to a TxoutType::PUBKEY,
 // the second nValues[2] and nValues[3] outputs paid to a TxoutType::PUBKEYHASH.
-std::vector<CMutableTransaction> SetupDummyInputs(FillableSigningProvider& keystoreRet, CCoinsViewCache& coinsRet, const std::array<Amount,4>& nValues);
+std::vector<CMutableTransaction> SetupDummyInputs(FillableSigningProvider& keystoreRet, CCoinsViewCache& coinsRet, const std::array<UAmount,4>& nValues);
 
 // bulk transaction to reach a certain target weight,
 // by appending a single output with padded output script

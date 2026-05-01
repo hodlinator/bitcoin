@@ -821,7 +821,7 @@ BITCOINKERNEL_API void btck_script_pubkey_destroy(btck_ScriptPubkey* script_pubk
  */
 BITCOINKERNEL_API btck_TransactionOutput* BITCOINKERNEL_WARN_UNUSED_RESULT btck_transaction_output_create(
     const btck_ScriptPubkey* script_pubkey,
-    int64_t amount) BITCOINKERNEL_ARG_NONNULL(1);
+    uint64_t amount) BITCOINKERNEL_ARG_NONNULL(1);
 
 /**
  * @brief Get the script pubkey of the output. The returned
@@ -840,7 +840,7 @@ BITCOINKERNEL_API const btck_ScriptPubkey* btck_transaction_output_get_script_pu
  * @param[in] transaction_output Non-null.
  * @return                       The amount.
  */
-BITCOINKERNEL_API int64_t btck_transaction_output_get_amount(
+BITCOINKERNEL_API uint64_t btck_transaction_output_get_amount(
     const btck_TransactionOutput* transaction_output) BITCOINKERNEL_ARG_NONNULL(1);
 
 /**

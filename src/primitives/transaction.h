@@ -139,24 +139,24 @@ public:
 class CTxOut
 {
 public:
-    Amount nValue;
+    UAmount nValue;
     CScript scriptPubKey;
 
-    CTxOut() : nValue{-1_sats} {}
+    CTxOut() : nValue{std::numeric_limits<UAmount::inner_type>::max()} {}
 
-    CTxOut(const Amount& nValueIn, CScript scriptPubKeyIn);
+    CTxOut(const UAmount& nValueIn, CScript scriptPubKeyIn);
 
     SERIALIZE_METHODS(CTxOut, obj) { READWRITE(obj.nValue, obj.scriptPubKey); }
 
     void SetNull()
     {
-        nValue = -1_sats;
+        nValue = UAmount{std::numeric_limits<UAmount::inner_type>::max()};
         scriptPubKey.clear();
     }
 
     bool IsNull() const
     {
-        return (nValue == -1_sats);
+        return (nValue.UInt() == std::numeric_limits<UAmount::inner_type>::max());
     }
 
     friend bool operator==(const CTxOut& a, const CTxOut& b)
@@ -265,9 +265,9 @@ void SerializeTransaction(const TxType& tx, Stream& s, const TransactionSerParam
 }
 
 template<typename TxType>
-inline Amount CalculateOutputValue(const TxType& tx)
+inline UAmount CalculateOutputValue(const TxType& tx)
 {
-    return std::accumulate(tx.vout.cbegin(), tx.vout.cend(), Amount{0_sats}, [](Amount sum, const auto& txout) { return sum + txout.nValue; });
+    return std::accumulate(tx.vout.cbegin(), tx.vout.cend(), UAmount{0_sats}, [](UAmount sum, const auto& txout) { return sum + txout.nValue; });
 }
 
 
@@ -326,7 +326,7 @@ public:
     const Wtxid& GetWitnessHash() const LIFETIMEBOUND { return m_witness_hash; };
 
     // Return sum of txouts.
-    Amount GetValueOut() const;
+    UAmount GetValueOut() const;
 
     /**
      * Calculate the total transaction size in bytes, including witness data.

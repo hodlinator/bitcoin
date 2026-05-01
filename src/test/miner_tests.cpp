@@ -311,7 +311,7 @@ std::vector<CTransactionRef> CreateBigSigOpsCluster(const CTransactionRef& first
     tx.vin[0].prevout.n = 0;
     tx.vout.resize(50);
     for (auto &out : tx.vout) {
-        out.nValue = first_tx->vout[0].nValue / 50;
+        out.nValue = first_tx->vout[0].nValue / 50U;
         out.scriptPubKey = CScript() << OP_1;
     }
 
@@ -330,7 +330,7 @@ std::vector<CTransactionRef> CreateBigSigOpsCluster(const CTransactionRef& first
         tx2.vin[0].prevout.n = i;
         tx2.vin[0].scriptSig = CScript() << OP_1;
         tx2.vout.resize(20);
-        tx2.vout[0].nValue = parent_tx->vout[i].nValue - CENT;
+        tx2.vout[0].nValue = (parent_tx->vout[i].nValue - CENT).AssertToUnsigned();
         for (auto &out : tx2.vout) {
             out.nValue = 0_sats;
             out.scriptPubKey = CScript() << OP_0 << OP_0 << OP_0 << OP_NOP << OP_CHECKMULTISIG << OP_1;
@@ -348,10 +348,10 @@ void MinerTestingSetup::TestBasicMining(const CScript& scriptPubKey, const std::
     entry.nFee = 11_sats;
     entry.nHeight = 11;
 
-    const Amount BLOCKSUBSIDY = 50 * COIN;
-    const Amount LOWFEE{CENT};
-    const Amount HIGHFEE{COIN};
-    const Amount HIGHERFEE = 4 * COIN;
+    const UAmount BLOCKSUBSIDY = 50U * COIN;
+    const UAmount LOWFEE{CENT};
+    const UAmount HIGHFEE{COIN};
+    const UAmount HIGHERFEE = 4U * COIN;
 
     auto mining{MakeMining()};
     BOOST_REQUIRE(mining);
@@ -457,7 +457,7 @@ void MinerTestingSetup::TestBasicMining(const CScript& scriptPubKey, const std::
         // child with higher feerate than parent
         tx.vin[0].scriptSig = CScript() << OP_1;
         tx.vin[0].prevout.hash = txFirst[1]->GetHash();
-        tx.vout[0].nValue = BLOCKSUBSIDY - HIGHFEE;
+        tx.vout[0].nValue = (BLOCKSUBSIDY - HIGHFEE).AssertToUnsigned();
         hash = tx.GetHash();
         TryAddToMempool(tx_mempool, entry.Fee(HIGHFEE).Time(Now<NodeSeconds>()).SpendsCoinbase(true).FromTx(tx));
         tx.vin[0].prevout.hash = hash;
@@ -465,7 +465,7 @@ void MinerTestingSetup::TestBasicMining(const CScript& scriptPubKey, const std::
         tx.vin[1].scriptSig = CScript() << OP_1;
         tx.vin[1].prevout.hash = txFirst[0]->GetHash();
         tx.vin[1].prevout.n = 0;
-        tx.vout[0].nValue = tx.vout[0].nValue + BLOCKSUBSIDY - HIGHERFEE; // First txn output + fresh coinbase - new txn fee
+        tx.vout[0].nValue = (tx.vout[0].nValue + BLOCKSUBSIDY - HIGHERFEE).AssertToUnsigned(); // First txn output + fresh coinbase - new txn fee
         hash = tx.GetHash();
         TryAddToMempool(tx_mempool, entry.Fee(HIGHERFEE).Time(Now<NodeSeconds>()).SpendsCoinbase(true).FromTx(tx));
         BOOST_REQUIRE(mining->createNewBlock(options, /*cooldown=*/false));
@@ -494,7 +494,7 @@ void MinerTestingSetup::TestBasicMining(const CScript& scriptPubKey, const std::
         // double spend txn pair in tx_mempool, template creation fails
         tx.vin[0].prevout.hash = txFirst[0]->GetHash();
         tx.vin[0].scriptSig = CScript() << OP_1;
-        tx.vout[0].nValue = BLOCKSUBSIDY - HIGHFEE;
+        tx.vout[0].nValue = (BLOCKSUBSIDY - HIGHFEE).AssertToUnsigned();
         tx.vout[0].scriptPubKey = CScript() << OP_1;
         hash = tx.GetHash();
         TryAddToMempool(tx_mempool, entry.Fee(HIGHFEE).Time(Now<NodeSeconds>()).SpendsCoinbase(true).FromTx(tx));
@@ -539,7 +539,7 @@ void MinerTestingSetup::TestBasicMining(const CScript& scriptPubKey, const std::
         tx.vin[0].prevout.hash = txFirst[0]->GetHash();
         tx.vin[0].prevout.n = 0;
         tx.vin[0].scriptSig = CScript() << OP_1;
-        tx.vout[0].nValue = BLOCKSUBSIDY - LOWFEE;
+        tx.vout[0].nValue = (BLOCKSUBSIDY - LOWFEE).AssertToUnsigned();
         CScript script = CScript() << OP_0;
         tx.vout[0].scriptPubKey = GetScriptForDestination(ScriptHash(script));
         hash = tx.GetHash();
@@ -580,7 +580,7 @@ void MinerTestingSetup::TestBasicMining(const CScript& scriptPubKey, const std::
     tx.vin[0].nSequence = m_node.chainman->ActiveChain().Tip()->nHeight + 1; // txFirst[0] is the 2nd block
     prevheights[0] = baseheight + 1;
     tx.vout.resize(1);
-    tx.vout[0].nValue = BLOCKSUBSIDY-HIGHFEE;
+    tx.vout[0].nValue = (BLOCKSUBSIDY-HIGHFEE).AssertToUnsigned();
     tx.vout[0].scriptPubKey = CScript() << OP_1;
     tx.nLockTime = 0;
     hash = tx.GetHash();

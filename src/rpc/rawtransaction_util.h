@@ -48,7 +48,7 @@ void AddInputs(CMutableTransaction& rawTx, const UniValue& inputs_in, bool rbf);
 UniValue NormalizeOutputs(const UniValue& outputs_in);
 
 /** Parse normalized outputs into destination, amount tuples */
-std::vector<std::pair<CTxDestination, Amount>> ParseOutputs(const UniValue& outputs);
+std::vector<std::pair<CTxDestination, UAmount>> ParseOutputs(const UniValue& outputs);
 
 /** Normalize, parse, and add outputs to the transaction */
 void AddOutputs(CMutableTransaction& rawTx, const UniValue& outputs_in);

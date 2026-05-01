@@ -112,7 +112,7 @@ CMutableTransaction ConsumeTransaction(FuzzedDataProvider& fuzzed_data_provider,
         tx_mut.vin.push_back(in);
     }
     for (int i = 0; i < num_out; ++i) {
-        const auto amount{ConsumeMoney(fuzzed_data_provider, -10_sats, 50U * COIN + 10_sats)};
+        const UAmount amount{ConsumeMoney(fuzzed_data_provider, /*max=*/50U * COIN + 10_sats)};
         const auto script_pk = p2wsh_op_true ?
                                    P2WSH_OP_TRUE :
                                    ConsumeScript(fuzzed_data_provider, /*maybe_p2wsh=*/true);

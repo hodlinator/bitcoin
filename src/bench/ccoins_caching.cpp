@@ -28,7 +28,7 @@ static void CCoinsCaching(benchmark::Bench& bench)
     FillableSigningProvider keystore;
     CCoinsViewCache coins{&CoinsViewEmpty::Get()};
     std::vector<CMutableTransaction> dummyTransactions =
-        SetupDummyInputs(keystore, coins, {11 * COIN, 50 * COIN, 21 * COIN, 22 * COIN});
+        SetupDummyInputs(keystore, coins, {11U * COIN, 50U * COIN, 21U * COIN, 22U * COIN});
 
     CMutableTransaction t1;
     t1.vin.resize(3);
@@ -42,7 +42,7 @@ static void CCoinsCaching(benchmark::Bench& bench)
     t1.vin[2].prevout.n = 1;
     t1.vin[2].scriptSig << std::vector<unsigned char>(65, 0) << std::vector<unsigned char>(33, 4);
     t1.vout.resize(2);
-    t1.vout[0].nValue = 90 * COIN;
+    t1.vout[0].nValue = 90U * COIN;
     t1.vout[0].scriptPubKey << OP_1;
 
     // Benchmark.

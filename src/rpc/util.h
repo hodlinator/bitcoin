@@ -122,7 +122,7 @@ int ParseVerbosity(const UniValue& arg, int default_verbosity, bool allow_bool);
  * @param[in] decimals  Number of significant digits (default: 8).
  * @returns a Amount if the various checks pass.
  */
-Amount AmountFromValue(const UniValue& value, int decimals = 8);
+UAmount AmountFromValue(const UniValue& value, int decimals = 8);
 /**
  * Parse a json number or string, denoting BTC/kvB, into a CFeeRate (sat/kvB).
  * Reject negative values or rates larger than 1BTC/kvB.

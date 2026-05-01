@@ -28,7 +28,7 @@ static std::shared_ptr<CWallet> NewWallet(const node::NodeContext& m_node)
 static void addCoin(CoinsResult& coins,
                      CWallet& wallet,
                      const CTxDestination& dest,
-                     const Amount& nValue,
+                     const UAmount& nValue,
                      bool is_from_me,
                      CFeeRate fee_rate = CFeeRate{0_sats},
                      int depth = 6)
@@ -121,7 +121,7 @@ BOOST_AUTO_TEST_CASE(outputs_grouping_tests)
     unsigned long GROUP_SIZE = 10;
     const CTxDestination dest = *Assert(wallet->GetNewDestination(OutputType::BECH32, ""));
     for (unsigned long i = 0; i < GROUP_SIZE; i++) {
-        addCoin(group_verifier.coins_pool, *wallet, dest, 10 * COIN, /*is_from_me=*/true);
+        addCoin(group_verifier.coins_pool, *wallet, dest, 10U * COIN, /*is_from_me=*/true);
     }
 
     group_verifier.GroupAndVerify(OutputType::BECH32,
@@ -137,7 +137,7 @@ BOOST_AUTO_TEST_CASE(outputs_grouping_tests)
 
     const CTxDestination dest2 = *Assert(wallet->GetNewDestination(OutputType::BECH32, ""));
     for (unsigned long i = 0; i < GROUP_SIZE; i++) {
-        addCoin(group_verifier.coins_pool, *wallet, dest2, 5 * COIN, /*is_from_me=*/true);
+        addCoin(group_verifier.coins_pool, *wallet, dest2, 5U * COIN, /*is_from_me=*/true);
     }
 
     group_verifier.GroupAndVerify(OutputType::BECH32,
@@ -175,7 +175,7 @@ BOOST_AUTO_TEST_CASE(outputs_grouping_tests)
     // ##############################################################################
 
     const CTxDestination dest4 = *Assert(wallet->GetNewDestination(OutputType::BECH32, ""));
-    addCoin(group_verifier.coins_pool, *wallet, dest4, 6 * COIN,
+    addCoin(group_verifier.coins_pool, *wallet, dest4, 6U * COIN,
             /*is_from_me=*/false, CFeeRate(0_sats), /*depth=*/5);
 
     // Expect no changes from this round and the previous one (point 4)
@@ -192,7 +192,7 @@ BOOST_AUTO_TEST_CASE(outputs_grouping_tests)
     // ##############################################################################
 
     const CTxDestination dest5 = *Assert(wallet->GetNewDestination(OutputType::BECH32, ""));
-    addCoin(group_verifier.coins_pool, *wallet, dest5, 6 * COIN,
+    addCoin(group_verifier.coins_pool, *wallet, dest5, 6U * COIN,
             /*is_from_me=*/true, CFeeRate{0_sats}, /*depth=*/0);
 
     // Expect no changes from this round and the previous one (point 5)
@@ -209,7 +209,7 @@ BOOST_AUTO_TEST_CASE(outputs_grouping_tests)
     const CTxDestination dest7 = *Assert(wallet->GetNewDestination(OutputType::BECH32, ""));
     uint16_t NUM_SINGLE_ENTRIES = 101;
     for (unsigned long i = 0; i < NUM_SINGLE_ENTRIES; i++) { // OUTPUT_GROUP_MAX_ENTRIES{100}
-        addCoin(group_verifier.coins_pool, *wallet, dest7, 9 * COIN, /*is_from_me=*/true);
+        addCoin(group_verifier.coins_pool, *wallet, dest7, 9U * COIN, /*is_from_me=*/true);
     }
 
     // Exclude partial groups only adds one more group to the previous test case (point 6)

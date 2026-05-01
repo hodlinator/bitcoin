@@ -97,15 +97,15 @@ struct ScriptCompression
 
 struct AmountCompression
 {
-    template<typename Stream> void Ser(Stream& s, const Amount val)
+    template<typename Stream> void Ser(Stream& s, const UAmount val)
     {
-        s << VARINT(CompressAmount(uint64_t(val.Int())));
+        s << VARINT(CompressAmount(val.UInt()));
     }
-    template<typename Stream> void Unser(Stream& s, Amount& val)
+    template<typename Stream> void Unser(Stream& s, UAmount& val)
     {
         uint64_t v;
         s >> VARINT(v);
-        val = Amount{int64_t(DecompressAmount(v))};
+        val = UAmount{DecompressAmount(v)};
     }
 };
 

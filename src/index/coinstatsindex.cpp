@@ -47,7 +47,7 @@ struct DBVal {
     uint256 muhash{uint256::ZERO};
     uint64_t transaction_output_count{0};
     uint64_t bogo_size{0};
-    Amount total_amount{0_sats};
+    UAmount total_amount{0_sats};
     Amount total_subsidy{0_sats};
     arith_uint256 total_prevout_spent_amount{0};
     arith_uint256 total_new_outputs_ex_coinbase_amount{0};
@@ -145,9 +145,9 @@ bool CoinStatsIndex::CustomAppend(const interfaces::BlockInfo& block)
                 ApplyCoinHash(m_muhash, outpoint, coin);
 
                 if (is_coinbase) {
-                    m_total_coinbase_amount += coin.out.nValue.Int();
+                    m_total_coinbase_amount += coin.out.nValue.UInt();
                 } else {
-                    m_total_new_outputs_ex_coinbase_amount += coin.out.nValue.Int();
+                    m_total_new_outputs_ex_coinbase_amount += coin.out.nValue.UInt();
                 }
 
                 ++m_transaction_output_count;
@@ -165,7 +165,7 @@ bool CoinStatsIndex::CustomAppend(const interfaces::BlockInfo& block)
 
                     RemoveCoinHash(m_muhash, outpoint, coin);
 
-                    m_total_prevout_spent_amount += coin.out.nValue.Int();
+                    m_total_prevout_spent_amount += coin.out.nValue.UInt();
 
                     --m_transaction_output_count;
                     m_total_amount -= coin.out.nValue;

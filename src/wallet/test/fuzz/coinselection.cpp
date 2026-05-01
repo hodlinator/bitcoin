@@ -18,7 +18,7 @@
 
 namespace wallet {
 
-static void AddCoin(const Amount& value, int n_input, int n_input_bytes, int locktime, std::vector<COutput>& coins, CFeeRate fee_rate)
+static void AddCoin(const UAmount& value, int n_input, int n_input_bytes, int locktime, std::vector<COutput>& coins, CFeeRate fee_rate)
 {
     CMutableTransaction tx;
     tx.vout.resize(n_input + 1);
@@ -48,14 +48,14 @@ static void GroupCoins(FuzzedDataProvider& fuzzed_data_provider, const std::vect
     if (valid_outputgroup) output_groups.push_back(output_group);
 }
 
-static Amount CreateCoins(FuzzedDataProvider& fuzzed_data_provider, std::vector<COutput>& utxo_pool, CoinSelectionParams& coin_params, int& next_locktime)
+static UAmount CreateCoins(FuzzedDataProvider& fuzzed_data_provider, std::vector<COutput>& utxo_pool, CoinSelectionParams& coin_params, int& next_locktime)
 {
-    Amount total_balance{0_sats};
+    UAmount total_balance{0_sats};
     LIMITED_WHILE(fuzzed_data_provider.ConsumeBool(), 10000)
     {
         const int n_input{fuzzed_data_provider.ConsumeIntegralInRange<int>(0, 10)};
         const int n_input_bytes{fuzzed_data_provider.ConsumeIntegralInRange<int>(41, 10000)};
-        const Amount amount{ConsumeMoney(fuzzed_data_provider, 1_sats, MAX_MONEY)};
+        const UAmount amount{ConsumeMoney(fuzzed_data_provider, 1_sats, MAX_MONEY)};
         if (total_balance + amount >= MAX_MONEY) {
             break;
         }
@@ -107,7 +107,7 @@ FUZZ_TARGET(coin_grinder)
     {
         const int n_input{fuzzed_data_provider.ConsumeIntegralInRange<int>(0, 10)};
         const int n_input_bytes{fuzzed_data_provider.ConsumeIntegralInRange<int>(41, 10000)};
-        const Amount amount{ConsumeMoney(fuzzed_data_provider, 1_sats, MAX_MONEY)};
+        const UAmount amount{ConsumeMoney(fuzzed_data_provider, 1_sats, MAX_MONEY)};
         if (total_balance + amount >= MAX_MONEY) {
             break;
         }
@@ -158,10 +158,10 @@ FUZZ_TARGET(coin_grinder_is_optimal)
         // With maximum m_effective_feerate and n_input_bytes = 1'000'000, input_fee <= MAX_MONEY.
         const int n_input_bytes{fuzzed_data_provider.ConsumeIntegralInRange<int>(1, 1'000'000)};
         // Only make UTXOs with positive effective value
-        const Amount input_fee = coin_params.m_effective_feerate.GetFee(n_input_bytes);
+        const UAmount input_fee{coin_params.m_effective_feerate.GetFee(n_input_bytes).AssertToUnsigned()};
         // Ensure that each UTXO has at least an effective value of 1 sat
-        const Amount eff_value{ConsumeMoney(fuzzed_data_provider, 1_sats, MAX_MONEY + UAmount{group_pos.size()} - max_spendable - UAmount{max_output_groups})};
-        const Amount amount{eff_value + input_fee};
+        const UAmount eff_value{ConsumeMoney(fuzzed_data_provider, 1_sats, (MAX_MONEY + UAmount{group_pos.size()} - max_spendable - UAmount{max_output_groups}).AssertToUnsigned())};
+        const UAmount amount{eff_value + input_fee};
         std::vector<COutput> temp_utxo_pool;
 
         AddCoin(amount, /*n_input=*/0, n_input_bytes, ++next_locktime, temp_utxo_pool, coin_params.m_effective_feerate);
@@ -255,10 +255,10 @@ FUZZ_TARGET(bnb_finds_min_waste)
     {
         // With maximum m_effective_feerate 10'000 s/vB and n_input_bytes = 20'000 B, input_fee <= MAX_MONEY.
         const int n_input_bytes{fuzzed_data_provider.ConsumeIntegralInRange<int>(1, 20'000)};
-        const Amount input_fee = coin_params.m_effective_feerate.GetFee(n_input_bytes);
+        const UAmount input_fee{coin_params.m_effective_feerate.GetFee(n_input_bytes).AssertToUnsigned()};
         // Ensure that each UTXO has at least an effective value of 1 sat
-        const Amount eff_value{ConsumeMoney(fuzzed_data_provider, 1_sats, MAX_MONEY + UAmount{group_pos.size()} - max_spendable - UAmount{max_output_groups})};
-        const Amount amount{eff_value + input_fee};
+        const UAmount eff_value{ConsumeMoney(fuzzed_data_provider, 1_sats, (MAX_MONEY + UAmount{group_pos.size()} - max_spendable - UAmount{max_output_groups}).AssertToUnsigned())};
+        const UAmount amount{eff_value + input_fee};
         std::vector<COutput> temp_utxo_pool;
 
         AddCoin(amount, /*n_input=*/0, n_input_bytes, ++next_locktime, temp_utxo_pool, coin_params.m_effective_feerate);

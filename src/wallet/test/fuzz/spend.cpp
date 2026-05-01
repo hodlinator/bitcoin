@@ -64,7 +64,7 @@ FUZZ_TARGET(wallet_create_transaction, .init = initialize_setup)
         CMutableTransaction tx;
         tx.nLockTime = next_locktime++;
         tx.vout.resize(1);
-        Amount n_value{ConsumeMoney(fuzzed_data_provider)};
+        UAmount n_value{ConsumeMoney(fuzzed_data_provider)};
         all_values += n_value;
         if (all_values > MAX_MONEY) return;
         tx.vout[0].nValue = n_value;

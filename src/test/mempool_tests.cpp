@@ -127,7 +127,7 @@ BOOST_AUTO_TEST_CASE(MempoolSizeLimitTest)
     tx1.vin[0].scriptSig = CScript() << OP_1;
     tx1.vout.resize(1);
     tx1.vout[0].scriptPubKey = CScript() << OP_1 << OP_EQUAL;
-    tx1.vout[0].nValue = 10 * COIN;
+    tx1.vout[0].nValue = 10U * COIN;
     TryAddToMempool(pool, entry.Fee(1000_sats).FromTx(tx1));
 
     CMutableTransaction tx2 = CMutableTransaction();
@@ -135,7 +135,7 @@ BOOST_AUTO_TEST_CASE(MempoolSizeLimitTest)
     tx2.vin[0].scriptSig = CScript() << OP_2;
     tx2.vout.resize(1);
     tx2.vout[0].scriptPubKey = CScript() << OP_2 << OP_EQUAL;
-    tx2.vout[0].nValue = 10 * COIN;
+    tx2.vout[0].nValue = 10U * COIN;
     TryAddToMempool(pool, entry.Fee(500_sats).FromTx(tx2));
 
     pool.TrimToSize(pool.DynamicMemoryUsage()); // should do nothing
@@ -153,7 +153,7 @@ BOOST_AUTO_TEST_CASE(MempoolSizeLimitTest)
     tx3.vin[0].scriptSig = CScript() << OP_2;
     tx3.vout.resize(1);
     tx3.vout[0].scriptPubKey = CScript() << OP_3 << OP_EQUAL;
-    tx3.vout[0].nValue = 10 * COIN;
+    tx3.vout[0].nValue = 10U * COIN;
     TryAddToMempool(pool, entry.Fee(2000_sats).FromTx(tx3));
 
     pool.TrimToSize(pool.DynamicMemoryUsage() * 3 / 4); // tx3 should pay for tx2 (CPFP)
@@ -177,9 +177,9 @@ BOOST_AUTO_TEST_CASE(MempoolSizeLimitTest)
     tx4.vin[1].scriptSig = CScript() << OP_4;
     tx4.vout.resize(2);
     tx4.vout[0].scriptPubKey = CScript() << OP_4 << OP_EQUAL;
-    tx4.vout[0].nValue = 10 * COIN;
+    tx4.vout[0].nValue = 10U * COIN;
     tx4.vout[1].scriptPubKey = CScript() << OP_4 << OP_EQUAL;
-    tx4.vout[1].nValue = 10 * COIN;
+    tx4.vout[1].nValue = 10U * COIN;
 
     CMutableTransaction tx5 = CMutableTransaction();
     tx5.vin.resize(2);
@@ -189,9 +189,9 @@ BOOST_AUTO_TEST_CASE(MempoolSizeLimitTest)
     tx5.vin[1].scriptSig = CScript() << OP_5;
     tx5.vout.resize(2);
     tx5.vout[0].scriptPubKey = CScript() << OP_5 << OP_EQUAL;
-    tx5.vout[0].nValue = 10 * COIN;
+    tx5.vout[0].nValue = 10U * COIN;
     tx5.vout[1].scriptPubKey = CScript() << OP_5 << OP_EQUAL;
-    tx5.vout[1].nValue = 10 * COIN;
+    tx5.vout[1].nValue = 10U * COIN;
 
     CMutableTransaction tx6 = CMutableTransaction();
     tx6.vin.resize(2);
@@ -201,9 +201,9 @@ BOOST_AUTO_TEST_CASE(MempoolSizeLimitTest)
     tx6.vin[1].scriptSig = CScript() << OP_6;
     tx6.vout.resize(2);
     tx6.vout[0].scriptPubKey = CScript() << OP_6 << OP_EQUAL;
-    tx6.vout[0].nValue = 10 * COIN;
+    tx6.vout[0].nValue = 10U * COIN;
     tx6.vout[1].scriptPubKey = CScript() << OP_6 << OP_EQUAL;
-    tx6.vout[1].nValue = 10 * COIN;
+    tx6.vout[1].nValue = 10U * COIN;
 
     CMutableTransaction tx7 = CMutableTransaction();
     tx7.vin.resize(2);
@@ -213,9 +213,9 @@ BOOST_AUTO_TEST_CASE(MempoolSizeLimitTest)
     tx7.vin[1].scriptSig = CScript() << OP_6;
     tx7.vout.resize(2);
     tx7.vout[0].scriptPubKey = CScript() << OP_7 << OP_EQUAL;
-    tx7.vout[0].nValue = 10 * COIN;
+    tx7.vout[0].nValue = 10U * COIN;
     tx7.vout[1].scriptPubKey = CScript() << OP_7 << OP_EQUAL;
-    tx7.vout[1].nValue = 10 * COIN;
+    tx7.vout[1].nValue = 10U * COIN;
 
     TryAddToMempool(pool, entry.Fee(700_sats).FromTx(tx4));
     auto usage_with_tx4_only = pool.DynamicMemoryUsage();
@@ -279,7 +279,7 @@ BOOST_AUTO_TEST_CASE(MempoolSizeLimitTest)
     // ... unless it has gone all the way to 0 (after getting past DEFAULT_INCREMENTAL_RELAY_FEE/2)
 }
 
-inline CTransactionRef make_tx(std::vector<Amount>&& output_values, std::vector<CTransactionRef>&& inputs=std::vector<CTransactionRef>(), std::vector<uint32_t>&& input_indices=std::vector<uint32_t>())
+inline CTransactionRef make_tx(std::vector<UAmount>&& output_values, std::vector<CTransactionRef>&& inputs=std::vector<CTransactionRef>(), std::vector<uint32_t>&& input_indices=std::vector<uint32_t>())
 {
     CMutableTransaction tx = CMutableTransaction();
     tx.vin.resize(inputs.size());
@@ -308,7 +308,7 @@ BOOST_AUTO_TEST_CASE(MempoolAncestryTests)
     //
     // [tx1]
     //
-    CTransactionRef tx1 = make_tx(/*output_values=*/{10 * COIN});
+    CTransactionRef tx1 = make_tx(/*output_values=*/{10U * COIN});
     TryAddToMempool(pool, entry.Fee(10000_sats).FromTx(tx1));
 
     // Ancestors / clustersize should be 1 / 1 (itself / itself)
@@ -320,7 +320,7 @@ BOOST_AUTO_TEST_CASE(MempoolAncestryTests)
     //
     // [tx1].0 <- [tx2]
     //
-    CTransactionRef tx2 = make_tx(/*output_values=*/{495 * CENT, 5 * COIN}, /*inputs=*/{tx1});
+    CTransactionRef tx2 = make_tx(/*output_values=*/{495U * CENT, 5U * COIN}, /*inputs=*/{tx1});
     TryAddToMempool(pool, entry.Fee(10000_sats).FromTx(tx2));
 
     // Ancestors / clustersize should be:
@@ -339,7 +339,7 @@ BOOST_AUTO_TEST_CASE(MempoolAncestryTests)
     //
     // [tx1].0 <- [tx2].0 <- [tx3]
     //
-    CTransactionRef tx3 = make_tx(/*output_values=*/{290 * CENT, 200 * CENT}, /*inputs=*/{tx2});
+    CTransactionRef tx3 = make_tx(/*output_values=*/{290U * CENT, 200U * CENT}, /*inputs=*/{tx2});
     TryAddToMempool(pool, entry.Fee(10000_sats).FromTx(tx3));
 
     // Ancestors / clustersize should be:
@@ -364,7 +364,7 @@ BOOST_AUTO_TEST_CASE(MempoolAncestryTests)
     //              |
     //              \---1 <- [tx4]
     //
-    CTransactionRef tx4 = make_tx(/*output_values=*/{290 * CENT, 250 * CENT}, /*inputs=*/{tx2}, /*input_indices=*/{1});
+    CTransactionRef tx4 = make_tx(/*output_values=*/{290U * CENT, 250U * CENT}, /*inputs=*/{tx2}, /*input_indices=*/{1});
     TryAddToMempool(pool, entry.Fee(10000_sats).FromTx(tx4));
 
     // Ancestors / clustersize should be:
@@ -397,7 +397,7 @@ BOOST_AUTO_TEST_CASE(MempoolAncestryTests)
     //
     CTransactionRef ty1, ty2, ty3, ty4, ty5;
     CTransactionRef* ty[5] = {&ty1, &ty2, &ty3, &ty4, &ty5};
-    Amount v = 5 * COIN;
+    UAmount v = 5U * COIN;
     for (uint64_t i = 0; i < 5; i++) {
         CTransactionRef& tyi = *ty[i];
         tyi = make_tx(/*output_values=*/{v}, /*inputs=*/i > 0 ? std::vector<CTransactionRef>{*ty[i - 1]} : std::vector<CTransactionRef>{});
@@ -407,7 +407,7 @@ BOOST_AUTO_TEST_CASE(MempoolAncestryTests)
         BOOST_CHECK_EQUAL(ancestors, i+1);
         BOOST_CHECK_EQUAL(clustersize, i+1);
     }
-    CTransactionRef ty6 = make_tx(/*output_values=*/{5 * COIN}, /*inputs=*/{tx3, ty5});
+    CTransactionRef ty6 = make_tx(/*output_values=*/{5U * COIN}, /*inputs=*/{tx3, ty5});
     TryAddToMempool(pool, entry.Fee(10000_sats).FromTx(ty6));
 
     // Ancestors / clustersize should be:
@@ -470,10 +470,10 @@ BOOST_AUTO_TEST_CASE(MempoolAncestryTestsDiamond)
     //            \---1 <- [tc].0 --<--/
     //
     CTransactionRef ta, tb, tc, td;
-    ta = make_tx(/*output_values=*/{10 * COIN});
-    tb = make_tx(/*output_values=*/{5 * COIN, 3 * COIN}, /*inputs=*/ {ta});
-    tc = make_tx(/*output_values=*/{2 * COIN}, /*inputs=*/{tb}, /*input_indices=*/{1});
-    td = make_tx(/*output_values=*/{6 * COIN}, /*inputs=*/{tb, tc}, /*input_indices=*/{0, 0});
+    ta = make_tx(/*output_values=*/{10U * COIN});
+    tb = make_tx(/*output_values=*/{5U * COIN, 3U * COIN}, /*inputs=*/ {ta});
+    tc = make_tx(/*output_values=*/{2U * COIN}, /*inputs=*/{tb}, /*input_indices=*/{1});
+    td = make_tx(/*output_values=*/{6U * COIN}, /*inputs=*/{tb, tc}, /*input_indices=*/{0, 0});
     TryAddToMempool(pool, entry.Fee(10000_sats).FromTx(ta));
     TryAddToMempool(pool, entry.Fee(10000_sats).FromTx(tb));
     TryAddToMempool(pool, entry.Fee(10000_sats).FromTx(tc));

@@ -244,7 +244,7 @@ FUZZ_TARGET(cmpctblock, .init = initialize_cmpctblock)
         tx_mut.vin.push_back(in);
 
         const Amount amount_out = amount_in - AMOUNT_FEE;
-        tx_mut.vout.emplace_back(amount_out, P2WSH_OP_TRUE);
+        tx_mut.vout.emplace_back(amount_out.AssertToUnsigned(), P2WSH_OP_TRUE);
 
         auto tx = MakeTransactionRef(tx_mut);
         return tx;

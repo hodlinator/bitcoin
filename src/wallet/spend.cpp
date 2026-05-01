@@ -1256,7 +1256,7 @@ static util::Result<CreatedTransactionResult> CreateTransactionInternal(
     }
     const Amount change_amount = result.GetChange(coin_selection_params.min_viable_change, coin_selection_params.m_change_fee);
     if (change_amount > 0_sats) {
-        CTxOut newTxOut(change_amount, scriptChange);
+        CTxOut newTxOut(change_amount.AssertToUnsigned(), scriptChange);
         if (!change_pos) {
             // Insert change txn at random position:
             change_pos = rng_fast.randrange(txNew.vout.size() + 1);
@@ -1345,7 +1345,7 @@ static util::Result<CreatedTransactionResult> CreateTransactionInternal(
     // If there is a change output and we overpay the fees then increase the change to match the fee needed
     if (change_pos && fee_needed < current_fee) {
         auto& change = txNew.vout.at(*change_pos);
-        change.nValue += current_fee - fee_needed;
+        change.nValue += (current_fee - fee_needed).AssertToUnsigned();
         current_fee = result.GetSelectedValue() - CalculateOutputValue(txNew);
         if (fee_needed != current_fee) {
             return util::Error{Untranslated(STR_INTERNAL_BUG("Change adjustment: Fee needed != fee paid"))};
