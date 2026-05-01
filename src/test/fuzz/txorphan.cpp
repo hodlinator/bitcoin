@@ -705,7 +705,7 @@ FUZZ_TARGET(txorphanage_sim)
                                 (total_latency_score > real->MaxGlobalLatencyScore());
             if (!oversized) break;
             // Find worst peer.
-            FeeFrac worst_dos_score{0_sats, 1};
+            auto worst_dos_score = FeeFrac{0_sats, 1};
             unsigned worst_peer = unsigned(-1);
             for (unsigned peer = 0; peer < NUM_PEERS; ++peer) {
                 auto dos_score = dos_score_fn(peer, max_ann, max_mem);

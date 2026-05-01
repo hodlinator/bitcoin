@@ -11,11 +11,11 @@ BOOST_AUTO_TEST_SUITE(feefrac_tests)
 
 BOOST_AUTO_TEST_CASE(feefrac_operators)
 {
-    FeeFrac p1{1000_sats, 100}, p2{500_sats, 300};
-    FeeFrac sum{1500_sats, 400};
-    FeeFrac diff{500_sats, -200};
-    FeeFrac empty{0_sats, 0};
-    FeeFrac zero_fee{0_sats, 1}; // zero-fee allowed
+    constexpr FeeFrac p1{1000_sats, 100}, p2{500_sats, 300};
+    constexpr FeeFrac sum{1500_sats, 400};
+    constexpr FeeFrac diff{500_sats, -200};
+    constexpr FeeFrac empty{0_sats, 0};
+    constexpr FeeFrac zero_fee{0_sats, 1}; // zero-fee allowed
 
     BOOST_CHECK_EQUAL(zero_fee.EvaluateFeeDown(0), 0_sats);
     BOOST_CHECK_EQUAL(zero_fee.EvaluateFeeDown(1), 0_sats);
@@ -61,11 +61,11 @@ BOOST_AUTO_TEST_CASE(feefrac_operators)
     BOOST_CHECK(p1 + p2 == sum);
     BOOST_CHECK(p1 - p2 == diff);
 
-    FeeFrac p3{2000_sats, 200};
+    constexpr FeeFrac p3{2000_sats, 200};
     BOOST_CHECK(p1 != p3); // feefracs only equal if both fee and size are same
     BOOST_CHECK(p2 != p3);
 
-    FeeFrac p4{3000_sats, 300};
+    constexpr FeeFrac p4{3000_sats, 300};
     BOOST_CHECK(p1 == p4-p3);
     BOOST_CHECK(p1 + p3 == p4);
 
@@ -97,8 +97,8 @@ BOOST_AUTO_TEST_CASE(feefrac_operators)
     BOOST_CHECK(ByRatioNegSize{empty} >= ByRatioNegSize{p3});
 
     // check "max" values for comparison
-    FeeFrac oversized_1{4611686000000_sats, 4000000};
-    FeeFrac oversized_2{184467440000000_sats, 100000};
+    constexpr FeeFrac oversized_1{4611686000000_sats, 4000000};
+    constexpr FeeFrac oversized_2{184467440000000_sats, 100000};
 
     BOOST_CHECK(ByRatioNegSize{oversized_1} < ByRatioNegSize{oversized_2});
     BOOST_CHECK(ByRatioNegSize{oversized_1} <= ByRatioNegSize{oversized_2});
@@ -126,7 +126,7 @@ BOOST_AUTO_TEST_CASE(feefrac_operators)
     FeeFrac busted{Amount::From(static_cast<int64_t>(INT32_MAX) + 1), INT32_MAX};
     BOOST_CHECK(!(ByRatioNegSize{busted} < ByRatioNegSize{busted}));
 
-    FeeFrac max_fee{2100000000000000_sats, INT32_MAX};
+    constexpr FeeFrac max_fee{2100000000000000_sats, INT32_MAX};
     BOOST_CHECK(!(ByRatioNegSize{max_fee} < ByRatioNegSize{max_fee}));
     BOOST_CHECK(!(ByRatioNegSize{max_fee} > ByRatioNegSize{max_fee}));
     BOOST_CHECK(ByRatioNegSize{max_fee} <= ByRatioNegSize{max_fee});
@@ -145,7 +145,7 @@ BOOST_AUTO_TEST_CASE(feefrac_operators)
     BOOST_CHECK_EQUAL(max_fee.EvaluateFeeUp(1256796054), 1229006664189048_sats);
     BOOST_CHECK_EQUAL(max_fee.EvaluateFeeUp(INT32_MAX), 2100000000000000_sats);
 
-    FeeFrac max_fee2{1_sats, 1};
+    constexpr FeeFrac max_fee2{1_sats, 1};
     BOOST_CHECK(ByRatioNegSize{max_fee} >= ByRatioNegSize{max_fee2});
 
     // Test for integer overflow issue (https://github.com/bitcoin/bitcoin/issues/32294)

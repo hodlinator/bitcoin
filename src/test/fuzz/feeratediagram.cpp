@@ -106,7 +106,7 @@ FUZZ_TARGET(build_and_compare_feerate_diagram)
     // Generate a random set of chunks
     FuzzedDataProvider fuzzed_data_provider(buffer.data(), buffer.size());
     std::vector<FeeFrac> chunks1, chunks2;
-    FeeFrac empty{0_sats, 0};
+    constexpr FeeFrac empty{0_sats, 0};
 
     PopulateChunks(fuzzed_data_provider, chunks1);
     PopulateChunks(fuzzed_data_provider, chunks2);

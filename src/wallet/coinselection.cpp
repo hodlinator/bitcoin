@@ -405,7 +405,7 @@ util::Result<SelectionResult> CoinGrinder(std::vector<OutputGroup>& utxo_pool, c
     std::vector<int> min_tail_weight(utxo_pool.size());
 
     // Calculate lookahead values, min_tail_weights, and check that there are sufficient funds
-    Amount total_available{0_sats};
+    auto total_available = Amount{0_sats};
     int min_group_weight = std::numeric_limits<int>::max();
     for (size_t i = 0; i < utxo_pool.size(); ++i) {
         size_t index = utxo_pool.size() - 1 - i; // Loop over every element in reverse order
@@ -428,8 +428,8 @@ util::Result<SelectionResult> CoinGrinder(std::vector<OutputGroup>& utxo_pool, c
     std::vector<size_t> best_selection;
 
     // The currently selected effective amount, and the effective amount of the best selection so far
-    Amount curr_amount{0_sats};
-    Amount best_selection_amount{MAX_MONEY};
+    auto curr_amount = Amount{0_sats};
+    Amount best_selection_amount = MAX_MONEY;
 
     // The weight of the currently selected input set, and the weight of the best selection
     int curr_weight = 0;
@@ -624,7 +624,7 @@ util::Result<SelectionResult> SelectCoinsSRD(const std::vector<OutputGroup>& utx
     std::iota(indexes.begin(), indexes.end(), 0);
     std::shuffle(indexes.begin(), indexes.end(), rng);
 
-    Amount selected_eff_value{0_sats};
+    auto selected_eff_value = Amount{0_sats};
     int weight = 0;
     bool max_tx_weight_exceeded = false;
     for (const size_t i : indexes) {
@@ -686,7 +686,7 @@ static void ApproximateBestSubset(FastRandomContext& insecure_rand, const std::v
     for (int nRep = 0; nRep < iterations && nBest != nTargetValue; nRep++)
     {
         vfIncluded.assign(groups.size(), false);
-        Amount nTotal{0_sats};
+        auto nTotal = Amount{0_sats};
         int selected_coins_weight{0};
         bool fReachedTarget = false;
         for (int nPass = 0; nPass < 2 && !fReachedTarget; nPass++)
@@ -734,7 +734,7 @@ util::Result<SelectionResult> KnapsackSolver(std::vector<OutputGroup>& groups, c
     // Groups with selection amount smaller than the target and any change we might produce.
     // Don't include groups larger than this, because they will only cause us to overshoot.
     std::vector<OutputGroup> applicable_groups;
-    Amount nTotalLower{0_sats};
+    auto nTotalLower = Amount{0_sats};
 
     std::shuffle(groups.begin(), groups.end(), rng);
 
@@ -903,7 +903,7 @@ void SelectionResult::RecalculateWaste(const UAmount min_viable_change, const UA
     assert(!m_selected_inputs.empty());
 
     // Always consider the cost of spending an input now vs in the future.
-    Amount waste{0_sats};
+    auto waste = Amount{0_sats};
     for (const auto& coin_ptr : m_selected_inputs) {
         const COutput& coin = *coin_ptr;
         waste += coin.GetFee() - coin.long_term_fee;

@@ -337,10 +337,10 @@ BOOST_AUTO_TEST_CASE(txgraph_chunk_chain)
     std::vector<TxGraph::Ref> refs;
     refs.reserve(4);
 
-    FeePerWeight feerateA{2_sats, 10};
-    FeePerWeight feerateB{1_sats, 10};
-    FeePerWeight feerateC{2_sats, 10};
-    FeePerWeight feerateD{4_sats, 10};
+    constexpr FeePerWeight feerateA{2_sats, 10};
+    constexpr FeePerWeight feerateB{1_sats, 10};
+    constexpr FeePerWeight feerateC{2_sats, 10};
+    constexpr FeePerWeight feerateD{4_sats, 10};
 
     // everytime adding a transaction, test the chunk status
     // [A]
@@ -388,8 +388,8 @@ BOOST_AUTO_TEST_CASE(txgraph_staging)
     std::vector<TxGraph::Ref> refs;
     refs.reserve(2);
 
-    FeePerWeight feerateA{2_sats, 10};
-    FeePerWeight feerateB{1_sats, 10};
+    constexpr FeePerWeight feerateA{2_sats, 10};
+    constexpr FeePerWeight feerateB{1_sats, 10};
 
     // everytime adding a transaction, test the chunk status
     // [A]
