@@ -26,9 +26,19 @@ std::vector<uint8_t> ConstructPubKeyBytes(FuzzedDataProvider& fuzzed_data_provid
     return pk_data;
 }
 
-Amount ConsumeMoney(FuzzedDataProvider& fuzzed_data_provider, const std::optional<Amount>& max) noexcept
+Amount ConsumeMoney(FuzzedDataProvider& provider) noexcept
 {
-    return fuzzed_data_provider.ConsumeIntegralInRange<Amount>(0, max.value_or(MAX_MONEY));
+    return ConsumeMoney(provider, 0, MAX_MONEY);
+}
+
+Amount ConsumeMoney(FuzzedDataProvider& provider, const Amount& max) noexcept
+{
+    return ConsumeMoney(provider, 0, max);
+}
+
+Amount ConsumeMoney(FuzzedDataProvider& provider, const Amount& min, const Amount& max) noexcept
+{
+    return Amount{provider.ConsumeIntegralInRange<Amount>(min, max)};
 }
 
 NodeSeconds ConsumeTime(FuzzedDataProvider& fuzzed_data_provider, const std::optional<int64_t>& min, const std::optional<int64_t>& max) noexcept
@@ -71,7 +81,7 @@ CMutableTransaction ConsumeTransaction(FuzzedDataProvider& fuzzed_data_provider,
         tx_mut.vin.push_back(in);
     }
     for (int i = 0; i < num_out; ++i) {
-        const auto amount = fuzzed_data_provider.ConsumeIntegralInRange<Amount>(-10, 50 * COIN + 10);
+        const auto amount{ConsumeMoney(fuzzed_data_provider, -10, 50U * COIN + 10)};
         const auto script_pk = p2wsh_op_true ?
                                    P2WSH_OP_TRUE :
                                    ConsumeScript(fuzzed_data_provider, /*maybe_p2wsh=*/true);

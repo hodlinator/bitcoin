@@ -152,7 +152,13 @@ template <typename WeakEnumType, size_t size>
     return static_cast<opcodetype>(fuzzed_data_provider.ConsumeIntegralInRange<uint32_t>(0, MAX_OPCODE));
 }
 
-[[nodiscard]] Amount ConsumeMoney(FuzzedDataProvider& fuzzed_data_provider, const std::optional<Amount>& max = std::nullopt) noexcept;
+/// Returns an amount between 0 and MAX_MONEY
+[[nodiscard]] Amount ConsumeMoney(FuzzedDataProvider& provider) noexcept;
+/// Returns an amount between 0 and max arg
+[[nodiscard]] Amount ConsumeMoney(FuzzedDataProvider& provider, const Amount& max) noexcept;
+
+[[nodiscard]] Amount ConsumeMoney(FuzzedDataProvider& provider, const Amount& min, const Amount& max) noexcept;
+
 
 [[nodiscard]] NodeSeconds ConsumeTime(FuzzedDataProvider& fuzzed_data_provider, const std::optional<int64_t>& min = std::nullopt, const std::optional<int64_t>& max = std::nullopt) noexcept;
 
