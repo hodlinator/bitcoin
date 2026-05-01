@@ -36,7 +36,7 @@ extern const std::function<std::vector<const char*>()> G_TEST_COMMAND_LINE_ARGUM
 /** Retrieve the unit test name. */
 extern const std::function<std::string()> G_TEST_GET_FULL_NAME;
 
-static constexpr Amount CENT{1000000};
+static constexpr Amount CENT{1000000_sats};
 
 /** Register common test args. Shared across binaries that rely on the test framework. */
 void SetupCommonTestArgs(ArgsManager& argsman);

@@ -535,7 +535,7 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization)
     SpanReader{"8ddf77bbd123008c988f1a4a4de2161e0f50aac7f17e7f9555caa4"_hex} >> cc2;
     BOOST_CHECK_EQUAL(cc2.IsCoinBase(), true);
     BOOST_CHECK_EQUAL(cc2.nHeight, 120891U);
-    BOOST_CHECK_EQUAL(cc2.out.nValue, 110397);
+    BOOST_CHECK_EQUAL(cc2.out.nValue, 110397_sats);
     BOOST_CHECK_EQUAL(HexStr(cc2.out.scriptPubKey), HexStr(GetScriptForDestination(PKHash(uint160("8c988f1a4a4de2161e0f50aac7f17e7f9555caa4"_hex_u8)))));
 
     // Smallest possible example
@@ -543,7 +543,7 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization)
     SpanReader{"000006"_hex} >> cc3;
     BOOST_CHECK_EQUAL(cc3.IsCoinBase(), false);
     BOOST_CHECK_EQUAL(cc3.nHeight, 0U);
-    BOOST_CHECK_EQUAL(cc3.out.nValue, 0);
+    BOOST_CHECK_EQUAL(cc3.out.nValue, 0_sats);
     BOOST_CHECK_EQUAL(cc3.out.scriptPubKey.size(), 0U);
 
     // scriptPubKey that ends beyond the end of the stream
@@ -570,9 +570,9 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization)
 const static COutPoint OUTPOINT;
 constexpr Amount SPENT {-1};
 constexpr Amount ABSENT{-2};
-constexpr Amount VALUE1{100};
-constexpr Amount VALUE2{200};
-constexpr Amount VALUE3{300};
+constexpr Amount VALUE1{100_sats};
+constexpr Amount VALUE2{200_sats};
+constexpr Amount VALUE3{300_sats};
 
 struct CoinEntry {
     enum class State { CLEAN, DIRTY, FRESH, DIRTY_FRESH };

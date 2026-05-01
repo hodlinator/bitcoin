@@ -35,15 +35,15 @@ private:
     MuHash3072 m_muhash;
     uint64_t m_transaction_output_count{0};
     uint64_t m_bogo_size{0};
-    Amount m_total_amount{0};
-    Amount m_total_subsidy{0};
+    Amount m_total_amount{0_sats};
+    Amount m_total_subsidy{0_sats};
     arith_uint256 m_total_prevout_spent_amount{0};
     arith_uint256 m_total_new_outputs_ex_coinbase_amount{0};
     arith_uint256 m_total_coinbase_amount{0};
-    Amount m_total_unspendables_genesis_block{0};
-    Amount m_total_unspendables_bip30{0};
-    Amount m_total_unspendables_scripts{0};
-    Amount m_total_unspendables_unclaimed_rewards{0};
+    Amount m_total_unspendables_genesis_block{0_sats};
+    Amount m_total_unspendables_bip30{0_sats};
+    Amount m_total_unspendables_scripts{0_sats};
+    Amount m_total_unspendables_unclaimed_rewards{0_sats};
 
     uint256 m_current_block_hash{};
 

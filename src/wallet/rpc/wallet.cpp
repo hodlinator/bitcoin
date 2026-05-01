@@ -524,7 +524,7 @@ RPCMethod simulaterawtransaction()
     LOCK(wallet.cs_wallet);
 
     const auto& txs = request.params[0].get_array();
-    Amount changes{0};
+    Amount changes{0_sats};
     std::map<COutPoint, Amount> new_utxos; // UTXO:s that were made available in transaction array
     std::set<COutPoint> spent;
 
@@ -569,7 +569,7 @@ RPCMethod simulaterawtransaction()
         for (size_t i = 0; i < mtx.vout.size(); ++i) {
             const auto& txout = mtx.vout[i];
             bool is_mine = wallet.IsMine(txout);
-            changes += new_utxos[COutPoint(hash, i)] = is_mine ? txout.nValue : 0;
+            changes += new_utxos[COutPoint(hash, i)] = is_mine ? txout.nValue : 0_sats;
         }
     }
 

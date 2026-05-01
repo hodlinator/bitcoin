@@ -20,9 +20,9 @@
 
 namespace wallet {
 //! lower bound for randomly-chosen target change amount
-static constexpr Amount CHANGE_LOWER{50000};
+static constexpr Amount CHANGE_LOWER{50000_sats};
 //! upper bound for randomly-chosen target change amount
-static constexpr Amount CHANGE_UPPER{1000000};
+static constexpr Amount CHANGE_UPPER{1000000_sats};
 
 /** A UTXO under consideration for use in funding a new transaction. */
 struct COutput {
@@ -67,10 +67,10 @@ public:
     bool from_me;
 
     /** The fee required to spend this output at the consolidation feerate. */
-    Amount long_term_fee{0};
+    Amount long_term_fee{0_sats};
 
     /** The fee necessary to bump this UTXO's ancestor transactions to the target feerate */
-    Amount ancestor_bump_fees{0};
+    Amount ancestor_bump_fees{0_sats};
 
     COutput(const COutPoint& outpoint, const CTxOut& txout, int depth, int input_bytes, bool solvable, bool safe, int64_t time, bool from_me, const std::optional<CFeeRate> feerate = std::nullopt)
         : outpoint{outpoint},
@@ -84,7 +84,7 @@ public:
     {
         if (feerate) {
             // base fee without considering potential unconfirmed ancestors
-            fee = input_bytes < 0 ? 0 : feerate.value().GetFee(input_bytes);
+            fee = input_bytes < 0 ? 0_sats : feerate.value().GetFee(input_bytes);
             effective_value = txout.nValue - fee.value();
         }
     }
@@ -93,7 +93,7 @@ public:
         : COutput(outpoint, txout, depth, input_bytes, solvable, safe, time, from_me)
     {
         // if input_bytes is unknown, then fees should be 0, if input_bytes is known, then the fees should be a positive integer or 0 (input_bytes known and fees = 0 only happens in the tests)
-        assert((input_bytes < 0 && fees == 0) || (input_bytes > 0 && fees >= 0));
+        assert((input_bytes < 0 && fees == 0_sats) || (input_bytes > 0 && fees >= 0_sats));
         fee = fees;
         effective_value = txout.nValue - fee.value();
     }
@@ -107,7 +107,7 @@ public:
 
     void ApplyBumpFee(Amount bump_fee)
     {
-        assert(bump_fee >= 0);
+        assert(bump_fee >= 0_sats);
         ancestor_bump_fees = bump_fee;
         assert(fee);
         *fee += bump_fee;
@@ -140,15 +140,15 @@ struct CoinSelectionParams {
     int change_spend_size = 0;
     /** Mininmum change to target in Knapsack solver and CoinGrinder:
      * select coins to cover the payment and at least this value of change. */
-    Amount m_min_change_target{0};
+    Amount m_min_change_target{0_sats};
     /** Minimum amount for creating a change output.
      * If change budget is smaller than min_change then we forgo creation of change output.
      */
-    Amount min_viable_change{0};
+    Amount min_viable_change{0_sats};
     /** Cost of creating the change output. */
-    Amount m_change_fee{0};
+    Amount m_change_fee{0_sats};
     /** Cost of creating the change output + cost of spending the change output in the future. */
-    Amount m_cost_of_change{0};
+    Amount m_cost_of_change{0_sats};
     /** The targeted feerate of the transaction being built. */
     CFeeRate m_effective_feerate;
     /** The feerate estimate used to estimate an upper bound on what should be sufficient to spend
@@ -234,7 +234,7 @@ struct OutputGroup
      * our own UTXOs more. */
     bool m_from_me{true};
     /** The total value of the UTXOs in sum. */
-    Amount m_value{0};
+    Amount m_value{0_sats};
     /** The minimum number of confirmations the UTXOs in the group have. Unconfirmed is 0. */
     int m_depth{999};
     /** The aggregated count of unconfirmed ancestors of all UTXOs in this
@@ -243,15 +243,15 @@ struct OutputGroup
     /** The maximum cluster count of a single UTXO in this output group. */
     size_t m_max_cluster_count{0};
     /** The value of the UTXOs after deducting the cost of spending them at the effective feerate. */
-    Amount effective_value{0};
+    Amount effective_value{0_sats};
     /** The fee to spend these UTXOs at the effective feerate. */
-    Amount fee{0};
+    Amount fee{0_sats};
     /** The fee to spend these UTXOs at the long term feerate. */
-    Amount long_term_fee{0};
+    Amount long_term_fee{0_sats};
     /** The feerate for spending a created change output eventually (i.e. not urgently, and thus at
      * a lower feerate). Calculated using long term fee estimate. This is used to decide whether
      * it could be economical to create a change output. */
-    CFeeRate m_long_term_feerate{0};
+    CFeeRate m_long_term_feerate{0_sats};
     /** Indicate that we are subtracting the fee from outputs.
      * When true, the value that is used for coin selection is the UTXO's real value rather than effective value */
     bool m_subtract_fee_outputs{false};
@@ -347,7 +347,7 @@ private:
     /** Total weight of the selected inputs */
     int m_weight{0};
     /** How much individual inputs overestimated the bump fees for the shared ancestry */
-    Amount bump_fee_group_discount{0};
+    Amount bump_fee_group_discount{0_sats};
 
     template<typename T>
     void InsertInputs(const T& inputs)

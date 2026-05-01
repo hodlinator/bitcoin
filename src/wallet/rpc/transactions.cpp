@@ -68,7 +68,7 @@ static void WalletTxToJSON(const CWallet& wallet, const CWalletTx& wtx, UniValue
 
 struct tallyitem
 {
-    Amount nAmount{0};
+    Amount nAmount{0_sats};
     int nConf{std::numeric_limits<int>::max()};
     std::vector<Txid> txids;
     tallyitem() = default;
@@ -138,7 +138,7 @@ static UniValue ListReceived(const CWallet& wallet, const UniValue& params, cons
         if (it == mapTally.end() && !fIncludeEmpty)
             return;
 
-        Amount nAmount{0};
+        Amount nAmount{0_sats};
         int nConf = std::numeric_limits<int>::max();
         if (it != mapTally.end()) {
             nAmount = (*it).second.nAmount;
@@ -743,7 +743,7 @@ RPCMethod gettransaction()
     Amount nCredit = CachedTxGetCredit(*pwallet, wtx, /*avoid_reuse=*/false);
     Amount nDebit = CachedTxGetDebit(*pwallet, wtx, /*avoid_reuse=*/false);
     Amount nNet = nCredit - nDebit;
-    Amount nFee = (CachedTxIsFromMe(*pwallet, wtx) ? wtx.tx->GetValueOut() - nDebit : 0);
+    Amount nFee = (CachedTxIsFromMe(*pwallet, wtx) ? wtx.tx->GetValueOut() - nDebit : 0_sats);
 
     entry.pushKV("amount", ValueFromAmount(nNet - nFee));
     if (CachedTxIsFromMe(*pwallet, wtx))

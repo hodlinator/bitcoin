@@ -27,7 +27,7 @@ PSBTAnalysis AnalyzePSBT(PartiallySignedTransaction psbtx)
 
     bool calc_fee = true;
 
-    Amount in_amt{0};
+    Amount in_amt{0_sats};
 
     result.inputs.resize(psbtx.inputs.size());
 
@@ -105,7 +105,7 @@ PSBTAnalysis AnalyzePSBT(PartiallySignedTransaction psbtx)
 
     if (calc_fee) {
         // Get the output amount
-        Amount out_amt = std::accumulate(psbtx.outputs.begin(), psbtx.outputs.end(), Amount(0),
+        Amount out_amt = std::accumulate(psbtx.outputs.begin(), psbtx.outputs.end(), Amount(0_sats),
             [](Amount a, const PSBTOutput& b) {
                 if (!MoneyRange(a) || !MoneyRange(b.amount) || !MoneyRange(a + b.amount)) {
                     return Amount(-1);
@@ -120,7 +120,7 @@ PSBTAnalysis AnalyzePSBT(PartiallySignedTransaction psbtx)
 
         // Get the fee
         const Amount fee = in_amt - out_amt;
-        if (fee < 0) {
+        if (fee < 0_sats) {
             result.SetInvalid("PSBT is not valid. Output amount higher than input amount");
             return result;
         }

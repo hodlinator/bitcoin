@@ -189,7 +189,7 @@ protected:
     std::atomic<unsigned int> nTransactionsUpdated{0}; //!< Used by getblocktemplate to trigger CreateNewBlock() invocation
 
     uint64_t totalTxSize GUARDED_BY(cs){0};      //!< sum of all mempool tx's virtual sizes. Differs from serialized tx size since witness data is discounted. Defined in BIP 141.
-    Amount m_total_fee GUARDED_BY(cs){0};       //!< sum of all mempool tx's fees (NOT modified fee)
+    Amount m_total_fee GUARDED_BY(cs){0_sats};       //!< sum of all mempool tx's fees (NOT modified fee)
     uint64_t cachedInnerUsage GUARDED_BY(cs){0}; //!< sum of dynamic memory usage of all the map elements (NOT the maps themselves)
 
     mutable int64_t lastRollingFeeUpdate GUARDED_BY(cs){GetTime()};

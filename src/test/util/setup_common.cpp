@@ -506,7 +506,7 @@ std::pair<CMutableTransaction, Amount> TestChain100Setup::CreateValidTransaction
     }
     // Build Outpoint to Coin map for SignTransaction
     std::map<COutPoint, Coin> input_coins;
-    Amount inputs_amount{0};
+    Amount inputs_amount{0_sats};
     for (const auto& outpoint_to_spend : inputs) {
         // Use GetCoin to properly populate utxo_to_spend
         auto utxo_to_spend{coins_cache.GetCoin(outpoint_to_spend).value()};
@@ -517,7 +517,7 @@ std::pair<CMutableTransaction, Amount> TestChain100Setup::CreateValidTransaction
     int nHashType = SIGHASH_ALL;
     std::map<int, bilingual_str> input_errors;
     assert(SignTransaction(mempool_txn, &keystore, input_coins, {.sighash_type = nHashType}, input_errors));
-    Amount current_fee = inputs_amount - std::accumulate(outputs.begin(), outputs.end(), Amount(0),
+    Amount current_fee = inputs_amount - std::accumulate(outputs.begin(), outputs.end(), Amount(0_sats),
         [](const Amount& acc, const CTxOut& out) {
         return acc + out.nValue;
     });
@@ -527,7 +527,7 @@ std::pair<CMutableTransaction, Amount> TestChain100Setup::CreateValidTransaction
         assert(fee_output.value() < mempool_txn.vout.size());
         Amount target_fee = feerate.value().GetFee(GetVirtualTransactionSize(CTransaction{mempool_txn}));
         Amount deduction = target_fee - current_fee;
-        if (deduction > 0) {
+        if (deduction > 0_sats) {
             // Only deduct fee if there's anything to deduct. If the caller has put more fees than
             // the target feerate, don't change the fee.
             mempool_txn.vout[fee_output.value()].nValue -= deduction;
@@ -586,7 +586,7 @@ std::vector<CTransactionRef> TestChain100Setup::PopulateMempool(FastRandomContex
         // and 1-25 respectively.
         CMutableTransaction mtx = CMutableTransaction();
         const size_t num_inputs = det_rand.randrange(5) + 1;
-        Amount total_in{0};
+        Amount total_in{0_sats};
         for (size_t n{0}; n < num_inputs; ++n) {
             if (unspent_prevouts.empty()) break;
             const auto& [prevout, amount] = unspent_prevouts.front();
@@ -596,7 +596,7 @@ std::vector<CTransactionRef> TestChain100Setup::PopulateMempool(FastRandomContex
             unspent_prevouts.pop_front();
         }
         const size_t num_outputs = det_rand.randrange(25) + 1;
-        const Amount fee = 100 * det_rand.randrange(30);
+        const Amount fee = 100_sats * det_rand.randrange(30);
         const Amount amount_per_output = (total_in - fee) / num_outputs;
         for (size_t n{0}; n < num_outputs; ++n) {
             CScript spk = CScript() << CScriptNum(num_transactions + n);
@@ -625,7 +625,7 @@ std::vector<CTransactionRef> TestChain100Setup::PopulateMempool(FastRandomContex
         }
         if (success) {
             mempool_transactions.push_back(ptx);
-            if (amount_per_output > 3000) {
+            if (amount_per_output > 3000_sats) {
                 // If the value is high enough to fund another transaction + fees, keep track of it so
                 // it can be used to build a more complex transaction graph. Insert randomly into
                 // unspent_prevouts for extra randomness in the resulting structures.

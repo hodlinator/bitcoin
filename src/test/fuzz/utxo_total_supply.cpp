@@ -76,7 +76,7 @@ FUZZ_TARGET(utxo_total_supply)
     /** The utxo stats at the chain tip */
     kernel::CCoinsStats utxo_stats;
     /** The total amount of coins in the utxo set */
-    Amount circulation{0};
+    Amount circulation{0_sats};
 
 
     // Store the tx out in the txo map

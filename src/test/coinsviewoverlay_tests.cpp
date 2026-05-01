@@ -47,7 +47,7 @@ void PopulateView(const CBlock& block, CCoinsView& view, bool spent = false)
     for (const auto& tx : block.vtx | std::views::drop(1)) {
         for (const auto& in : tx->vin) {
             Coin coin{};
-            if (!spent) coin.out.nValue = 1;
+            if (!spent) coin.out.nValue = 1_sats;
             cache.EmplaceCoinInternalDANGER(COutPoint{in.prevout}, std::move(coin));
         }
     }

@@ -15,7 +15,7 @@
 class SendCoinsRecipient
 {
 public:
-    explicit SendCoinsRecipient() : amount(0), fSubtractFeeFromAmount(false), nVersion(SendCoinsRecipient::CURRENT_VERSION) { }
+    explicit SendCoinsRecipient() : amount(0_sats), fSubtractFeeFromAmount(false), nVersion(SendCoinsRecipient::CURRENT_VERSION) { }
     explicit SendCoinsRecipient(const QString &addr, const QString &_label, const Amount& _amount, const QString &_message):
         address(addr), label(_label), amount(_amount), message(_message), fSubtractFeeFromAmount(false), nVersion(SendCoinsRecipient::CURRENT_VERSION) {}
 

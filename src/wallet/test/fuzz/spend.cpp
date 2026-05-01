@@ -58,7 +58,7 @@ FUZZ_TARGET(wallet_create_transaction, .init = initialize_setup)
     coin_control.fOverrideFeeRate = fuzzed_data_provider.ConsumeBool();
 
     int next_locktime{0};
-    Amount all_values{0};
+    Amount all_values{0_sats};
     LIMITED_WHILE(fuzzed_data_provider.ConsumeBool(), 10000)
     {
         CMutableTransaction tx;

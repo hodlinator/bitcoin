@@ -282,7 +282,7 @@ struct Peer {
     /** The feerate in the most recent BIP133 `feefilter` message sent to the peer.
      *  It is *not* a p2p protocol violation for the peer to send us
      *  transactions with a lower fee rate than this. See BIP133. */
-    Amount m_fee_filter_sent GUARDED_BY(NetEventsInterface::g_msgproc_mutex){0};
+    Amount m_fee_filter_sent GUARDED_BY(NetEventsInterface::g_msgproc_mutex){0_sats};
     /** Timestamp after which we will send the next BIP133 `feefilter` message
       * to the peer. */
     std::chrono::microseconds m_next_send_feefilter GUARDED_BY(NetEventsInterface::g_msgproc_mutex){0};
@@ -316,7 +316,7 @@ struct Peer {
         uint64_t m_last_inv_sequence GUARDED_BY(m_tx_inventory_mutex){1};
 
         /** Minimum fee rate with which to filter transaction announcements to this node. See BIP133. */
-        std::atomic<Amount> m_fee_filter_received{0};
+        std::atomic<Amount> m_fee_filter_received{0_sats};
     };
 
     /* Initializes a TxRelay struct for this peer. Can be called at most once for a peer. */
@@ -1836,7 +1836,7 @@ bool PeerManagerImpl::GetNodeStateStats(NodeId nodeid, CNodeStateStats& stats) c
         stats.m_inv_to_send = tx_relay->m_tx_inventory_to_send.size();
     } else {
         stats.m_relay_txs = false;
-        stats.m_fee_filter_received = 0;
+        stats.m_fee_filter_received = 0_sats;
         stats.m_inv_to_send = 0;
     }
 
@@ -4996,7 +4996,7 @@ void PeerManagerImpl::ProcessMessage(Peer& peer, CNode& pfrom, const std::string
     }
 
     if (msg_type == NetMsgType::FEEFILTER) {
-        Amount newFeeFilter{0};
+        Amount newFeeFilter{0_sats};
         vRecv >> newFeeFilter;
         if (MoneyRange(newFeeFilter)) {
             if (auto tx_relay = peer.GetTxRelay(); tx_relay != nullptr) {

@@ -18,7 +18,7 @@ CTxMemPool::Options MemPoolOptionsForTest(const node::NodeContext& node);
 
 struct TestMemPoolEntryHelper {
     // Default values
-    Amount nFee{0};
+    Amount nFee{0_sats};
     NodeSeconds time{};
     unsigned int nHeight{1};
     uint64_t m_sequence{0};

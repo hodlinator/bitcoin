@@ -32,7 +32,7 @@ MiniMiner::MiniMiner(const CTxMemPool& mempool, const std::vector<COutPoint>& ou
             // This UTXO is either confirmed or not yet submitted to mempool.
             // If it's confirmed, no bump fee is required.
             // If it's not yet submitted, we have no information, so return 0.
-            m_bump_fees.emplace(outpoint, 0);
+            m_bump_fees.emplace(outpoint, 0_sats);
             continue;
         }
 
@@ -88,7 +88,7 @@ MiniMiner::MiniMiner(const CTxMemPool& mempool, const std::vector<COutPoint>& ou
                 // This UTXO is the output of a to-be-replaced transaction. Bump fee is 0; spending
                 // this UTXO is impossible as it will no longer exist after the replacement.
                 for (const auto& outpoint : outpoints_it->second) {
-                    m_bump_fees.emplace(outpoint, 0);
+                    m_bump_fees.emplace(outpoint, 0_sats);
                 }
                 m_requested_outpoints_by_txid.erase(outpoints_it);
             }
@@ -219,7 +219,7 @@ void MiniMiner::DeleteAncestorPackage(const std::set<MockEntryMap::iterator, Ite
         m_descendant_set_by_txid.erase(anc->first);
         // The above loop should have deducted each ancestor's size and fees from each of their
         // respective descendants exactly once.
-        Assume(anc->second.GetModFeesWithAncestors() == 0);
+        Assume(anc->second.GetModFeesWithAncestors() == 0_sats);
         Assume(anc->second.GetSizeWithAncestors() == 0);
         auto vec_it = std::find(m_entries.begin(), m_entries.end(), anc);
         Assume(vec_it != m_entries.end());
@@ -319,7 +319,7 @@ std::map<COutPoint, Amount> MiniMiner::CalculateBumpFees(const CFeeRate& target_
         auto it = m_requested_outpoints_by_txid.find(txid);
         if (it != m_requested_outpoints_by_txid.end()) {
             for (const auto& outpoint : it->second) {
-                m_bump_fees.emplace(outpoint, 0);
+                m_bump_fees.emplace(outpoint, 0_sats);
             }
             m_requested_outpoints_by_txid.erase(it);
         }
@@ -377,7 +377,7 @@ std::map<COutPoint, Amount> MiniMiner::CalculateBumpFees(const CFeeRate& target_
             Amount bump_fee_with_ancestors = target_feerate.GetFee(it->second.GetSizeWithAncestors()) - it->second.GetModFeesWithAncestors();
             Amount bump_fee_individual = target_feerate.GetFee(it->second.GetTxSize()) - it->second.GetModifiedFee();
             const Amount bump_fee{std::max(bump_fee_with_ancestors, bump_fee_individual)};
-            Assume(bump_fee >= 0);
+            Assume(bump_fee >= 0_sats);
             for (const auto& outpoint : outpoints) {
                 m_bump_fees.emplace(outpoint, bump_fee);
             }
@@ -422,7 +422,7 @@ std::optional<Amount> MiniMiner::CalculateTotalBumpFees(const CFeeRate& target_f
     }
     const auto ancestor_package_size = std::accumulate(ancestors.cbegin(), ancestors.cend(), int64_t{0},
         [](int64_t sum, const auto it) {return sum + it->second.GetTxSize();});
-    const auto ancestor_package_fee = std::accumulate(ancestors.cbegin(), ancestors.cend(), Amount{0},
+    const auto ancestor_package_fee = std::accumulate(ancestors.cbegin(), ancestors.cend(), Amount{0_sats},
         [](Amount sum, const auto it) {return sum + it->second.GetModifiedFee();});
     return target_feerate.GetFee(ancestor_package_size) - ancestor_package_fee;
 }

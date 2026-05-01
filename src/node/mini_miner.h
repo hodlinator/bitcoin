@@ -100,7 +100,7 @@ class MiniMiner
     std::set<Txid> m_in_block;
 
     // Information on the current status of the block
-    Amount m_total_fees{0};
+    Amount m_total_fees{0_sats};
     int32_t m_total_vsize{0};
 
     /** Main data structure holding the entries, can be indexed by txid */

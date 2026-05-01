@@ -38,7 +38,7 @@ struct CCoinsStats {
     uint256 hashSerialized{};
     uint64_t nDiskSize{0};
     //! The total amount, or nullopt if an overflow occurred calculating it
-    std::optional<Amount> total_amount{0};
+    std::optional<Amount> total_amount{0_sats};
 
     //! The number of coins contained.
     uint64_t coins_count{0};
@@ -49,15 +49,15 @@ struct CCoinsStats {
     // Following values are only available from coinstats index
 
     //! Total cumulative amount of block subsidies up to and including this block
-    Amount total_subsidy{0};
+    Amount total_subsidy{0_sats};
     //! The unspendable coinbase amount from the genesis block
-    Amount total_unspendables_genesis_block{0};
+    Amount total_unspendables_genesis_block{0_sats};
     //! The two unspendable coinbase outputs total amount caused by BIP30
-    Amount total_unspendables_bip30{0};
+    Amount total_unspendables_bip30{0_sats};
     //! Total cumulative amount of outputs sent to unspendable scripts (OP_RETURN for example) up to and including this block
-    Amount total_unspendables_scripts{0};
+    Amount total_unspendables_scripts{0_sats};
     //! Total cumulative amount of coins lost due to unclaimed miner rewards up to and including this block
-    Amount total_unspendables_unclaimed_rewards{0};
+    Amount total_unspendables_unclaimed_rewards{0_sats};
 
     // Despite containing amounts the following values use a uint256 type to prevent overflowing
 

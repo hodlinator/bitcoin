@@ -47,15 +47,15 @@ struct DBVal {
     uint256 muhash{uint256::ZERO};
     uint64_t transaction_output_count{0};
     uint64_t bogo_size{0};
-    Amount total_amount{0};
-    Amount total_subsidy{0};
+    Amount total_amount{0_sats};
+    Amount total_subsidy{0_sats};
     arith_uint256 total_prevout_spent_amount{0};
     arith_uint256 total_new_outputs_ex_coinbase_amount{0};
     arith_uint256 total_coinbase_amount{0};
-    Amount total_unspendables_genesis_block{0};
-    Amount total_unspendables_bip30{0};
-    Amount total_unspendables_scripts{0};
-    Amount total_unspendables_unclaimed_rewards{0};
+    Amount total_unspendables_genesis_block{0_sats};
+    Amount total_unspendables_bip30{0_sats};
+    Amount total_unspendables_scripts{0_sats};
+    Amount total_unspendables_unclaimed_rewards{0_sats};
 
     SERIALIZE_METHODS(DBVal, obj)
     {

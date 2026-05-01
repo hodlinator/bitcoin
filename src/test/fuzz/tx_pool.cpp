@@ -293,7 +293,7 @@ FUZZ_TARGET(tx_pool_standard, .init = initialize_tx_pool)
             const auto num_in = fuzzed_data_provider.ConsumeIntegralInRange<int>(1, outpoints_rbf.size());
             const auto num_out = fuzzed_data_provider.ConsumeIntegralInRange<int>(1, outpoints_rbf.size() * 2);
 
-            Amount amount_in{0};
+            Amount amount_in{0_sats};
             for (int i = 0; i < num_in; ++i) {
                 // Pop random outpoint
                 auto pop = outpoints_rbf.begin();
@@ -318,7 +318,7 @@ FUZZ_TARGET(tx_pool_standard, .init = initialize_tx_pool)
             // Check sigops in mempool + block template creation
             bool add_sigops{fuzzed_data_provider.ConsumeBool()};
 
-            const auto amount_fee{ConsumeMoney(fuzzed_data_provider, -1000, amount_in)};
+            const auto amount_fee{ConsumeMoney(fuzzed_data_provider, -1000_sats, amount_in)};
             const auto amount_out = (amount_in - amount_fee) / num_out;
             for (int i = 0; i < num_out; ++i) {
                 if (i == 0 && add_sigops) {

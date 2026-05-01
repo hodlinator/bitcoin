@@ -153,13 +153,13 @@ public:
 
     void SetNull()
     {
-        nValue = -1;
+        nValue = -1_sats;
         scriptPubKey.clear();
     }
 
     bool IsNull() const
     {
-        return (nValue == -1);
+        return (nValue == -1_sats);
     }
 
     friend bool operator==(const CTxOut& a, const CTxOut& b)
@@ -270,7 +270,7 @@ void SerializeTransaction(const TxType& tx, Stream& s, const TransactionSerParam
 template<typename TxType>
 inline Amount CalculateOutputValue(const TxType& tx)
 {
-    return std::accumulate(tx.vout.cbegin(), tx.vout.cend(), Amount{0}, [](Amount sum, const auto& txout) { return sum + txout.nValue; });
+    return std::accumulate(tx.vout.cbegin(), tx.vout.cend(), Amount{0_sats}, [](Amount sum, const auto& txout) { return sum + txout.nValue; });
 }
 
 

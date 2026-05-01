@@ -651,7 +651,7 @@ private:
         /** If we're doing package validation (i.e. m_package_feerates=true), the "effective"
          * package feerate of this transaction is the total fees divided by the total size of
          * transactions (which may include its ancestors and/or descendants). */
-        CFeeRate m_package_feerate{0};
+        CFeeRate m_package_feerate{0_sats};
 
         const CTransactionRef& m_ptx;
         /** Txid. */
@@ -702,7 +702,7 @@ private:
         AssertLockHeld(::cs_main);
         AssertLockHeld(m_pool.cs);
         Amount mempoolRejectFee = m_pool.GetMinFee().GetFee(package_size);
-        if (mempoolRejectFee > 0 && package_fee < mempoolRejectFee) {
+        if (mempoolRejectFee > 0_sats && package_fee < mempoolRejectFee) {
             return state.Invalid(TxValidationResult::TX_RECONSIDERABLE, "mempool min fee not met", strprintf("%d < %d", package_fee, mempoolRejectFee));
         }
 
@@ -745,7 +745,7 @@ private:
     // AcceptSingleTransaction and AcceptMultipleTransactions invocations
     struct SubPackageState {
         /** Aggregated modified fees of all transactions, used to calculate package feerate. */
-        Amount m_total_modified_fees{0};
+        Amount m_total_modified_fees{0_sats};
         /** Aggregated virtual size of all transactions, used to calculate package feerate. */
         int64_t m_total_vsize{0};
 
@@ -759,7 +759,7 @@ private:
         std::unique_ptr<CTxMemPool::ChangeSet> m_changeset;
 
         /** Total modified fees of mempool transactions being replaced. */
-        Amount m_conflicting_fees{0};
+        Amount m_conflicting_fees{0_sats};
         /** Total size (in virtual bytes) of mempool transactions being replaced. */
         size_t m_conflicting_size{0};
     };
@@ -1495,7 +1495,7 @@ PackageMempoolAcceptResult MemPoolAccept::AcceptMultipleTransactionsInternal(con
     // the feerates of individuals and subsets.
     m_subpackage.m_total_vsize = std::accumulate(workspaces.cbegin(), workspaces.cend(), int64_t{0},
         [](int64_t sum, auto& ws) { return sum + ws.m_vsize; });
-    m_subpackage.m_total_modified_fees = std::accumulate(workspaces.cbegin(), workspaces.cend(), Amount{0},
+    m_subpackage.m_total_modified_fees = std::accumulate(workspaces.cbegin(), workspaces.cend(), Amount{0_sats},
         [](Amount sum, auto& ws) { return sum + ws.m_modified_fees; });
     const CFeeRate package_feerate(m_subpackage.m_total_modified_fees, m_subpackage.m_total_vsize);
     std::vector<Wtxid> all_package_wtxids;
@@ -1840,7 +1840,7 @@ Amount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams)
     int halvings = nHeight / consensusParams.nSubsidyHalvingInterval;
     // Force block reward to zero when right shift is undefined.
     if (halvings >= 64)
-        return 0;
+        return 0_sats;
 
     Amount nSubsidy = 50 * COIN;
     // Subsidy is cut in half every 210,000 blocks which will occur approximately every 4 years.
@@ -2515,7 +2515,7 @@ bool Chainstate::ConnectBlock(const CBlock& block, BlockValidationState& state, 
     if (auto& queue = m_chainman.GetCheckQueue(); queue.HasThreads() && fScriptChecks) control.emplace(queue);
 
     std::vector<int> prevheights;
-    Amount nFees{0};
+    Amount nFees{0_sats};
     int nInputs = 0;
     int64_t nSigOpsCost = 0;
     blockundo.vtxundo.reserve(block.vtx.size() - 1);
@@ -2528,7 +2528,7 @@ bool Chainstate::ConnectBlock(const CBlock& block, BlockValidationState& state, 
 
         if (!tx.IsCoinBase())
         {
-            Amount txfee{0};
+            Amount txfee{0_sats};
             TxValidationState tx_state;
             if (!Consensus::CheckTxInputs(tx, tx_state, view, pindex->nHeight, txfee)) {
                 // Any transaction validation failure in ConnectBlock is a block consensus failure
@@ -3992,7 +3992,7 @@ void ChainstateManager::GenerateCoinbaseCommitment(CBlock& block, const CBlockIn
         uint256 witnessroot = BlockWitnessMerkleRoot(block);
         CHash256().Write(witnessroot).Write(ret).Finalize(witnessroot);
         CTxOut out;
-        out.nValue = 0;
+        out.nValue = 0_sats;
         out.scriptPubKey.resize(MINIMUM_WITNESS_COMMITMENT);
         out.scriptPubKey[0] = OP_RETURN;
         out.scriptPubKey[1] = 0x24;

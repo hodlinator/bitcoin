@@ -44,11 +44,11 @@ bool CachedTxIsTrusted(const CWallet& wallet, const CWalletTx& wtx, std::set<Txi
 bool CachedTxIsTrusted(const CWallet& wallet, const CWalletTx& wtx);
 
 struct Balance {
-    Amount m_mine_trusted{0};           //!< Trusted, at depth=GetBalance.min_depth or more
-    Amount m_mine_untrusted_pending{0}; //!< Untrusted, but in mempool (pending)
-    Amount m_mine_immature{0};          //!< Immature coinbases in the main chain
-    Amount m_mine_used{0};              //!< Trusted/untrusted/immature funds in utxos that have already been spent from (only populated if AVOID REUSE wallet flag is set)
-    Amount m_mine_nonmempool{0};        //!< Coins spent by wallet txs that are not in the mempool
+    Amount m_mine_trusted{0_sats};           //!< Trusted, at depth=GetBalance.min_depth or more
+    Amount m_mine_untrusted_pending{0_sats}; //!< Untrusted, but in mempool (pending)
+    Amount m_mine_immature{0_sats};          //!< Immature coinbases in the main chain
+    Amount m_mine_used{0_sats};              //!< Trusted/untrusted/immature funds in utxos that have already been spent from (only populated if AVOID REUSE wallet flag is set)
+    Amount m_mine_nonmempool{0_sats};        //!< Coins spent by wallet txs that are not in the mempool
 };
 Balance GetBalance(const CWallet& wallet, int min_depth = 0, bool avoid_reuse = true, bool include_nonmempool = false);
 

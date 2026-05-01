@@ -28,12 +28,12 @@ std::vector<uint8_t> ConstructPubKeyBytes(FuzzedDataProvider& fuzzed_data_provid
 
 Amount ConsumeMoney(FuzzedDataProvider& provider) noexcept
 {
-    return ConsumeMoney(provider, 0, MAX_MONEY);
+    return ConsumeMoney(provider, 0_sats, MAX_MONEY);
 }
 
 Amount ConsumeMoney(FuzzedDataProvider& provider, const Amount& max) noexcept
 {
-    return ConsumeMoney(provider, 0, max);
+    return ConsumeMoney(provider, 0_sats, max);
 }
 
 Amount ConsumeMoney(FuzzedDataProvider& provider, const Amount& min, const Amount& max) noexcept
@@ -81,7 +81,7 @@ CMutableTransaction ConsumeTransaction(FuzzedDataProvider& fuzzed_data_provider,
         tx_mut.vin.push_back(in);
     }
     for (int i = 0; i < num_out; ++i) {
-        const auto amount{ConsumeMoney(fuzzed_data_provider, -10, 50U * COIN + 10)};
+        const auto amount{ConsumeMoney(fuzzed_data_provider, -10_sats, 50U * COIN + 10_sats)};
         const auto script_pk = p2wsh_op_true ?
                                    P2WSH_OP_TRUE :
                                    ConsumeScript(fuzzed_data_provider, /*maybe_p2wsh=*/true);

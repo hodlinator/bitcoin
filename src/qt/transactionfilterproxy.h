@@ -45,7 +45,7 @@ private:
     std::optional<QDateTime> dateTo;
     QString m_search_string;
     quint32 typeFilter{ALL_TYPES};
-    Amount minAmount{0};
+    Amount minAmount{0_sats};
     bool showInactive{true};
 };
 

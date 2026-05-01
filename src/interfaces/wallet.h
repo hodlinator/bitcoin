@@ -365,11 +365,11 @@ struct WalletAddress
 //! Collection of wallet balances.
 struct WalletBalances
 {
-    Amount balance{0};
-    Amount unconfirmed_balance{0};
-    Amount immature_balance{0};
-    Amount used_balance{0};
-    Amount nonmempool_balance{0};
+    Amount balance{0_sats};
+    Amount unconfirmed_balance{0_sats};
+    Amount immature_balance{0_sats};
+    Amount used_balance{0_sats};
+    Amount nonmempool_balance{0_sats};
 
     bool balanceChanged(const WalletBalances& prev) const
     {

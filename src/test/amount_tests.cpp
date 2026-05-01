@@ -24,12 +24,12 @@ BOOST_AUTO_TEST_CASE(GetFeeTest)
 {
     CFeeRate feeRate, altFeeRate;
 
-    feeRate = CFeeRate(0);
+    feeRate = CFeeRate(0_sats);
     // Must always return 0
     BOOST_CHECK_EQUAL(feeRate.GetFee(0), Amount(0));
     BOOST_CHECK_EQUAL(feeRate.GetFee(1e5), Amount(0));
 
-    feeRate = CFeeRate(1000);
+    feeRate = CFeeRate(1000_sats);
     // Must always just return the arg
     BOOST_CHECK_EQUAL(feeRate.GetFee(0), Amount(0));
     BOOST_CHECK_EQUAL(feeRate.GetFee(1), Amount(1));
@@ -38,7 +38,7 @@ BOOST_AUTO_TEST_CASE(GetFeeTest)
     BOOST_CHECK_EQUAL(feeRate.GetFee(1e3), Amount(1e3));
     BOOST_CHECK_EQUAL(feeRate.GetFee(9e3), Amount(9e3));
 
-    feeRate = CFeeRate(-1000);
+    feeRate = CFeeRate(-1000_sats);
     // Must always just return -1 * arg
     BOOST_CHECK_EQUAL(feeRate.GetFee(0), Amount(0));
     BOOST_CHECK_EQUAL(feeRate.GetFee(1), Amount(-1));
@@ -47,7 +47,7 @@ BOOST_AUTO_TEST_CASE(GetFeeTest)
     BOOST_CHECK_EQUAL(feeRate.GetFee(1e3), Amount(-1e3));
     BOOST_CHECK_EQUAL(feeRate.GetFee(9e3), Amount(-9e3));
 
-    feeRate = CFeeRate(123);
+    feeRate = CFeeRate(123_sats);
     // Rounds up the result, if not integer
     BOOST_CHECK_EQUAL(feeRate.GetFee(0), Amount(0));
     BOOST_CHECK_EQUAL(feeRate.GetFee(8), Amount(1)); // Special case: returns 1 instead of 0
@@ -58,14 +58,14 @@ BOOST_AUTO_TEST_CASE(GetFeeTest)
     BOOST_CHECK_EQUAL(feeRate.GetFee(1e3), Amount(123));
     BOOST_CHECK_EQUAL(feeRate.GetFee(9e3), Amount(1107));
 
-    feeRate = CFeeRate(-123);
+    feeRate = CFeeRate(-123_sats);
     // Truncates the result, if not integer
     BOOST_CHECK_EQUAL(feeRate.GetFee(0), Amount(0));
     BOOST_CHECK_EQUAL(feeRate.GetFee(8), Amount(-1)); // Special case: returns -1 instead of 0
     BOOST_CHECK_EQUAL(feeRate.GetFee(9), Amount(-1));
 
     // check alternate constructor
-    feeRate = CFeeRate(1000);
+    feeRate = CFeeRate(1000_sats);
     altFeeRate = CFeeRate(feeRate);
     BOOST_CHECK_EQUAL(feeRate.GetFee(100), altFeeRate.GetFee(100));
 
@@ -91,15 +91,15 @@ BOOST_AUTO_TEST_CASE(GetFeeTest)
 
     // check multiplication operator
     // check multiplying by zero
-    feeRate = CFeeRate(1000);
-    BOOST_CHECK(0 * feeRate == CFeeRate(0));
-    BOOST_CHECK(feeRate * 0 == CFeeRate(0));
+    feeRate = CFeeRate(1000_sats);
+    BOOST_CHECK(0 * feeRate == CFeeRate(0_sats));
+    BOOST_CHECK(feeRate * 0 == CFeeRate(0_sats));
     // check multiplying by a positive integer
-    BOOST_CHECK(3 * feeRate == CFeeRate(3000));
-    BOOST_CHECK(feeRate * 3 == CFeeRate(3000));
+    BOOST_CHECK(3 * feeRate == CFeeRate(3000_sats));
+    BOOST_CHECK(feeRate * 3 == CFeeRate(3000_sats));
     // check multiplying by a negative integer
-    BOOST_CHECK(-3 * feeRate == CFeeRate(-3000));
-    BOOST_CHECK(feeRate * -3 == CFeeRate(-3000));
+    BOOST_CHECK(-3 * feeRate == CFeeRate(-3000_sats));
+    BOOST_CHECK(feeRate * -3 == CFeeRate(-3000_sats));
     // check commutativity
     BOOST_CHECK(2 * feeRate == feeRate * 2);
     // check with large numbers
@@ -111,16 +111,16 @@ BOOST_AUTO_TEST_CASE(GetFeeTest)
     BOOST_CHECK(feeRate * 2 == CFeeRate(static_cast<int64_t>(maxInt) * 2));
     BOOST_CHECK(2 * feeRate == CFeeRate(static_cast<int64_t>(maxInt) * 2));
     // check with zero fee rate
-    feeRate = CFeeRate(0);
-    BOOST_CHECK(feeRate * 5 == CFeeRate(0));
-    BOOST_CHECK(5 * feeRate == CFeeRate(0));
+    feeRate = CFeeRate(0_sats);
+    BOOST_CHECK(feeRate * 5 == CFeeRate(0_sats));
+    BOOST_CHECK(5 * feeRate == CFeeRate(0_sats));
 }
 
 BOOST_AUTO_TEST_CASE(BinaryOperatorTest)
 {
     CFeeRate a, b;
-    a = CFeeRate(1);
-    b = CFeeRate(2);
+    a = CFeeRate(1_sats);
+    b = CFeeRate(2_sats);
     BOOST_CHECK(a < b);
     BOOST_CHECK(b > a);
     BOOST_CHECK(a == a);
@@ -136,7 +136,7 @@ BOOST_AUTO_TEST_CASE(BinaryOperatorTest)
 BOOST_AUTO_TEST_CASE(ToStringTest)
 {
     CFeeRate feeRate;
-    feeRate = CFeeRate(1);
+    feeRate = CFeeRate(1_sats);
     BOOST_CHECK_EQUAL(feeRate.ToString(), "0.00000001 BTC/kvB");
     BOOST_CHECK_EQUAL(feeRate.ToString(FeeRateFormat::BTC_KVB), "0.00000001 BTC/kvB");
     BOOST_CHECK_EQUAL(feeRate.ToString(FeeRateFormat::SAT_VB), "0.001 sat/vB");

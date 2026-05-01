@@ -102,13 +102,13 @@ void NotifyWalletLoaded(WalletContext& context, const std::shared_ptr<CWallet>& 
 std::unique_ptr<WalletDatabase> MakeWalletDatabase(const std::string& name, const DatabaseOptions& options, DatabaseStatus& status, bilingual_str& error);
 
 //! -fallbackfee default
-constexpr Amount DEFAULT_FALLBACK_FEE{0};
+constexpr Amount DEFAULT_FALLBACK_FEE{0_sats};
 //! -discardfee default
-constexpr Amount DEFAULT_DISCARD_FEE{10000};
+constexpr Amount DEFAULT_DISCARD_FEE{10000_sats};
 //! -mintxfee default
-constexpr Amount DEFAULT_TRANSACTION_MINFEE{1000};
+constexpr Amount DEFAULT_TRANSACTION_MINFEE{1000_sats};
 //! -consolidatefeerate default
-constexpr Amount DEFAULT_CONSOLIDATE_FEERATE{10000}; // 10 sat/vbyte
+constexpr Amount DEFAULT_CONSOLIDATE_FEERATE{10000_sats}; // 10 sat/vbyte
 /**
  * maximum fee increase allowed to do partial spend avoidance, even for nodes with this feature disabled by default
  *
@@ -116,11 +116,11 @@ constexpr Amount DEFAULT_CONSOLIDATE_FEERATE{10000}; // 10 sat/vbyte
  * A value of 0 (current default) means to attempt to do partial spend avoidance, and use its results if the fees remain *unchanged*
  * A value > 0 means to do partial spend avoidance if the fee difference against a regular coin selection instance is in the range [0..value].
  */
-constexpr Amount DEFAULT_MAX_AVOIDPARTIALSPEND_FEE{0};
+constexpr Amount DEFAULT_MAX_AVOIDPARTIALSPEND_FEE{0_sats};
 //! discourage APS fee higher than this amount
 constexpr Amount HIGH_APS_FEE{COIN / 10000};
 //! minimum recommended increment for replacement txs
-constexpr Amount WALLET_INCREMENTAL_RELAY_FEE{5000};
+constexpr Amount WALLET_INCREMENTAL_RELAY_FEE{5000_sats};
 //! Default for -spendzeroconfchange
 static const bool DEFAULT_SPEND_ZEROCONF_CHANGE = true;
 //! Default for -walletrejectlongchains

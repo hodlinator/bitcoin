@@ -67,14 +67,14 @@ struct CoinsResult {
 
 private:
     /** Sum of all available coins raw value */
-    Amount total_amount{0};
+    Amount total_amount{0_sats};
     /** Sum of all available coins effective value (each output value minus fees required to spend it) */
     std::optional<Amount> total_effective_amount;
 };
 
 struct CoinFilterParams {
     // Outputs below the minimum amount will not get selected
-    Amount min_amount{1};
+    Amount min_amount{1_sats};
     // Outputs above the maximum amount will not get selected
     Amount max_amount{MAX_MONEY};
     // Return outputs until the minimum sum amount is covered

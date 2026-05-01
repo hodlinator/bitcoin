@@ -174,7 +174,7 @@ std::unique_ptr<CTxMemPool> MakeEphemeralMempool(const NodeContext& node)
     mempool_opts.require_standard = true;
 
     // And set minrelay to 0 to allow ephemeral parent tx even with non-TRUC
-    mempool_opts.min_relay_feerate = CFeeRate(0);
+    mempool_opts.min_relay_feerate = CFeeRate(0_sats);
 
     bilingual_str error;
     // ...and construct a CTxMemPool from it
@@ -269,7 +269,7 @@ FUZZ_TARGET(ephemeral_package_eval, .init = initialize_tx_pool)
 
                 Assert((int)outpoints.size() >= num_in && num_in > 0);
 
-                Amount amount_in{0};
+                Amount amount_in{0_sats};
                 for (int i = 0; i < num_in; ++i) {
                     // Pop random outpoint. We erase them to avoid double-spending
                     // while in this loop, but later add them back (unless last_tx).
@@ -303,7 +303,7 @@ FUZZ_TARGET(ephemeral_package_eval, .init = initialize_tx_pool)
                 // Note output amounts can naturally drop to dust on their own.
                 if (!outpoint_to_rbf && fuzzed_data_provider.ConsumeBool()) {
                     uint32_t dust_index = fuzzed_data_provider.ConsumeIntegralInRange<uint32_t>(0, num_out);
-                    tx_mut.vout.insert(tx_mut.vout.begin() + dust_index, CTxOut(0, P2WSH_EMPTY));
+                    tx_mut.vout.insert(tx_mut.vout.begin() + dust_index, CTxOut(0_sats, P2WSH_EMPTY));
                 }
 
                 auto tx = MakeTransactionRef(tx_mut);
@@ -418,7 +418,7 @@ FUZZ_TARGET(tx_package_eval, .init = initialize_tx_pool)
 
                 Assert(!outpoints.empty());
 
-                Amount amount_in{0};
+                Amount amount_in{0_sats};
                 for (size_t i = 0; i < num_in; ++i) {
                     // Pop random outpoint. We erase them to avoid double-spending
                     // while in this loop, but later add them back (unless last_tx).
@@ -455,11 +455,11 @@ FUZZ_TARGET(tx_package_eval, .init = initialize_tx_pool)
                 }
 
                 // Make a p2pk output to make sigops adjusted vsize to violate TRUC rules, potentially, which is never spent
-                if (last_tx && amount_in > 1000 && fuzzed_data_provider.ConsumeBool()) {
-                    tx_mut.vout.emplace_back(1000, CScript() << std::vector<unsigned char>(33, 0x02) << OP_CHECKSIG);
+                if (last_tx && amount_in > 1000_sats && fuzzed_data_provider.ConsumeBool()) {
+                    tx_mut.vout.emplace_back(1000_sats, CScript() << std::vector<unsigned char>(33, 0x02) << OP_CHECKSIG);
                     // Don't add any other outputs.
                     num_out = 1;
-                    amount_in -= 1000;
+                    amount_in -= 1000_sats;
                 }
 
                 const auto amount_fee{ConsumeMoney(fuzzed_data_provider, /*max=*/amount_in)};
@@ -514,7 +514,7 @@ FUZZ_TARGET(tx_package_eval, .init = initialize_tx_pool)
         // Exercise client_maxfeerate logic
         std::optional<CFeeRate> client_maxfeerate{};
         if (fuzzed_data_provider.ConsumeBool()) {
-            client_maxfeerate = CFeeRate(ConsumeMoney(fuzzed_data_provider, -1, 50U * COIN), 100);
+            client_maxfeerate = CFeeRate(ConsumeMoney(fuzzed_data_provider, -1_sats, 50U * COIN), 100);
         }
 
         const auto result_package = WITH_LOCK(::cs_main,

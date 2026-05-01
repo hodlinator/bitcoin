@@ -168,12 +168,12 @@ private:
         bool valid = val.has_value();
         if(valid)
         {
-            if(val < 0 || val > BitcoinUnits::maxMoney())
+            if(val < 0_sats || val > BitcoinUnits::maxMoney())
                 valid = false;
         }
         if(valid_out)
             *valid_out = valid;
-        return valid ? *val : 0;
+        return valid ? *val : 0_sats;
     }
 
 protected:

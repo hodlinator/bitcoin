@@ -93,7 +93,7 @@ bool CheckTxScripts(const CTransaction& tx, const std::map<COutPoint, CScript>& 
     for (unsigned int i = 0; i < tx.vin.size() && tx_valid; ++i) {
         const CTxIn input = tx.vin[i];
         const auto it{map_prevout_values.find(input.prevout)};
-        const Amount amount{it != map_prevout_values.end() ? it->second : 0};
+        const Amount amount{it != map_prevout_values.end() ? it->second : 0_sats};
         try {
             tx_valid = VerifyScript(input.scriptSig, map_prevout_scriptPubKeys.at(input.prevout),
                 &input.scriptWitness, flags, TransactionSignatureChecker(&tx, i, amount, txdata, MissingDataBehavior::ASSERT_FAIL), &err);
@@ -354,7 +354,7 @@ BOOST_AUTO_TEST_CASE(tx_oversized)
     auto createTransaction =[](size_t payloadSize) {
         CMutableTransaction tx;
         tx.vin.resize(1);
-        tx.vout.emplace_back(1, CScript() << OP_RETURN << std::vector<unsigned char>(payloadSize));
+        tx.vout.emplace_back(1_sats, CScript() << OP_RETURN << std::vector<unsigned char>(payloadSize));
         return CTransaction(tx);
     };
     const auto maxTransactionSize = MAX_BLOCK_WEIGHT / WITNESS_SCALE_FACTOR;
@@ -423,7 +423,7 @@ static void CreateCreditAndSpend(const FillableSigningProvider& keystore, const 
     outputm.vin[0].prevout.SetNull();
     outputm.vin[0].scriptSig = CScript();
     outputm.vout.resize(1);
-    outputm.vout[0].nValue = 1;
+    outputm.vout[0].nValue = 1_sats;
     outputm.vout[0].scriptPubKey = outscript;
     DataStream ssout;
     ssout << TX_WITH_WITNESS(outputm);
@@ -439,7 +439,7 @@ static void CreateCreditAndSpend(const FillableSigningProvider& keystore, const 
     inputm.vin[0].prevout.hash = output->GetHash();
     inputm.vin[0].prevout.n = 0;
     inputm.vout.resize(1);
-    inputm.vout[0].nValue = 1;
+    inputm.vout[0].nValue = 1_sats;
     inputm.vout[0].scriptPubKey = CScript();
     SignatureData empty;
     bool ret = SignSignature(keystore, *output, inputm, 0, SIGHASH_ALL, empty);
@@ -517,14 +517,14 @@ BOOST_AUTO_TEST_CASE(test_big_witness_transaction)
         mtx.vin[i].scriptSig = CScript();
 
         mtx.vout.resize(mtx.vout.size() + 1);
-        mtx.vout[i].nValue = 1000;
+        mtx.vout[i].nValue = 1000_sats;
         mtx.vout[i].scriptPubKey = CScript() << OP_1;
     }
 
     // sign all inputs
     for(uint32_t i = 0; i < mtx.vin.size(); i++) {
         SignatureData empty;
-        bool hashSigned = SignSignature(keystore, scriptPubKey, mtx, i, 1000, sigHashes.at(i % sigHashes.size()), empty);
+        bool hashSigned = SignSignature(keystore, scriptPubKey, mtx, i, 1000_sats, sigHashes.at(i % sigHashes.size()), empty);
         assert(hashSigned);
     }
 
@@ -542,7 +542,7 @@ BOOST_AUTO_TEST_CASE(test_big_witness_transaction)
         Coin coin;
         coin.nHeight = 1;
         coin.fCoinBase = false;
-        coin.out.nValue = 1000;
+        coin.out.nValue = 1000_sats;
         coin.out.scriptPubKey = scriptPubKey;
         coins.emplace_back(std::move(coin));
     }
@@ -778,16 +778,16 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
 
     // Check dust with default relay fee:
     Amount nDustThreshold = 182 * g_dust.GetFeePerK() / 1000;
-    BOOST_CHECK_EQUAL(nDustThreshold, 546);
+    BOOST_CHECK_EQUAL(nDustThreshold, 546_sats);
 
     // Add dust outputs up to allowed maximum, still standard!
     for (size_t i{0}; i < MAX_DUST_OUTPUTS_PER_TX; ++i) {
-        t.vout.emplace_back(0, t.vout[0].scriptPubKey);
+        t.vout.emplace_back(0_sats, t.vout[0].scriptPubKey);
         CheckIsStandard(t);
     }
 
     // dust:
-    t.vout[0].nValue = nDustThreshold - 1;
+    t.vout[0].nValue = nDustThreshold - 1_sats;
     CheckIsNotStandard(t, "dust");
     // not dust:
     t.vout[0].nValue = nDustThreshold;
@@ -812,12 +812,12 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
 
     // Check dust with odd relay fee to verify rounding:
     // nDustThreshold = 182 * 3702 / 1000
-    g_dust = CFeeRate(3702);
+    g_dust = CFeeRate(3702_sats);
     // dust:
-    t.vout[0].nValue = 674 - 1;
+    t.vout[0].nValue = 674_sats - 1_sats;
     CheckIsNotStandard(t, "dust");
     // not dust:
-    t.vout[0].nValue = 674;
+    t.vout[0].nValue = 674_sats;
     CheckIsStandard(t);
     g_dust = CFeeRate{DUST_RELAY_TX_FEE};
 
@@ -855,9 +855,9 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
     // Multiple TxoutType::NULL_DATA are permitted
     t.vout.resize(2);
     t.vout[0].scriptPubKey = CScript() << OP_RETURN << "04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38"_hex;
-    t.vout[0].nValue = 0;
+    t.vout[0].nValue = 0_sats;
     t.vout[1].scriptPubKey = CScript() << OP_RETURN << "04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38"_hex;
-    t.vout[1].nValue = 0;
+    t.vout[1].nValue = 0_sats;
     CheckIsStandard(t);
 
     t.vout[0].scriptPubKey = CScript() << OP_RETURN << "04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38"_hex;
@@ -949,73 +949,73 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
 
     // Add dust outputs up to allowed maximum
     assert(t.vout.size() == 1);
-    t.vout.insert(t.vout.end(), MAX_DUST_OUTPUTS_PER_TX, {0, t.vout[0].scriptPubKey});
+    t.vout.insert(t.vout.end(), MAX_DUST_OUTPUTS_PER_TX, {0_sats, t.vout[0].scriptPubKey});
 
     // Check compressed P2PK outputs dust threshold (must have leading 02 or 03)
     t.vout[0].scriptPubKey = CScript() << std::vector<unsigned char>(33, 0x02) << OP_CHECKSIG;
-    t.vout[0].nValue = 576;
+    t.vout[0].nValue = 576_sats;
     CheckIsStandard(t);
-    t.vout[0].nValue = 575;
+    t.vout[0].nValue = 575_sats;
     CheckIsNotStandard(t, "dust");
 
     // Check uncompressed P2PK outputs dust threshold (must have leading 04/06/07)
     t.vout[0].scriptPubKey = CScript() << std::vector<unsigned char>(65, 0x04) << OP_CHECKSIG;
-    t.vout[0].nValue = 672;
+    t.vout[0].nValue = 672_sats;
     CheckIsStandard(t);
-    t.vout[0].nValue = 671;
+    t.vout[0].nValue = 671_sats;
     CheckIsNotStandard(t, "dust");
 
     // Check P2PKH outputs dust threshold
     t.vout[0].scriptPubKey = CScript() << OP_DUP << OP_HASH160 << std::vector<unsigned char>(20, 0) << OP_EQUALVERIFY << OP_CHECKSIG;
-    t.vout[0].nValue = 546;
+    t.vout[0].nValue = 546_sats;
     CheckIsStandard(t);
-    t.vout[0].nValue = 545;
+    t.vout[0].nValue = 545_sats;
     CheckIsNotStandard(t, "dust");
 
     // Check P2SH outputs dust threshold
     t.vout[0].scriptPubKey = CScript() << OP_HASH160 << std::vector<unsigned char>(20, 0) << OP_EQUAL;
-    t.vout[0].nValue = 540;
+    t.vout[0].nValue = 540_sats;
     CheckIsStandard(t);
-    t.vout[0].nValue = 539;
+    t.vout[0].nValue = 539_sats;
     CheckIsNotStandard(t, "dust");
 
     // Check P2WPKH outputs dust threshold
     t.vout[0].scriptPubKey = CScript() << OP_0 << std::vector<unsigned char>(20, 0);
-    t.vout[0].nValue = 294;
+    t.vout[0].nValue = 294_sats;
     CheckIsStandard(t);
-    t.vout[0].nValue = 293;
+    t.vout[0].nValue = 293_sats;
     CheckIsNotStandard(t, "dust");
 
     // Check P2WSH outputs dust threshold
     t.vout[0].scriptPubKey = CScript() << OP_0 << std::vector<unsigned char>(32, 0);
-    t.vout[0].nValue = 330;
+    t.vout[0].nValue = 330_sats;
     CheckIsStandard(t);
-    t.vout[0].nValue = 329;
+    t.vout[0].nValue = 329_sats;
     CheckIsNotStandard(t, "dust");
 
     // Check P2TR outputs dust threshold (Invalid xonly key ok!)
     t.vout[0].scriptPubKey = CScript() << OP_1 << std::vector<unsigned char>(32, 0);
-    t.vout[0].nValue = 330;
+    t.vout[0].nValue = 330_sats;
     CheckIsStandard(t);
-    t.vout[0].nValue = 329;
+    t.vout[0].nValue = 329_sats;
     CheckIsNotStandard(t, "dust");
 
     // Check future Witness Program versions dust threshold (non-32-byte pushes are undefined for version 1)
     for (int op = OP_1; op <= OP_16; op += 1) {
         t.vout[0].scriptPubKey = CScript() << (opcodetype)op << std::vector<unsigned char>(2, 0);
-        t.vout[0].nValue = 240;
+        t.vout[0].nValue = 240_sats;
         CheckIsStandard(t);
 
-        t.vout[0].nValue = 239;
+        t.vout[0].nValue = 239_sats;
         CheckIsNotStandard(t, "dust");
     }
 
     // Check anchor outputs
     t.vout[0].scriptPubKey = CScript() << OP_1 << ANCHOR_BYTES;
     BOOST_CHECK(t.vout[0].scriptPubKey.IsPayToAnchor());
-    t.vout[0].nValue = 240;
+    t.vout[0].nValue = 240_sats;
     CheckIsStandard(t);
-    t.vout[0].nValue = 239;
+    t.vout[0].nValue = 239_sats;
     CheckIsNotStandard(t, "dust");
 }
 
@@ -1054,7 +1054,7 @@ BOOST_AUTO_TEST_CASE(max_standard_legacy_sigops)
     BOOST_CHECK(::ValidateInputsStandardness(CTransaction(tx_max_sigops), coins).IsValid());
 
     // Adding one more input will bump this to 2505, hitting the limit.
-    tx_create.vout.emplace_back(424242, max_sigops_p2sh);
+    tx_create.vout.emplace_back(424242_sats, max_sigops_p2sh);
     prev_txid = tx_create.GetHash();
     for (unsigned i{0}; i < p2sh_inputs_count; ++i) {
         tx_max_sigops.vin[i] = CTxIn(COutPoint(prev_txid, i), CScript() << ToByteVector(max_sigops_redeem_script));
@@ -1097,9 +1097,9 @@ BOOST_AUTO_TEST_CASE(max_standard_legacy_sigops)
     // is exclusively on non-witness sigops and therefore those should not be counted.
     CMutableTransaction tx_create_segwit;
     const auto witness_script{CScript() << key.GetPubKey() << OP_CHECKSIG};
-    tx_create_segwit.vout.emplace_back(121212, GetScriptForDestination(WitnessV0KeyHash(key.GetPubKey())));
-    tx_create_segwit.vout.emplace_back(131313, GetScriptForDestination(WitnessV0ScriptHash(witness_script)));
-    tx_create_segwit.vout.emplace_back(141414, GetScriptForDestination(WitnessV1Taproot{XOnlyPubKey(key.GetPubKey())}));
+    tx_create_segwit.vout.emplace_back(121212_sats, GetScriptForDestination(WitnessV0KeyHash(key.GetPubKey())));
+    tx_create_segwit.vout.emplace_back(131313_sats, GetScriptForDestination(WitnessV0ScriptHash(witness_script)));
+    tx_create_segwit.vout.emplace_back(141414_sats, GetScriptForDestination(WitnessV1Taproot{XOnlyPubKey(key.GetPubKey())}));
     prev_txid = tx_create_segwit.GetHash();
     for (unsigned i{0}; i < tx_create_segwit.vout.size(); ++i) {
         tx_max_sigops.vin.emplace_back(prev_txid, i);
@@ -1110,7 +1110,7 @@ BOOST_AUTO_TEST_CASE(max_standard_legacy_sigops)
     BOOST_REQUIRE(::ValidateInputsStandardness(CTransaction(tx_max_sigops), coins).IsValid());
 
     // Add one more P2PK input. We'll reach the limit.
-    tx_create_p2pk.vout.emplace_back(212121, p2pk_script);
+    tx_create_p2pk.vout.emplace_back(212121_sats, p2pk_script);
     prev_txid = tx_create_p2pk.GetHash();
     tx_max_sigops.vin.resize(p2sh_inputs_count);
     ++p2pk_inputs_count;
@@ -1141,15 +1141,15 @@ BOOST_AUTO_TEST_CASE(checktxinputs_invalid_transactions_test)
         mtx.vout.emplace_back(output_value, CScript() << OP_TRUE);
 
         TxValidationState state;
-        Amount txfee{0};
+        Amount txfee{0_sats};
         BOOST_CHECK(!Consensus::CheckTxInputs(CTransaction{mtx}, state, inputs, spend_height, txfee));
         BOOST_CHECK(state.IsInvalid());
         BOOST_CHECK_EQUAL(state.GetResult(), expected_result);
         BOOST_CHECK_EQUAL(state.GetRejectReason(), expected_reason);
     }};
 
-    check_invalid(/*input_value=*/MAX_MONEY + 1,
-                  /*output_value=*/0,
+    check_invalid(/*input_value=*/MAX_MONEY + 1_sats,
+                  /*output_value=*/0_sats,
                   /*coinbase=*/false,
                   /*spend_height=*/2,
                   TxValidationResult::TX_CONSENSUS, /*expected_reason=*/"bad-txns-inputvalues-outofrange");
@@ -1161,7 +1161,7 @@ BOOST_AUTO_TEST_CASE(checktxinputs_invalid_transactions_test)
                   TxValidationResult::TX_CONSENSUS, /*expected_reason=*/"bad-txns-in-belowout");
 
     check_invalid(/*input_value=*/1 * COIN,
-                  /*output_value=*/0,
+                  /*output_value=*/0_sats,
                   /*coinbase=*/true,
                   /*spend_height=*/COINBASE_MATURITY,
                   TxValidationResult::TX_PREMATURE_SPEND, /*expected_reason=*/"bad-txns-premature-spend-of-coinbase");
@@ -1170,7 +1170,7 @@ BOOST_AUTO_TEST_CASE(checktxinputs_invalid_transactions_test)
 BOOST_AUTO_TEST_CASE(getvalueout_out_of_range_throws)
 {
     CMutableTransaction mtx;
-    mtx.vout.emplace_back(MAX_MONEY + 1, CScript() << OP_TRUE);
+    mtx.vout.emplace_back(MAX_MONEY + 1_sats, CScript() << OP_TRUE);
 
     const CTransaction tx{mtx};
     BOOST_CHECK_EXCEPTION(tx.GetValueOut(), std::runtime_error, HasReason("GetValueOut: value out of range"));
@@ -1184,7 +1184,7 @@ BOOST_AUTO_TEST_CASE(spends_witness_prog)
     key.MakeNewKey(true);
     const CPubKey pubkey{key.GetPubKey()};
     CMutableTransaction tx_create{}, tx_spend{};
-    tx_create.vout.emplace_back(0, CScript{});
+    tx_create.vout.emplace_back(0_sats, CScript{});
     tx_spend.vin.emplace_back(Txid{}, 0);
     std::vector<std::vector<uint8_t>> sol_dummy;
 

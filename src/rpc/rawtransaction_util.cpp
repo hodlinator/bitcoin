@@ -112,7 +112,7 @@ std::vector<std::pair<CTxDestination, Amount>> ParseOutputs(const UniValue& outp
             has_data = true;
             std::vector<unsigned char> data = ParseHexV(outputs[name_].getValStr(), "Data");
             CTxDestination destination{CNoDestination{CScript() << OP_RETURN << data}};
-            Amount amount{0};
+            Amount amount{0_sats};
             parsed_outputs.emplace_back(destination, amount);
         } else {
             CTxDestination destination{DecodeDestination(name_)};

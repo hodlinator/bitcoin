@@ -76,13 +76,13 @@ public:
     static const int RecommendedNumConfirmations = 6;
 
     TransactionRecord():
-            hash(), time(0), type(Other), debit(0), credit(0), idx(0)
+            hash(), time(0), type(Other), debit(0_sats), credit(0_sats), idx(0)
     {
     }
 
     TransactionRecord(Txid _hash, qint64 _time):
-            hash(_hash), time(_time), type(Other), debit(0),
-            credit(0), idx(0)
+            hash(_hash), time(_time), type(Other), debit(0_sats),
+            credit(0_sats), idx(0)
     {
     }
 

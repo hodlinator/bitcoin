@@ -434,7 +434,7 @@ static void MutateTxAddOutMultiSig(CMutableTransaction& tx, const std::string& s
 
 static void MutateTxAddOutData(CMutableTransaction& tx, const std::string& strInput)
 {
-    Amount value{0};
+    Amount value{0_sats};
 
     // separate [VALUE:]DATA in string
     size_t pos = strInput.find(':');
