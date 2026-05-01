@@ -151,10 +151,10 @@ public:
 
 private:
     BitcoinUnit currentUnit{BitcoinUnit::BTC};
-    Amount singleStep{Amount(100000)}; // satoshis
+    Amount singleStep{100000_sats}; // satoshis
     mutable QSize cachedMinimumSizeHint;
     bool m_allow_empty{true};
-    Amount m_min_amount{Amount(0)};
+    Amount m_min_amount{0_sats};
     Amount m_max_amount{BitcoinUnits::maxMoney()};
 
     /**

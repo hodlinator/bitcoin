@@ -349,7 +349,7 @@ void TestGUI(interfaces::Node& node, const std::shared_ptr<CWallet>& wallet)
     QPushButton* clearButton = receiveCoinsDialog.findChild<QPushButton*>("clearButton");
     clearButton->click();
     QCOMPARE(labelInput->text(), QString(""));
-    QCOMPARE(amountInput->value(), Amount(0));
+    QCOMPARE(amountInput->value(), 0_sats);
     QCOMPARE(messageInput->text(), QString(""));
 
     // Check addition to history
@@ -366,7 +366,7 @@ void TestGUI(interfaces::Node& node, const std::shared_ptr<CWallet>& wallet)
     QVERIFY(entry.date.isValid());
     QCOMPARE(entry.recipient.address, address);
     QCOMPARE(entry.recipient.label, QString{"TEST_LABEL_1"});
-    QCOMPARE(entry.recipient.amount, Amount{1});
+    QCOMPARE(entry.recipient.amount, 1_sats);
     QCOMPARE(entry.recipient.message, QString{"TEST_MESSAGE_1"});
     QCOMPARE(entry.recipient.sPaymentRequest, std::string{});
     QCOMPARE(entry.recipient.authenticatedMerchant, QString{});

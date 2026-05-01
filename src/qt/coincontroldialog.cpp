@@ -377,10 +377,10 @@ void CoinControlDialog::updateLabels(CCoinControl& m_coin_control, WalletModel *
         nPayAmount += amount;
     }
 
-    Amount nAmount             = 0;
-    Amount nPayFee             = 0;
-    Amount nAfterFee           = 0;
-    Amount nChange             = 0;
+    Amount nAmount         = 0_sats;
+    Amount nPayFee         = 0_sats;
+    Amount nAfterFee       = 0_sats;
+    Amount nChange         = 0_sats;
     unsigned int nBytes         = 0;
     unsigned int nBytesInputs   = 0;
     unsigned int nQuantity      = 0;

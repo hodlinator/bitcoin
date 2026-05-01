@@ -170,7 +170,7 @@ BOOST_AUTO_TEST_CASE(bnb_search_test)
     FastRandomContext rand{};
     // Setup
     std::vector<COutput> utxo_pool;
-    SelectionResult expected_result(Amount(0), SelectionAlgorithm::BNB);
+    SelectionResult expected_result(0_sats, SelectionAlgorithm::BNB);
     size_t expected_attempts;
 
     ////////////////////
@@ -1029,7 +1029,7 @@ BOOST_AUTO_TEST_CASE(coin_grinder_tests)
             }
             return available_coins;
         });
-        SelectionResult expected_result(Amount(0), SelectionAlgorithm::CG);
+        SelectionResult expected_result(0_sats, SelectionAlgorithm::CG);
         for (int i = 0; i < 10; ++i) {
             add_coin(2 * COIN, i, expected_result);
         }
@@ -1055,7 +1055,7 @@ BOOST_AUTO_TEST_CASE(coin_grinder_tests)
             add_coin(available_coins, wallet, Amount(1 * COIN), CFeeRate(5000_sats), 144, false, 0, true, 68);
             return available_coins;
         });
-        SelectionResult expected_result(Amount(0), SelectionAlgorithm::CG);
+        SelectionResult expected_result(0_sats, SelectionAlgorithm::CG);
         add_coin(1 * COIN, 1, expected_result);
         add_coin(1 * COIN, 2, expected_result);
         BOOST_CHECK(EquivalentResult(expected_result, *res));
@@ -1083,7 +1083,7 @@ BOOST_AUTO_TEST_CASE(coin_grinder_tests)
             return available_coins;
         });
         BOOST_CHECK(res);
-        SelectionResult expected_result(Amount(0), SelectionAlgorithm::CG);
+        SelectionResult expected_result(0_sats, SelectionAlgorithm::CG);
         add_coin(14 * COIN, 1, expected_result);
         add_coin(13 * COIN, 2, expected_result);
         add_coin(4 * COIN, 3, expected_result);
@@ -1121,7 +1121,7 @@ BOOST_AUTO_TEST_CASE(coin_grinder_tests)
             }
             return available_coins;
         });
-        SelectionResult expected_result(Amount(0), SelectionAlgorithm::CG);
+        SelectionResult expected_result(0_sats, SelectionAlgorithm::CG);
         add_coin(4 * COIN, 0, expected_result);
         add_coin(3 * COIN, 0, expected_result);
         add_coin(2 * COIN, 0, expected_result);
@@ -1149,7 +1149,7 @@ BOOST_AUTO_TEST_CASE(coin_grinder_tests)
             }
             return available_coins;
         });
-        SelectionResult expected_result(Amount(0), SelectionAlgorithm::CG);
+        SelectionResult expected_result(0_sats, SelectionAlgorithm::CG);
         add_coin(1 * COIN, 1, expected_result);
         add_coin(1 * COIN, 2, expected_result);
         BOOST_CHECK(EquivalentResult(expected_result, *res));
@@ -1173,7 +1173,7 @@ BOOST_AUTO_TEST_CASE(coin_grinder_tests)
             return doppelgangers;
         });
         BOOST_CHECK(result_a);
-        SelectionResult expected_result(Amount(0), SelectionAlgorithm::CG);
+        SelectionResult expected_result(0_sats, SelectionAlgorithm::CG);
         for (int i = 0; i < 8; ++i) {
           add_coin(1 * COIN + i, 0, expected_result);
         }

@@ -20,9 +20,9 @@ CFeeRate::CFeeRate(const Amount& nFeePaid, int32_t virtual_bytes)
 Amount CFeeRate::GetFee(int32_t virtual_bytes) const
 {
     Assume(virtual_bytes >= 0);
-    if (m_feerate.IsEmpty()) { return Amount(0);}
+    if (m_feerate.IsEmpty()) { return 0_sats; }
     Amount nFee = Amount(m_feerate.EvaluateFeeUp(virtual_bytes));
-    if (nFee == 0 && virtual_bytes != 0 && m_feerate.fee < 0) return Amount(-1);
+    if (nFee == 0_sats && virtual_bytes != 0 && m_feerate.fee < 0_sats) return -1_sats;
     return nFee;
 }
 

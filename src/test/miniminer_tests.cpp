@@ -1,6 +1,7 @@
 // Copyright (c) 2021-present The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
+#include <consensus/amount.h>
 #include <node/mini_miner.h>
 #include <random.h>
 #include <txmempool.h>
@@ -15,9 +16,9 @@
 
 BOOST_FIXTURE_TEST_SUITE(miniminer_tests, TestingSetup)
 
-const Amount low_fee{CENT/2000}; // 500 ṩ
-const Amount med_fee{CENT/200}; // 5000 ṩ
-const Amount high_fee{CENT/10}; // 100_000 ṩ
+const Amount low_fee{     500_sats};
+const Amount med_fee{   5'000_sats};
+const Amount high_fee{100'000_sats};
 
 
 static inline CTransactionRef make_tx(const std::vector<COutPoint>& inputs, size_t num_outputs)

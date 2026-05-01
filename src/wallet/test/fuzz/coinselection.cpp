@@ -237,7 +237,7 @@ FUZZ_TARGET(bnb_finds_min_waste)
     const auto change_spend_fee{coin_params.m_discard_feerate.GetFee(coin_params.change_spend_size)};
     coin_params.m_cost_of_change = coin_params.m_change_fee + change_spend_fee;
     CScript change_out_script = CScript() << std::vector<unsigned char>(coin_params.change_output_size, OP_TRUE);
-    const auto dust{GetDustThreshold(CTxOut{/*nValueIn=*/0, change_out_script}, coin_params.m_discard_feerate)};
+    const auto dust{GetDustThreshold(CTxOut{0_sats, change_out_script}, coin_params.m_discard_feerate)};
     coin_params.min_viable_change = std::max(change_spend_fee + 1_sats, dust);
 
     // Create some coins
@@ -272,7 +272,7 @@ FUZZ_TARGET(bnb_finds_min_waste)
     assert(num_groups <= max_output_groups);
 
     // Only choose targets below max_spendable
-    const Amount target{ConsumeMoney(fuzzed_data_provider, 1_sats, std::max(Amount{1}, max_spendable - coin_params.m_cost_of_change))};
+    const Amount target{ConsumeMoney(fuzzed_data_provider, 1_sats, std::max(1_sats, max_spendable - coin_params.m_cost_of_change))};
 
     // Brute force optimal solution (lowest waste, but cannot be superset of another solution)
     std::vector<uint32_t> solutions;
@@ -375,7 +375,7 @@ void FuzzCoinSelectionAlgorithm(std::span<const uint8_t> buffer) {
     const auto change_spend_fee{coin_params.m_discard_feerate.GetFee(coin_params.change_spend_size)};
     coin_params.m_cost_of_change = coin_params.m_change_fee + change_spend_fee;
     CScript change_out_script = CScript() << std::vector<unsigned char>(coin_params.change_output_size, OP_TRUE);
-    const auto dust{GetDustThreshold(CTxOut{/*nValueIn=*/0, change_out_script}, coin_params.m_discard_feerate)};
+    const auto dust{GetDustThreshold(CTxOut{0_sats, change_out_script}, coin_params.m_discard_feerate)};
     coin_params.min_viable_change = std::max(change_spend_fee + 1_sats, dust);
 
     int next_locktime{0};

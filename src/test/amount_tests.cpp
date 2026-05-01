@@ -70,22 +70,22 @@ BOOST_AUTO_TEST_CASE(GetFeeTest)
     BOOST_CHECK_EQUAL(feeRate.GetFee(100), altFeeRate.GetFee(100));
 
     // Check full constructor
-    BOOST_CHECK(CFeeRate(Amount(-1), 0) == CFeeRate(0));
-    BOOST_CHECK(CFeeRate(Amount(0), 0) == CFeeRate(0));
-    BOOST_CHECK(CFeeRate(Amount(1), 0) == CFeeRate(0));
-    BOOST_CHECK(CFeeRate(Amount(1), -1000) == CFeeRate(0));
+    BOOST_CHECK(CFeeRate(-1_sats, 0) == CFeeRate{0_sats});
+    BOOST_CHECK(CFeeRate(0_sats, 0) == CFeeRate{0_sats});
+    BOOST_CHECK(CFeeRate(1_sats, 0) == CFeeRate{0_sats});
+    BOOST_CHECK(CFeeRate(1_sats, -1000) == CFeeRate{0_sats});
     // default value
-    BOOST_CHECK(CFeeRate(Amount(-1), 1000) == CFeeRate(-1));
-    BOOST_CHECK(CFeeRate(Amount(0), 1000) == CFeeRate(0));
-    BOOST_CHECK(CFeeRate(Amount(1), 1000) == CFeeRate(1));
+    BOOST_CHECK(CFeeRate(-1_sats, 1000) == CFeeRate{-1_sats});
+    BOOST_CHECK(CFeeRate(0_sats, 1000) == CFeeRate{0_sats});
+    BOOST_CHECK(CFeeRate(1_sats, 1000) == CFeeRate{1_sats});
     // Previously, precision was limited to three decimal digits
-    // due to only supporting satoshis per kB, so CFeeRate(Amount(1), 1001) was equal to CFeeRate(0)
+    // due to only supporting satoshis per kB, so CFeeRate{1_sats, 1001} was equal to CFeeRate{0_sats}
     // Since #32750, higher precision is maintained.
-    BOOST_CHECK(CFeeRate(Amount(1), 1001) > CFeeRate(0) && CFeeRate(Amount(1), 1001) < CFeeRate(1));
-    BOOST_CHECK(CFeeRate(Amount(2), 1001) > CFeeRate(1) && CFeeRate(Amount(2), 1001) < CFeeRate(2));
+    BOOST_CHECK(CFeeRate(1_sats, 1001) > CFeeRate{0_sats} && CFeeRate(1_sats, 1001) < CFeeRate{1_sats});
+    BOOST_CHECK(CFeeRate(2_sats, 1001) > CFeeRate{1_sats} && CFeeRate(2_sats, 1001) < CFeeRate{2_sats});
     // some more integer checks
-    BOOST_CHECK(CFeeRate(Amount(26), 789) > CFeeRate(32) && CFeeRate(Amount(26), 789) < CFeeRate(33));
-    BOOST_CHECK(CFeeRate(Amount(27), 789) > CFeeRate(34) && CFeeRate(Amount(27), 789) < CFeeRate(35));
+    BOOST_CHECK(CFeeRate(26_sats, 789) > CFeeRate{32_sats} && CFeeRate(26_sats, 789) < CFeeRate{33_sats});
+    BOOST_CHECK(CFeeRate(27_sats, 789) > CFeeRate{34_sats} && CFeeRate(27_sats, 789) < CFeeRate{35_sats});
     // Maximum size in bytes, should not crash
     CFeeRate(MAX_MONEY, std::numeric_limits<int32_t>::max()).GetFeePerK();
 

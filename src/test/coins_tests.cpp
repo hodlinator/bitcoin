@@ -527,7 +527,7 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization)
     SpanReader{"97f23c835800816115944e077fe7c803cfa57f29b36bf87c1d35"_hex} >> cc1;
     BOOST_CHECK_EQUAL(cc1.IsCoinBase(), false);
     BOOST_CHECK_EQUAL(cc1.nHeight, 203998U);
-    BOOST_CHECK_EQUAL(cc1.out.nValue, Amount{60000000000});
+    BOOST_CHECK_EQUAL(cc1.out.nValue, 60000000000_sats);
     BOOST_CHECK_EQUAL(HexStr(cc1.out.scriptPubKey), HexStr(GetScriptForDestination(PKHash(uint160("816115944e077fe7c803cfa57f29b36bf87c1d35"_hex_u8)))));
 
     // Good example

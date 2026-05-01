@@ -114,7 +114,7 @@ static std::string InputAmountsToString(const SelectionResult& selection)
 
 static void TestBnBSuccess(std::string test_title, std::vector<OutputGroup>& utxo_pool, const Amount& selection_target, const std::vector<Amount>& expected_input_amounts, size_t expected_attempts, const CoinSelectionParams& cs_params = default_cs_params, const int custom_spending_vsize = P2WPKH_INPUT_VSIZE, const int max_selection_weight = MAX_STANDARD_TX_WEIGHT)
 {
-    SelectionResult expected_result(Amount(0), SelectionAlgorithm::BNB);
+    SelectionResult expected_result(0_sats, SelectionAlgorithm::BNB);
     Amount expected_amount{0_sats};
     for (Amount input_amount : expected_input_amounts) {
         OutputGroup group = MakeCoin(input_amount, true, cs_params, custom_spending_vsize);

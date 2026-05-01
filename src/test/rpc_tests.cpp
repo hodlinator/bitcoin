@@ -434,11 +434,11 @@ BOOST_AUTO_TEST_CASE(rpc_getblockstats_calculate_percentiles_by_weight)
     Amount result[NUM_GETBLOCKSTATS_PERCENTILES] = { 0_sats };
 
     for (int64_t i = 0; i < 100; i++) {
-        feerates.emplace_back(1 ,1);
+        feerates.emplace_back(1_sats, 1);
     }
 
     for (int64_t i = 0; i < 100; i++) {
-        feerates.emplace_back(2 ,1);
+        feerates.emplace_back(2_sats, 1);
     }
 
     CalculatePercentilesByWeight(result, feerates, total_weight);

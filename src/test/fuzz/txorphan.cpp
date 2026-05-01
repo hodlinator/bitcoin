@@ -74,7 +74,7 @@ FUZZ_TARGET(txorphan, .init = initialize_orphanage)
             // output amount will not affect txorphanage
             tx_mut.vout.reserve(num_out);
             for (uint32_t i = 0; i < num_out; i++) {
-                tx_mut.vout.emplace_back(Amount{0}, CScript{});
+                tx_mut.vout.emplace_back(0_sats, CScript{});
             }
             auto new_tx = MakeTransactionRef(tx_mut);
             // add newly constructed outpoints to the coin pool
@@ -433,7 +433,7 @@ FUZZ_TARGET(txorphanage_sim)
             for (unsigned output = 0; output < num_outputs; ++output) {
                 CScript scriptpubkey;
                 scriptpubkey.resize(provider.ConsumeIntegralInRange<unsigned>(20, 34));
-                tx.vout.emplace_back(Amount{0}, std::move(scriptpubkey));
+                tx.vout.emplace_back(0_sats, std::move(scriptpubkey));
             }
             // Construct inputs (one for each dependency).
             for (auto& [child, parent] : deps) {
