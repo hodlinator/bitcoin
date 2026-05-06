@@ -122,7 +122,7 @@ public:
 private:
     template <typename T>
     constexpr explicit Amount(const T v)
-        requires(std::is_integral_v<T> && !std::is_unsigned_v<T> && sizeof(T) <= sizeof(inner_type))
+        requires(std::is_integral_v<T> && !std::is_same_v<T, bool> && !std::is_unsigned_v<T> && sizeof(T) <= sizeof(inner_type))
         : m_sats(v)
     {
     }
@@ -252,7 +252,7 @@ public:
 private:
     template <typename T>
     constexpr explicit UAmount(const T v)
-        requires(std::is_integral_v<T> && std::is_unsigned_v<T> && sizeof(T) <= sizeof(inner_type))
+        requires(std::is_integral_v<T> && !std::is_same_v<T, bool> && std::is_unsigned_v<T> && sizeof(T) <= sizeof(inner_type))
         : m_sats{v}
     {
     }
@@ -268,7 +268,6 @@ public:
 
     template <typename T>
     static consteval UAmountLiteral From(const T v)
-        requires(std::is_integral_v<T> && std::is_unsigned_v<T> && sizeof(T) <= sizeof(inner_type))
     {
         return UAmountLiteral{v};
     }
@@ -386,7 +385,7 @@ public:
 private:
     template <typename T>
     consteval explicit UAmountLiteral(const T v)
-        requires(std::is_integral_v<T> && std::is_unsigned_v<T> && sizeof(T) <= sizeof(inner_type))
+        requires(std::is_integral_v<T> && !std::is_same_v<T, bool> && std::is_unsigned_v<T> && sizeof(T) <= sizeof(inner_type))
         : m_sats{v}
     {
     }
