@@ -10,6 +10,7 @@
 #include <pow.h>
 #include <test/util/common.h>
 #include <test/util/setup_common.h>
+#include <test/util/time.h>
 #include <validation.h>
 
 #include <cstddef>
@@ -140,6 +141,18 @@ std::vector<CBlockHeader> HeadersGeneratorSetup::GenerateHeaders(
 // 3. Repeat the second set of headers in both phases to demonstrate behavior
 //    when the chain a peer provides has too little work.
 BOOST_FIXTURE_TEST_SUITE(headers_sync_chainwork_tests, HeadersGeneratorSetup)
+
+BOOST_AUTO_TEST_CASE(future_chain_start_mtp_bounds_commitments)
+{
+    const NodeClockContext clock_ctx{std::chrono::seconds{genesis.GetBlockTime() - MAX_FUTURE_BLOCK_TIME - 1}};
+    HeadersSyncState hss{CreateState()};
+
+    CHECK_RESULT(hss.ProcessNextHeaders({{FirstChain().front()}}, /*full_headers_message=*/true),
+        hss, /*exp_state=*/State::PRESYNC,
+        /*exp_success=*/true, /*exp_request_more=*/true,
+        /*exp_headers_size=*/0, /*exp_pow_validated_prev=*/std::nullopt,
+        /*exp_locator_hash=*/FirstChain().front().GetHash());
+}
 
 BOOST_AUTO_TEST_CASE(sneaky_redownload)
 {
