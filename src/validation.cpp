@@ -4300,7 +4300,7 @@ BlockValidationState ChainstateManager::ProcessNewBlockHeaders(std::span<const C
             CheckBlockIndex();
 
             if (!accepted) {
-                if (state.IsValid()) NONFATAL_UNREACHABLE();
+                CHECK_NONFATAL(!state.IsValid());
                 return state;
             }
 
@@ -4319,7 +4319,7 @@ BlockValidationState ChainstateManager::ProcessNewBlockHeaders(std::span<const C
         }
     }
 
-    if (!state.IsValid()) NONFATAL_UNREACHABLE();
+    CHECK_NONFATAL(state.IsValid());
     return state;
 }
 
