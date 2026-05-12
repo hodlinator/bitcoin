@@ -84,7 +84,15 @@ private:
     std::string m_reject_reason;
     std::string m_debug_message;
 
+protected:
+    ValidationState(bool valid, Result r, const std::string& reject_reason, const std::string& debug_message)
+        : m_mode{valid ? ModeState::M_VALID : ModeState::M_INVALID}, m_result{r}, m_reject_reason{reject_reason}, m_debug_message{debug_message}
+    {
+    }
+
 public:
+    ValidationState() = default;
+
     bool Invalid(Result result,
                  const std::string& reject_reason = "",
                  const std::string& debug_message = "")
@@ -122,8 +130,70 @@ public:
     }
 };
 
+template <typename Result>
+class NoErrorValidationState
+{
+private:
+    enum class ModeState {
+        M_VALID,   //!< everything ok
+        M_INVALID, //!< network rule violation (DoS value may be set)
+    } m_mode{ModeState::M_VALID};
+    Result m_result{};
+    std::string m_reject_reason;
+    std::string m_debug_message;
+
+    NoErrorValidationState() = default;
+    NoErrorValidationState(ModeState mode, Result result,
+                const std::string& reject_reason,
+                const std::string& debug_message)
+        : m_mode{mode}, m_result{result}, m_reject_reason{reject_reason}, m_debug_message{debug_message}
+    {
+    }
+
+public:
+    [[nodiscard]] static NoErrorValidationState MakeValid()
+    {
+        return {};
+    }
+
+    [[nodiscard]] static NoErrorValidationState MakeInvalid(Result result,
+                 const std::string& reject_reason,
+                 const std::string& debug_message = "")
+    {
+        return {ModeState::M_INVALID,
+                result,
+                reject_reason,
+                debug_message};
+    }
+    bool IsValid() const { return m_mode == ModeState::M_VALID; }
+    Result GetResult() const { return m_result; }
+    std::string GetRejectReason() const { return m_reject_reason; }
+    std::string GetDebugMessage() const { return m_debug_message; }
+    std::string ToString() const
+    {
+        if (IsValid()) {
+            return "Valid";
+        }
+
+        if (!m_debug_message.empty()) {
+            return m_reject_reason + ", " + m_debug_message;
+        }
+
+        return m_reject_reason;
+    }
+};
+
 class TxValidationState : public ValidationState<TxValidationResult> {};
-class BlockValidationState : public ValidationState<BlockValidationResult> {};
+using NoErrorBlockValidationState = NoErrorValidationState<BlockValidationResult>;
+class BlockValidationState : public ValidationState<BlockValidationResult>
+{
+public:
+    BlockValidationState() = default;
+    BlockValidationState(NoErrorBlockValidationState&& other)
+        : ValidationState{other.IsValid(), other.GetResult(), other.GetRejectReason(), other.GetDebugMessage()}
+    {
+    }
+};
 
 // These implement the weight = (stripped_size * 4) + witness_size formula,
 // using only serialization with and without witness data. As witness_size

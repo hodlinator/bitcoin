@@ -54,9 +54,8 @@ static void DeserializeAndCheckBlockTest(benchmark::Bench& bench)
         bool rewound = stream.Rewind(benchmark::data::block413567.size());
         assert(rewound);
 
-        BlockValidationState validationState;
-        bool checked = CheckBlock(block, validationState, chainParams->GetConsensus());
-        assert(checked);
+        NoErrorBlockValidationState validationState{CheckBlock(block, chainParams->GetConsensus())};
+        assert(validationState.IsValid());
     });
 }
 

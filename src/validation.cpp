@@ -1987,7 +1987,13 @@ void Chainstate::InvalidChainFound(CBlockIndex* pindexNew)
 void Chainstate::InvalidBlockFound(CBlockIndex* pindex, const BlockValidationState& state)
 {
     AssertLockHeld(cs_main);
-    if (state.GetResult() != BlockValidationResult::BLOCK_MUTATED) {
+    InvalidBlockFound(pindex, state.GetResult());
+}
+
+void Chainstate::InvalidBlockFound(CBlockIndex* pindex, const BlockValidationResult result)
+{
+    AssertLockHeld(cs_main);
+    if (result != BlockValidationResult::BLOCK_MUTATED) {
         pindex->nStatus |= BLOCK_FAILED_VALID;
         m_blockman.m_dirty_blockindex.insert(pindex);
         setBlockIndexCandidates.erase(pindex);
@@ -2316,7 +2322,9 @@ bool Chainstate::ConnectBlock(const CBlock& block, BlockValidationState& state, 
     // is enforced in ContextualCheckBlockHeader(); we wouldn't want to
     // re-enforce that rule here (at least until we make it impossible for
     // the clock to go backward).
-    if (!CheckBlock(block, state, params.GetConsensus(), !fJustCheck, !fJustCheck)) {
+    NoErrorBlockValidationState no_error_state{CheckBlock(block, params.GetConsensus(), !fJustCheck, !fJustCheck)};
+    if (!no_error_state.IsValid()) {
+        state = BlockValidationState{std::move(no_error_state)};
         if (state.GetResult() == BlockValidationResult::BLOCK_MUTATED) {
             // We don't write down blocks to disk if they may have been
             // corrupted, so this should be impossible unless we're having hardware
@@ -3871,23 +3879,23 @@ void ChainstateManager::ReceivedBlockTransactions(const CBlock& block, CBlockInd
     }
 }
 
-static bool CheckBlockHeader(const CBlockHeader& block, BlockValidationState& state, const Consensus::Params& consensusParams, bool fCheckPOW = true)
+static NoErrorBlockValidationState CheckBlockHeader(const CBlockHeader& block, const Consensus::Params& consensusParams, bool fCheckPOW = true)
 {
     // Check proof of work matches claimed amount
     if (fCheckPOW && !CheckProofOfWork(block.GetHash(), block.nBits, consensusParams))
-        return state.Invalid(BlockValidationResult::BLOCK_INVALID_HEADER, "high-hash", "proof of work failed");
+        return NoErrorBlockValidationState::MakeInvalid(BlockValidationResult::BLOCK_INVALID_HEADER, "high-hash", "proof of work failed");
 
-    return true;
+    return NoErrorBlockValidationState::MakeValid();
 }
 
-static bool CheckMerkleRoot(const CBlock& block, BlockValidationState& state)
+static NoErrorBlockValidationState CheckMerkleRoot(const CBlock& block)
 {
-    if (block.m_checked_merkle_root) return true;
+    if (block.m_checked_merkle_root) return NoErrorBlockValidationState::MakeValid();
 
     bool mutated;
     uint256 merkle_root = BlockMerkleRoot(block, &mutated);
     if (block.hashMerkleRoot != merkle_root) {
-        return state.Invalid(
+        return NoErrorBlockValidationState::MakeInvalid(
             /*result=*/BlockValidationResult::BLOCK_MUTATED,
             /*reject_reason=*/"bad-txnmrklroot",
             /*debug_message=*/"hashMerkleRoot mismatch");
@@ -3897,14 +3905,14 @@ static bool CheckMerkleRoot(const CBlock& block, BlockValidationState& state)
     // of transactions in a block without affecting the merkle root of a block,
     // while still invalidating it.
     if (mutated) {
-        return state.Invalid(
+        return NoErrorBlockValidationState::MakeInvalid(
             /*result=*/BlockValidationResult::BLOCK_MUTATED,
             /*reject_reason=*/"bad-txns-duplicate",
             /*debug_message=*/"duplicate transaction");
     }
 
     block.m_checked_merkle_root = true;
-    return true;
+    return NoErrorBlockValidationState::MakeValid();
 }
 
 /** CheckWitnessMalleation performs checks for block malleation with regard to
@@ -3913,10 +3921,10 @@ static bool CheckMerkleRoot(const CBlock& block, BlockValidationState& state)
  * Note: If the witness commitment is expected (i.e. `expect_witness_commitment
  * = true`), then the block is required to have at least one transaction and the
  * first transaction needs to have at least one input. */
-static bool CheckWitnessMalleation(const CBlock& block, bool expect_witness_commitment, BlockValidationState& state)
+static NoErrorBlockValidationState CheckWitnessMalleation(const CBlock& block, bool expect_witness_commitment)
 {
     if (expect_witness_commitment) {
-        if (block.m_checked_witness_commitment) return true;
+        if (block.m_checked_witness_commitment) return NoErrorBlockValidationState::MakeValid();
 
         int commitpos = GetWitnessCommitmentIndex(block);
         if (commitpos != NO_WITNESS_COMMITMENT) {
@@ -3924,7 +3932,7 @@ static bool CheckWitnessMalleation(const CBlock& block, bool expect_witness_comm
             const auto& witness_stack{block.vtx[0]->vin[0].scriptWitness.stack};
 
             if (witness_stack.size() != 1 || witness_stack[0].size() != 32) {
-                return state.Invalid(
+                return NoErrorBlockValidationState::MakeInvalid(
                     /*result=*/BlockValidationResult::BLOCK_MUTATED,
                     /*reject_reason=*/"bad-witness-nonce-size",
                     /*debug_message=*/strprintf("%s : invalid witness reserved value size", __func__));
@@ -3937,50 +3945,54 @@ static bool CheckWitnessMalleation(const CBlock& block, bool expect_witness_comm
 
             CHash256().Write(hash_witness).Write(witness_stack[0]).Finalize(hash_witness);
             if (memcmp(hash_witness.begin(), &block.vtx[0]->vout[commitpos].scriptPubKey[6], 32)) {
-                return state.Invalid(
+                return NoErrorBlockValidationState::MakeInvalid(
                     /*result=*/BlockValidationResult::BLOCK_MUTATED,
                     /*reject_reason=*/"bad-witness-merkle-match",
                     /*debug_message=*/strprintf("%s : witness merkle commitment mismatch", __func__));
             }
 
             block.m_checked_witness_commitment = true;
-            return true;
+            return NoErrorBlockValidationState::MakeValid();
         }
     }
 
     // No witness data is allowed in blocks that don't commit to witness data, as this would otherwise leave room for spam
     for (const auto& tx : block.vtx) {
         if (tx->HasWitness()) {
-            return state.Invalid(
+            return NoErrorBlockValidationState::MakeInvalid(
                 /*result=*/BlockValidationResult::BLOCK_MUTATED,
                 /*reject_reason=*/"unexpected-witness",
                 /*debug_message=*/strprintf("%s : unexpected witness data found", __func__));
         }
     }
 
-    return true;
+    return NoErrorBlockValidationState::MakeValid();
 }
 
-bool CheckBlock(const CBlock& block, BlockValidationState& state, const Consensus::Params& consensusParams, bool fCheckPOW, bool fCheckMerkleRoot)
+NoErrorBlockValidationState CheckBlock(const CBlock& block, const Consensus::Params& consensusParams, bool fCheckPOW, bool fCheckMerkleRoot)
 {
     // These are checks that are independent of context.
 
     if (block.fChecked)
-        return true;
+        return NoErrorBlockValidationState::MakeValid();
 
     // Check that the header is valid (particularly PoW).  This is mostly
     // redundant with the call in AcceptBlockHeader.
-    if (!CheckBlockHeader(block, state, consensusParams, fCheckPOW))
-        return false;
+    NoErrorBlockValidationState state{CheckBlockHeader(block, consensusParams, fCheckPOW)};
+    if (!state.IsValid()) {
+        return state;
+    }
 
     // Signet only: check block solution
     if (consensusParams.signet_blocks && fCheckPOW && !CheckSignetBlockSolution(block, consensusParams)) {
-        return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-signet-blksig", "signet block signature validation failure");
+        return NoErrorBlockValidationState::MakeInvalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-signet-blksig", "signet block signature validation failure");
     }
 
     // Check the merkle root.
-    if (fCheckMerkleRoot && !CheckMerkleRoot(block, state)) {
-        return false;
+    if (fCheckMerkleRoot) {
+        if (state = CheckMerkleRoot(block); !state.IsValid()) {
+            return state;
+        }
     }
 
     // All potential-corruption validation must be done before we do any
@@ -3991,14 +4003,14 @@ bool CheckBlock(const CBlock& block, BlockValidationState& state, const Consensu
 
     // Size limits
     if (block.vtx.empty() || block.vtx.size() * WITNESS_SCALE_FACTOR > MAX_BLOCK_WEIGHT || ::GetSerializeSize(TX_NO_WITNESS(block)) * WITNESS_SCALE_FACTOR > MAX_BLOCK_WEIGHT)
-        return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-blk-length", "size limits failed");
+        return NoErrorBlockValidationState::MakeInvalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-blk-length", "size limits failed");
 
     // First transaction must be coinbase, the rest must not be
     if (block.vtx.empty() || !block.vtx[0]->IsCoinBase())
-        return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-cb-missing", "first tx is not coinbase");
+        return NoErrorBlockValidationState::MakeInvalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-cb-missing", "first tx is not coinbase");
     for (unsigned int i = 1; i < block.vtx.size(); i++)
         if (block.vtx[i]->IsCoinBase())
-            return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-cb-multiple", "more than one coinbase");
+            return NoErrorBlockValidationState::MakeInvalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-cb-multiple", "more than one coinbase");
 
     // Check transactions
     // Must check for duplicate inputs (see CVE-2018-17144)
@@ -4008,8 +4020,8 @@ bool CheckBlock(const CBlock& block, BlockValidationState& state, const Consensu
             // CheckBlock() does context-free validation checks. The only
             // possible failures are consensus failures.
             assert(tx_state.GetResult() == TxValidationResult::TX_CONSENSUS);
-            return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, tx_state.GetRejectReason(),
-                                 strprintf("Transaction check failed (tx hash %s) %s", tx->GetHash().ToString(), tx_state.GetDebugMessage()));
+            return NoErrorBlockValidationState::MakeInvalid(BlockValidationResult::BLOCK_CONSENSUS, tx_state.GetRejectReason(),
+                                                            strprintf("Transaction check failed (tx hash %s) %s", tx->GetHash().ToString(), tx_state.GetDebugMessage()));
         }
     }
     // This underestimates the number of sigops, because unlike ConnectBlock it
@@ -4020,12 +4032,12 @@ bool CheckBlock(const CBlock& block, BlockValidationState& state, const Consensu
         nSigOps += GetLegacySigOpCount(*tx);
     }
     if (nSigOps * WITNESS_SCALE_FACTOR > MAX_BLOCK_SIGOPS_COST)
-        return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-blk-sigops", "out-of-bounds SigOpCount");
+        return NoErrorBlockValidationState::MakeInvalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-blk-sigops", "out-of-bounds SigOpCount");
 
     if (fCheckPOW && fCheckMerkleRoot)
         block.fChecked = true;
 
-    return true;
+    return NoErrorBlockValidationState::MakeValid();
 }
 
 void ChainstateManager::UpdateUncommittedBlockStructures(CBlock& block, const CBlockIndex* pindexPrev) const
@@ -4075,8 +4087,8 @@ bool HasValidProofOfWork(std::span<const CBlockHeader> headers, const Consensus:
 
 bool IsBlockMutated(const CBlock& block, bool check_witness_root)
 {
-    BlockValidationState state;
-    if (!CheckMerkleRoot(block, state)) {
+    NoErrorBlockValidationState state{CheckMerkleRoot(block)};
+    if (!state.IsValid()) {
         LogDebug(BCLog::VALIDATION, "Block mutated: %s\n", state.ToString());
         return true;
     }
@@ -4096,7 +4108,8 @@ bool IsBlockMutated(const CBlock& block, bool check_witness_root)
         // here as it requires at least 224 bits of work.
     }
 
-    if (!CheckWitnessMalleation(block, check_witness_root, state)) {
+    state = CheckWitnessMalleation(block, check_witness_root);
+    if (!state.IsValid()) {
         LogDebug(BCLog::VALIDATION, "Block mutated: %s\n", state.ToString());
         return true;
     }
@@ -4126,7 +4139,7 @@ arith_uint256 CalculateClaimedHeadersWork(std::span<const CBlockHeader> headers)
  *  v0.12 and v0.15 (when no additional protection was in place) whereby an attacker could unboundedly
  *  grow our in-memory block index. See https://bitcoincore.org/en/2024/07/03/disclose-header-spam.
  */
-static bool ContextualCheckBlockHeader(const CBlockHeader& block, BlockValidationState& state, BlockManager& blockman, const ChainstateManager& chainman, const CBlockIndex* pindexPrev) EXCLUSIVE_LOCKS_REQUIRED(::cs_main)
+static NoErrorBlockValidationState ContextualCheckBlockHeader(const CBlockHeader& block, BlockManager& blockman, const ChainstateManager& chainman, const CBlockIndex* pindexPrev) EXCLUSIVE_LOCKS_REQUIRED(::cs_main)
 {
     AssertLockHeld(::cs_main);
     assert(pindexPrev != nullptr);
@@ -4135,11 +4148,11 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, BlockValidatio
     // Check proof of work
     const Consensus::Params& consensusParams = chainman.GetConsensus();
     if (block.nBits != GetNextWorkRequired(pindexPrev, &block, consensusParams))
-        return state.Invalid(BlockValidationResult::BLOCK_INVALID_HEADER, "bad-diffbits", "incorrect proof of work");
+        return NoErrorBlockValidationState::MakeInvalid(BlockValidationResult::BLOCK_INVALID_HEADER, "bad-diffbits", "incorrect proof of work");
 
     // Check timestamp against prev
     if (block.GetBlockTime() <= pindexPrev->GetMedianTimePast())
-        return state.Invalid(BlockValidationResult::BLOCK_INVALID_HEADER, "time-too-old", "block's timestamp is too early");
+        return NoErrorBlockValidationState::MakeInvalid(BlockValidationResult::BLOCK_INVALID_HEADER, "time-too-old", "block's timestamp is too early");
 
     // Testnet4 and regtest only: Check timestamp against prev for difficulty-adjustment
     // blocks to prevent timewarp attacks (see https://github.com/bitcoin/bitcoin/pull/15482).
@@ -4148,25 +4161,25 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, BlockValidatio
         // interval, except the genesis block.
         if (nHeight % consensusParams.DifficultyAdjustmentInterval() == 0) {
             if (block.GetBlockTime() < pindexPrev->GetBlockTime() - MAX_TIMEWARP) {
-                return state.Invalid(BlockValidationResult::BLOCK_INVALID_HEADER, "time-timewarp-attack", "block's timestamp is too early on diff adjustment block");
+                return NoErrorBlockValidationState::MakeInvalid(BlockValidationResult::BLOCK_INVALID_HEADER, "time-timewarp-attack", "block's timestamp is too early on diff adjustment block");
             }
         }
     }
 
     // Check timestamp
     if (block.Time() > NodeClock::now() + std::chrono::seconds{MAX_FUTURE_BLOCK_TIME}) {
-        return state.Invalid(BlockValidationResult::BLOCK_TIME_FUTURE, "time-too-new", "block timestamp too far in the future");
+        return NoErrorBlockValidationState::MakeInvalid(BlockValidationResult::BLOCK_TIME_FUTURE, "time-too-new", "block timestamp too far in the future");
     }
 
     // Reject blocks with outdated version
     if ((block.nVersion < 2 && DeploymentActiveAfter(pindexPrev, chainman, Consensus::DEPLOYMENT_HEIGHTINCB)) ||
         (block.nVersion < 3 && DeploymentActiveAfter(pindexPrev, chainman, Consensus::DEPLOYMENT_DERSIG)) ||
         (block.nVersion < 4 && DeploymentActiveAfter(pindexPrev, chainman, Consensus::DEPLOYMENT_CLTV))) {
-            return state.Invalid(BlockValidationResult::BLOCK_INVALID_HEADER, strprintf("bad-version(0x%08x)", block.nVersion),
+            return NoErrorBlockValidationState::MakeInvalid(BlockValidationResult::BLOCK_INVALID_HEADER, strprintf("bad-version(0x%08x)", block.nVersion),
                                  strprintf("rejected nVersion=0x%08x block", block.nVersion));
     }
 
-    return true;
+    return NoErrorBlockValidationState::MakeValid();
 }
 
 /** NOTE: This function is not currently invoked by ConnectBlock(), so we
@@ -4175,7 +4188,7 @@ static bool ContextualCheckBlockHeader(const CBlockHeader& block, BlockValidatio
  *  in ConnectBlock().
  *  Note that -reindex-chainstate skips the validation that happens here!
  */
-static bool ContextualCheckBlock(const CBlock& block, BlockValidationState& state, const ChainstateManager& chainman, const CBlockIndex* pindexPrev)
+static NoErrorBlockValidationState ContextualCheckBlock(const CBlock& block, const ChainstateManager& chainman, const CBlockIndex* pindexPrev)
 {
     const int nHeight = pindexPrev == nullptr ? 0 : pindexPrev->nHeight + 1;
 
@@ -4193,7 +4206,7 @@ static bool ContextualCheckBlock(const CBlock& block, BlockValidationState& stat
     // Check that all transactions are finalized
     for (const auto& tx : block.vtx) {
         if (!IsFinalTx(*tx, nHeight, nLockTimeCutoff)) {
-            return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-txns-nonfinal", "non-final transaction");
+            return NoErrorBlockValidationState::MakeInvalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-txns-nonfinal", "non-final transaction");
         }
     }
 
@@ -4203,7 +4216,7 @@ static bool ContextualCheckBlock(const CBlock& block, BlockValidationState& stat
         CScript expect = CScript() << nHeight;
         if (block.vtx[0]->vin[0].scriptSig.size() < expect.size() ||
             !std::equal(expect.begin(), expect.end(), block.vtx[0]->vin[0].scriptSig.begin())) {
-            return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-cb-height", "block height mismatch in coinbase");
+            return NoErrorBlockValidationState::MakeInvalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-cb-height", "block height mismatch in coinbase");
         }
     }
 
@@ -4215,8 +4228,9 @@ static bool ContextualCheckBlock(const CBlock& block, BlockValidationState& stat
     // * There must be at least one output whose scriptPubKey is a single 36-byte push, the first 4 bytes of which are
     //   {0xaa, 0x21, 0xa9, 0xed}, and the following 32 bytes are SHA256^2(witness root, witness reserved value). In case there are
     //   multiple, the last one is used.
-    if (!CheckWitnessMalleation(block, DeploymentActiveAfter(pindexPrev, chainman, Consensus::DEPLOYMENT_SEGWIT), state)) {
-        return false;
+    if (auto state{CheckWitnessMalleation(block, DeploymentActiveAfter(pindexPrev, chainman, Consensus::DEPLOYMENT_SEGWIT))};
+        !state.IsValid()) {
+        return state;
     }
 
     // After the coinbase witness reserved value and commitment are verified,
@@ -4226,13 +4240,13 @@ static bool ContextualCheckBlock(const CBlock& block, BlockValidationState& stat
     // the block hash, so we couldn't mark the block as permanently
     // failed).
     if (GetBlockWeight(block) > MAX_BLOCK_WEIGHT) {
-        return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-blk-weight", strprintf("%s : weight limit failed", __func__));
+        return NoErrorBlockValidationState::MakeInvalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-blk-weight", strprintf("%s : weight limit failed", __func__));
     }
 
-    return true;
+    return NoErrorBlockValidationState::MakeValid();
 }
 
-bool ChainstateManager::AcceptBlockHeader(const CBlockHeader& block, BlockValidationState& state, CBlockIndex** ppindex, bool min_pow_checked)
+NoErrorBlockValidationState ChainstateManager::AcceptBlockHeader(const CBlockHeader& block, CBlockIndex** ppindex, bool min_pow_checked)
 {
     AssertLockHeld(cs_main);
 
@@ -4247,15 +4261,16 @@ bool ChainstateManager::AcceptBlockHeader(const CBlockHeader& block, BlockValida
                 *ppindex = pindex;
             if (pindex->nStatus & BLOCK_FAILED_MASK) {
                 LogDebug(BCLog::VALIDATION, "%s: block %s is marked invalid\n", __func__, hash.ToString());
-                return state.Invalid(BlockValidationResult::BLOCK_CACHED_INVALID, "duplicate-invalid",
+                return NoErrorBlockValidationState::MakeInvalid(BlockValidationResult::BLOCK_CACHED_INVALID, "duplicate-invalid",
                                      strprintf("block %s was previously marked invalid", hash.ToString()));
             }
-            return true;
+            return NoErrorBlockValidationState::MakeValid();
         }
 
-        if (!CheckBlockHeader(block, state, GetConsensus())) {
+        NoErrorBlockValidationState state{CheckBlockHeader(block, GetConsensus())};
+        if (!state.IsValid()) {
             LogDebug(BCLog::VALIDATION, "%s: Consensus::CheckBlockHeader: %s, %s\n", __func__, hash.ToString(), state.ToString());
-            return false;
+            return state;
         }
 
         // Get prev block index
@@ -4263,44 +4278,44 @@ bool ChainstateManager::AcceptBlockHeader(const CBlockHeader& block, BlockValida
         BlockMap::iterator mi{m_blockman.m_block_index.find(block.hashPrevBlock)};
         if (mi == m_blockman.m_block_index.end()) {
             LogDebug(BCLog::VALIDATION, "header %s has prev block not found: %s\n", hash.ToString(), block.hashPrevBlock.ToString());
-            return state.Invalid(BlockValidationResult::BLOCK_MISSING_PREV, "prev-blk-not-found");
+            return NoErrorBlockValidationState::MakeInvalid(BlockValidationResult::BLOCK_MISSING_PREV, "prev-blk-not-found");
         }
         pindexPrev = &((*mi).second);
         if (pindexPrev->nStatus & BLOCK_FAILED_MASK) {
             LogDebug(BCLog::VALIDATION, "header %s has prev block invalid: %s\n", hash.ToString(), block.hashPrevBlock.ToString());
-            return state.Invalid(BlockValidationResult::BLOCK_INVALID_PREV, "bad-prevblk");
+            return NoErrorBlockValidationState::MakeInvalid(BlockValidationResult::BLOCK_INVALID_PREV, "bad-prevblk");
         }
-        if (!ContextualCheckBlockHeader(block, state, m_blockman, *this, pindexPrev)) {
+
+        if (state = ContextualCheckBlockHeader(block, m_blockman, *this, pindexPrev);
+            !state.IsValid()) {
             LogDebug(BCLog::VALIDATION, "%s: Consensus::ContextualCheckBlockHeader: %s, %s\n", __func__, hash.ToString(), state.ToString());
-            return false;
+            return state;
         }
     }
     if (!min_pow_checked) {
         LogDebug(BCLog::VALIDATION, "%s: not adding new block header %s, missing anti-dos proof-of-work validation\n", __func__, hash.ToString());
-        return state.Invalid(BlockValidationResult::BLOCK_HEADER_LOW_WORK, "too-little-chainwork");
+        return NoErrorBlockValidationState::MakeInvalid(BlockValidationResult::BLOCK_HEADER_LOW_WORK, "too-little-chainwork");
     }
     CBlockIndex* pindex{m_blockman.AddToBlockIndex(block, m_best_header)};
 
     if (ppindex)
         *ppindex = pindex;
 
-    return true;
+    return NoErrorBlockValidationState::MakeValid();
 }
 
 // Exposed wrapper for AcceptBlockHeader
-BlockValidationState ChainstateManager::ProcessNewBlockHeaders(std::span<const CBlockHeader> headers, bool min_pow_checked, const CBlockIndex** ppindex)
+NoErrorBlockValidationState ChainstateManager::ProcessNewBlockHeaders(std::span<const CBlockHeader> headers, bool min_pow_checked, const CBlockIndex** ppindex)
 {
     AssertLockNotHeld(cs_main);
-    BlockValidationState state;
     {
         LOCK(cs_main);
         for (const CBlockHeader& header : headers) {
             CBlockIndex *pindex = nullptr; // Use a temp pindex instead of ppindex to avoid a const_cast
-            bool accepted{AcceptBlockHeader(header, state, &pindex, min_pow_checked)};
+            NoErrorBlockValidationState state{AcceptBlockHeader(header, &pindex, min_pow_checked)};
             CheckBlockIndex();
 
-            if (!accepted) {
-                CHECK_NONFATAL(!state.IsValid());
+            if (!state.IsValid()) {
                 return state;
             }
 
@@ -4319,8 +4334,7 @@ BlockValidationState ChainstateManager::ProcessNewBlockHeaders(std::span<const C
         }
     }
 
-    CHECK_NONFATAL(state.IsValid());
-    return state;
+    return NoErrorBlockValidationState::MakeValid();
 }
 
 void ChainstateManager::ReportHeadersPresync(int64_t height, int64_t timestamp)
@@ -4349,7 +4363,7 @@ void ChainstateManager::ReportHeadersPresync(int64_t height, int64_t timestamp)
 }
 
 /** Store block on disk. If dbp is non-nullptr, the file is known to already reside on disk */
-bool ChainstateManager::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, BlockValidationState& state, CBlockIndex** ppindex, bool fRequested, const FlatFilePos* dbp, bool* fNewBlock, bool min_pow_checked)
+BlockValidationState ChainstateManager::AcceptBlock(const std::shared_ptr<const CBlock>& pblock, CBlockIndex** ppindex, bool fRequested, const FlatFilePos* dbp, bool* fNewBlock, bool min_pow_checked)
 {
     const CBlock& block = *pblock;
 
@@ -4359,11 +4373,12 @@ bool ChainstateManager::AcceptBlock(const std::shared_ptr<const CBlock>& pblock,
     CBlockIndex *pindexDummy = nullptr;
     CBlockIndex *&pindex = ppindex ? *ppindex : pindexDummy;
 
-    bool accepted_header{AcceptBlockHeader(block, state, &pindex, min_pow_checked)};
+    NoErrorBlockValidationState header_state{AcceptBlockHeader(block, &pindex, min_pow_checked)};
     CheckBlockIndex();
 
-    if (!accepted_header)
-        return false;
+    if (!header_state.IsValid()) {
+        return BlockValidationState{std::move(header_state)};
+    }
 
     // Check all requested blocks that we do not already have for validity and
     // save them to disk. Skip processing of unrequested blocks as an anti-DoS
@@ -4386,28 +4401,30 @@ bool ChainstateManager::AcceptBlock(const std::shared_ptr<const CBlock>& pblock,
 
     // TODO: deal better with return value and error conditions for duplicate
     // and unrequested blocks.
-    if (fAlreadyHave) return true;
+    if (fAlreadyHave) return BlockValidationState{};
     if (!fRequested) {  // If we didn't ask for it:
-        if (pindex->nTx != 0) return true;    // This is a previously-processed block that was pruned
-        if (!fHasMoreOrSameWork) return true; // Don't process less-work chains
-        if (fTooFarAhead) return true;        // Block height is too high
+        if (pindex->nTx != 0) return BlockValidationState{};    // This is a previously-processed block that was pruned
+        if (!fHasMoreOrSameWork) return BlockValidationState{}; // Don't process less-work chains
+        if (fTooFarAhead) return BlockValidationState{};        // Block height is too high
 
         // Protect against DoS attacks from low-work chains.
         // If our tip is behind, a peer could try to send us
         // low-work blocks on a fake chain that we would never
         // request; don't process these.
-        if (pindex->nChainWork < MinimumChainWork()) return true;
+        if (pindex->nChainWork < MinimumChainWork()) return BlockValidationState{};
     }
 
     const CChainParams& params{GetParams()};
 
-    if (!CheckBlock(block, state, params.GetConsensus()) ||
-        !ContextualCheckBlock(block, state, *this, pindex->pprev)) {
-        if (Assume(state.IsInvalid())) {
-            ActiveChainstate().InvalidBlockFound(pindex, state);
+    {
+        NoErrorBlockValidationState state{CheckBlock(block, params.GetConsensus())};
+        if (state.IsValid())
+            state = ContextualCheckBlock(block, *this, pindex->pprev);
+        if (!state.IsValid()) {
+            ActiveChainstate().InvalidBlockFound(pindex, state.GetResult());
+            LogError("%s: %s\n", __func__, state.ToString());
+            return BlockValidationState{std::move(state)};
         }
-        LogError("%s: %s\n", __func__, state.ToString());
-        return false;
     }
 
     // Header is valid/has work, merkle tree and segwit merkle tree are good...RELAY NOW
@@ -4418,6 +4435,7 @@ bool ChainstateManager::AcceptBlock(const std::shared_ptr<const CBlock>& pblock,
 
     // Write block to history file
     if (fNewBlock) *fNewBlock = true;
+    BlockValidationState state;
     try {
         FlatFilePos blockPos{};
         if (dbp) {
@@ -4427,12 +4445,13 @@ bool ChainstateManager::AcceptBlock(const std::shared_ptr<const CBlock>& pblock,
             blockPos = m_blockman.WriteBlock(block, pindex->nHeight);
             if (blockPos.IsNull()) {
                 state.Error(strprintf("%s: Failed to find position to write new block to disk", __func__));
-                return false;
+                return state;
             }
         }
         ReceivedBlockTransactions(block, pindex, blockPos);
     } catch (const std::runtime_error& e) {
-        return FatalError(GetNotifications(), state, strprintf(_("System error while saving block to disk: %s"), e.what()));
+        FatalError(GetNotifications(), state, strprintf(_("System error while saving block to disk: %s"), e.what()));
+        return state;
     }
 
     // TODO: FlushStateToDisk() handles flushing of both block and chainstate
@@ -4446,7 +4465,7 @@ bool ChainstateManager::AcceptBlock(const std::shared_ptr<const CBlock>& pblock,
 
     CheckBlockIndex();
 
-    return true;
+    return state;
 }
 
 bool ChainstateManager::ProcessNewBlock(const std::shared_ptr<const CBlock>& block, bool force_processing, bool min_pow_checked, bool* new_block)
@@ -4456,7 +4475,6 @@ bool ChainstateManager::ProcessNewBlock(const std::shared_ptr<const CBlock>& blo
     {
         CBlockIndex *pindex = nullptr;
         if (new_block) *new_block = false;
-        BlockValidationState state;
 
         // CheckBlock() does not support multi-threaded block validation because CBlock::fChecked can cause data race.
         // Therefore, the following critical section must include the CheckBlock() call as well.
@@ -4467,12 +4485,12 @@ bool ChainstateManager::ProcessNewBlock(const std::shared_ptr<const CBlock>& blo
         // malleability that cause CheckBlock() to fail; see e.g. CVE-2012-2459 and
         // https://lists.linuxfoundation.org/pipermail/bitcoin-dev/2019-February/016697.html.  Because CheckBlock() is
         // not very expensive, the anti-DoS benefits of caching failure (of a definitely-invalid block) are not substantial.
-        bool ret = CheckBlock(*block, state, GetConsensus());
-        if (ret) {
+        BlockValidationState state{CheckBlock(*block, GetConsensus())};
+        if (state.IsValid()) {
             // Store to disk
-            ret = AcceptBlock(block, state, &pindex, force_processing, nullptr, new_block, min_pow_checked);
+            state = AcceptBlock(block, &pindex, force_processing, nullptr, new_block, min_pow_checked);
         }
-        if (!ret) {
+        if (!state.IsValid()) {
             if (m_options.signals) {
                 m_options.signals->BlockChecked(block, state);
             }
@@ -4525,20 +4543,18 @@ BlockValidationState TestBlockValidity(
     // 2. To prevent a CheckBlock() race condition for fChecked, see ProcessNewBlock()
     AssertLockHeld(chainstate.m_chainman.GetMutex());
 
-    BlockValidationState state;
     CBlockIndex* tip{Assert(chainstate.m_chain.Tip())};
 
     if (block.hashPrevBlock != *Assert(tip->phashBlock)) {
+        BlockValidationState state;
         state.Invalid({}, "inconclusive-not-best-prevblk");
         return state;
     }
 
     // For signets CheckBlock() verifies the challenge iff fCheckPow is set.
-    if (!CheckBlock(block, state, chainstate.m_chainman.GetConsensus(), /*fCheckPow=*/check_pow, /*fCheckMerkleRoot=*/check_merkle_root)) {
-        // This should never happen, but belt-and-suspenders don't approve the
-        // block if it does.
-        if (state.IsValid()) NONFATAL_UNREACHABLE();
-        return state;
+    NoErrorBlockValidationState noerror_state{CheckBlock(block, chainstate.m_chainman.GetConsensus(), /*fCheckPow=*/check_pow, /*fCheckMerkleRoot=*/check_merkle_root)};
+    if (!noerror_state.IsValid()) {
+        return noerror_state;
     }
 
     /**
@@ -4556,14 +4572,14 @@ BlockValidationState TestBlockValidity(
      * - do run ContextualCheckBlock()
      */
 
-    if (!ContextualCheckBlockHeader(block, state, chainstate.m_blockman, chainstate.m_chainman, tip)) {
-        if (state.IsValid()) NONFATAL_UNREACHABLE();
-        return state;
+    noerror_state = ContextualCheckBlockHeader(block, chainstate.m_blockman, chainstate.m_chainman, tip);
+    if (!noerror_state.IsValid()) {
+        return noerror_state;
     }
 
-    if (!ContextualCheckBlock(block, state, chainstate.m_chainman, tip)) {
-        if (state.IsValid()) NONFATAL_UNREACHABLE();
-        return state;
+    noerror_state = ContextualCheckBlock(block, chainstate.m_chainman, tip);
+    if (!noerror_state.IsValid()) {
+        return noerror_state;
     }
 
     // We don't want ConnectBlock to update the actual chainstate, so create
@@ -4576,13 +4592,14 @@ BlockValidationState TestBlockValidity(
     CCoinsViewCache view_dummy(&chainstate.CoinsTip());
 
     // Set fJustCheck to true in order to update, and not clear, validation caches.
+    BlockValidationState state{std::move(noerror_state)};
     if(!chainstate.ConnectBlock(block, state, &index_dummy, view_dummy, /*fJustCheck=*/true)) {
-        if (state.IsValid()) NONFATAL_UNREACHABLE();
+        CHECK_NONFATAL(!state.IsValid());
         return state;
     }
 
     // Ensure no check returned successfully while also setting an invalid state.
-    if (!state.IsValid()) NONFATAL_UNREACHABLE();
+    CHECK_NONFATAL(state.IsValid());
 
     return state;
 }
@@ -4685,7 +4702,6 @@ VerifyDBResult CVerifyDB::VerifyDB(
     CBlockIndex* pindex;
     CBlockIndex* pindexFailure = nullptr;
     int nGoodTransactions = 0;
-    BlockValidationState state;
     int reportDone = 0;
     bool skipped_no_block_data{false};
     bool skipped_l3_checks{false};
@@ -4718,10 +4734,13 @@ VerifyDBResult CVerifyDB::VerifyDB(
             return VerifyDBResult::CORRUPTED_BLOCK_DB;
         }
         // check level 1: verify block validity
-        if (nCheckLevel >= 1 && !CheckBlock(block, state, consensus_params)) {
-            LogError("Verification error: found bad block at %d, hash=%s (%s)",
-                      pindex->nHeight, pindex->GetBlockHash().ToString(), state.ToString());
-            return VerifyDBResult::CORRUPTED_BLOCK_DB;
+        if (nCheckLevel >= 1) {
+            NoErrorBlockValidationState noerror_state{CheckBlock(block, consensus_params)};
+            if (!noerror_state.IsValid()) {
+                LogError("Verification error: found bad block at %d, hash=%s (%s)",
+                         pindex->nHeight, pindex->GetBlockHash().ToString(), noerror_state.ToString());
+                return VerifyDBResult::CORRUPTED_BLOCK_DB;
+            }
         }
         // check level 2: verify undo validity
         if (nCheckLevel >= 2 && pindex) {
@@ -4783,6 +4802,7 @@ VerifyDBResult CVerifyDB::VerifyDB(
                 LogError("Verification error: ReadBlock failed at %d, hash=%s", pindex->nHeight, pindex->GetBlockHash().ToString());
                 return VerifyDBResult::CORRUPTED_BLOCK_DB;
             }
+            BlockValidationState state;
             if (!chainstate.ConnectBlock(block, state, pindex, coins)) {
                 LogError("Verification error: found unconnectable block at %d, hash=%s (%s)", pindex->nHeight, pindex->GetBlockHash().ToString(), state.ToString());
                 return VerifyDBResult::CORRUPTED_BLOCK_DB;
@@ -5084,8 +5104,8 @@ void ChainstateManager::LoadExternalBlockFile(
                         blkdat >> TX_WITH_WITNESS(*pblock);
                         nRewind = blkdat.GetPos();
 
-                        BlockValidationState state;
-                        if (AcceptBlock(pblock, state, nullptr, true, dbp, nullptr, true)) {
+                        BlockValidationState state{AcceptBlock(pblock, nullptr, /*fRequested=*/true, dbp, nullptr, /*min_pow_checked=*/true)};
+                        if (state.IsValid()) {
                             nLoaded++;
                         }
                         if (state.IsError()) {
@@ -5142,8 +5162,8 @@ void ChainstateManager::LoadExternalBlockFile(
                             const auto& block_hash{pblockrecursive->GetHash()};
                             LogDebug(BCLog::REINDEX, "%s: Processing out of order child %s of %s", __func__, block_hash.ToString(), head.ToString());
                             LOCK(cs_main);
-                            BlockValidationState dummy;
-                            if (AcceptBlock(pblockrecursive, dummy, nullptr, true, &it->second, nullptr, true)) {
+                            BlockValidationState state{AcceptBlock(pblockrecursive, nullptr, /*fRequested=*/true, &it->second, nullptr, /*min_pow_checked=*/true)};
+                            if (state.IsValid()) {
                                 nLoaded++;
                                 queue.push_back(block_hash);
                             }

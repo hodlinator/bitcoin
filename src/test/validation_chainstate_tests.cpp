@@ -110,7 +110,6 @@ BOOST_FIXTURE_TEST_CASE(chainstate_update_tip, TestChain100Setup)
     Chainstate& background_cs{*Assert(WITH_LOCK(::cs_main, return chainman.HistoricalChainstate()))};
 
     // Append the first block to the background chain.
-    BlockValidationState state;
     CBlockIndex* pindex = nullptr;
     const CChainParams& chainparams = Params();
     bool newblock = false;
@@ -119,14 +118,15 @@ BOOST_FIXTURE_TEST_CASE(chainstate_update_tip, TestChain100Setup)
     // once it is changed to support multiple chainstates.
     {
         LOCK(::cs_main);
-        bool checked = CheckBlock(*pblockone, state, chainparams.GetConsensus());
-        BOOST_CHECK(checked);
-        bool accepted = chainman.AcceptBlock(
-            pblockone, state, &pindex, true, nullptr, &newblock, true);
-        BOOST_CHECK(accepted);
+        NoErrorBlockValidationState no_error_state{CheckBlock(*pblockone, chainparams.GetConsensus())};
+        BOOST_CHECK(no_error_state.IsValid());
+        BlockValidationState state{chainman.AcceptBlock(
+            pblockone, &pindex, /*fRequested=*/true, nullptr, &newblock, /*min_pow_checked=*/true)};
+        BOOST_CHECK(state.IsValid());
     }
 
     // UpdateTip is called here
+    BlockValidationState state;
     bool block_added = background_cs.ActivateBestChain(state, pblockone);
 
     // Ensure tip is as expected

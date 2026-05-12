@@ -1306,7 +1306,7 @@ btck_BlockValidationState* btck_chainstate_manager_process_block_header(
         auto& chainman = btck_ChainstateManager::get(chainstate_manager).m_chainman;
         auto state = chainman->ProcessNewBlockHeaders({&btck_BlockHeader::get(header), 1}, /*min_pow_checked=*/true);
 
-        return btck_BlockValidationState::create(state);
+        return btck_BlockValidationState::create(BlockValidationState{std::move(state)});
     } catch (const std::exception& e) {
         LogError("Failed to process block header: %s", e.what());
         return nullptr;
