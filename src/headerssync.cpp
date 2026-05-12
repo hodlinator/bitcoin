@@ -25,9 +25,13 @@ static uint64_t ComputeMaxCommitments(std::chrono::time_point<NodeClock, std::ch
     // exceeds this bound, because it's not possible for a consensus-valid
     // chain to be longer than this (at the current time -- in the future we
     // could try again, if necessary, to sync a longer chain).
-    const auto max_seconds_since_start{(Ticks<std::chrono::seconds>(NodeClock::now() - start_mtp))
-                                       + MAX_FUTURE_BLOCK_TIME};
-    return 6 * max_seconds_since_start / commitment_period;
+    const int64_t max_seconds_since_start{(Ticks<std::chrono::seconds>(NodeClock::now() - start_mtp))
+                                          + MAX_FUTURE_BLOCK_TIME};
+    if (max_seconds_since_start > 0) {
+        return 6 * max_seconds_since_start / commitment_period;
+    }
+    LogWarning("System clock is earlier than chain-start's MTP minus %d seconds. Syncing will fail.", MAX_FUTURE_BLOCK_TIME);
+    return 0;
 }
 
 HeadersSyncState::HeadersSyncState(NodeId id,
@@ -150,6 +154,11 @@ bool HeadersSyncState::ValidateAndStoreHeadersCommitments(std::span<const CBlock
 
     Assume(m_download_state == State::PRESYNC);
     if (m_download_state != State::PRESYNC) return false;
+
+    if (m_max_commitments == 0) {
+        LogWarning("Initial headers sync aborted with peer=%d: local clock behind chain-start MTP (presync phase)", m_id);
+        return false;
+    }
 
     if (headers[0].hashPrevBlock != m_last_header_received.GetHash()) {
         // Somehow our peer gave us a header that doesn't connect.
