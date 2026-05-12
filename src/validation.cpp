@@ -2949,7 +2949,10 @@ BlockValidationState Chainstate::DisconnectTip(DisconnectedBlockTransactions* di
     std::shared_ptr<CBlock> pblock = std::make_shared<CBlock>();
     CBlock& block = *pblock;
     if (!m_blockman.ReadBlock(block, *pindexDelete)) {
-        return FatalError(m_chainman.GetNotifications(), Untranslated("DisconnectTip(): Failed to read block"));
+        LogError("DisconnectTip(): Failed to read block\n");
+        BlockValidationState state;
+        state.Error("DisconnectTip(): Failed to read block");
+        return state;
     }
     // Apply the block atomically to the chain state.
     const auto time_start{SteadyClock::now()};
@@ -2957,7 +2960,10 @@ BlockValidationState Chainstate::DisconnectTip(DisconnectedBlockTransactions* di
         CCoinsViewCache view(&CoinsTip());
         assert(view.GetBestBlock() == pindexDelete->GetBlockHash());
         if (DisconnectBlock(block, pindexDelete, view) != DISCONNECT_OK) {
-            return FatalError(m_chainman.GetNotifications(), Untranslated(strprintf("DisconnectTip(): DisconnectBlock %s failed\n", pindexDelete->GetBlockHash().ToString())));
+            LogError("DisconnectTip(): DisconnectBlock %s failed\n", pindexDelete->GetBlockHash().ToString());
+            BlockValidationState state;
+            state.Error("DisconnectTip(): DisconnectBlock failed");
+            return state;
         }
         view.Flush(/*reallocate_cache=*/false); // local CCoinsViewCache goes out of scope
     }
