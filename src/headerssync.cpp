@@ -14,6 +14,22 @@
 // CompressedHeader (we should re-calculate parameters if we compress further).
 static_assert(sizeof(CompressedHeader) == 48);
 
+static uint64_t ComputeMaxCommitments(std::chrono::time_point<NodeClock, std::chrono::seconds> start_mtp,
+                                      size_t commitment_period)
+{
+    // Estimate the number of blocks that could possibly exist on the peer's
+    // chain *right now* using 6 blocks/second (fastest blockrate given the MTP
+    // rule) times the number of seconds from the last allowed block until
+    // today. This serves as a memory bound on how many commitments we might
+    // store from this peer, and we can safely give up syncing if the peer
+    // exceeds this bound, because it's not possible for a consensus-valid
+    // chain to be longer than this (at the current time -- in the future we
+    // could try again, if necessary, to sync a longer chain).
+    const auto max_seconds_since_start{(Ticks<std::chrono::seconds>(NodeClock::now() - start_mtp))
+                                       + MAX_FUTURE_BLOCK_TIME};
+    return 6 * max_seconds_since_start / commitment_period;
+}
+
 HeadersSyncState::HeadersSyncState(NodeId id,
                                    const Consensus::Params& consensus_params,
                                    const HeadersSyncParams& params,
@@ -27,21 +43,11 @@ HeadersSyncState::HeadersSyncState(NodeId id,
       m_chain_start(chain_start),
       m_minimum_required_work(minimum_required_work),
       m_current_chain_work(chain_start.nChainWork),
+      m_max_commitments{ComputeMaxCommitments(NodeSeconds{std::chrono::seconds{chain_start.GetMedianTimePast()}},
+                                              m_params.commitment_period)},
       m_last_header_received(m_chain_start.GetBlockHeader()),
       m_current_height(chain_start.nHeight)
 {
-    // Estimate the number of blocks that could possibly exist on the peer's
-    // chain *right now* using 6 blocks/second (fastest blockrate given the MTP
-    // rule) times the number of seconds from the last allowed block until
-    // today. This serves as a memory bound on how many commitments we might
-    // store from this peer, and we can safely give up syncing if the peer
-    // exceeds this bound, because it's not possible for a consensus-valid
-    // chain to be longer than this (at the current time -- in the future we
-    // could try again, if necessary, to sync a longer chain).
-    const auto max_seconds_since_start{(Ticks<std::chrono::seconds>(NodeClock::now() - NodeSeconds{std::chrono::seconds{chain_start.GetMedianTimePast()}}))
-                                       + MAX_FUTURE_BLOCK_TIME};
-    m_max_commitments = 6 * max_seconds_since_start / m_params.commitment_period;
-
     LogDebug(BCLog::NET, "Initial headers sync started with peer=%d: height=%i, max_commitments=%i, min_work=%s\n", m_id, m_current_height, m_max_commitments, m_minimum_required_work.ToString());
 }
 
