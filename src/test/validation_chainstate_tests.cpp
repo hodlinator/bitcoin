@@ -126,15 +126,14 @@ BOOST_FIXTURE_TEST_CASE(chainstate_update_tip, TestChain100Setup)
     }
 
     // UpdateTip is called here
-    BlockValidationState state;
-    bool block_added = background_cs.ActivateBestChain(state, pblockone);
+    BlockValidationState state{background_cs.ActivateBestChain(pblockone)};
 
     // Ensure tip is as expected
     BOOST_CHECK_EQUAL(background_cs.m_chain.Tip()->GetBlockHash(), pblockone->GetHash());
 
     // get_notify_tip() should be unchanged after adding a block to the background
     // validation chain.
-    BOOST_CHECK(block_added);
+    BOOST_CHECK(state.IsValid());
     BOOST_CHECK_EQUAL(curr_tip, get_notify_tip());
 }
 

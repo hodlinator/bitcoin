@@ -122,11 +122,10 @@ BOOST_FIXTURE_TEST_CASE(invalidate_block, TestChain100Setup)
     const CChain& active{*WITH_LOCK(Assert(m_node.chainman)->GetMutex(), return &Assert(m_node.chainman)->ActiveChain())};
 
     // Check BlockStatus when doing InvalidateBlock()
-    BlockValidationState state;
     auto* orig_tip = active.Tip();
     int height_to_invalidate = orig_tip->nHeight - 10;
     auto* tip_to_invalidate = active[height_to_invalidate];
-    m_node.chainman->ActiveChainstate().InvalidateBlock(state, tip_to_invalidate);
+    BlockValidationState state{m_node.chainman->ActiveChainstate().InvalidateBlock(tip_to_invalidate)};
 
     // tip_to_invalidate just got invalidated, so it's BLOCK_FAILED_VALID
     WITH_LOCK(::cs_main, assert(tip_to_invalidate->nStatus & BLOCK_FAILED_VALID));
@@ -149,7 +148,7 @@ BOOST_FIXTURE_TEST_CASE(invalidate_block, TestChain100Setup)
     }
 
     // don't mark already invalidated block (orig_tip is BLOCK_FAILED_CHILD) with BLOCK_FAILED_VALID again
-    m_node.chainman->ActiveChainstate().InvalidateBlock(state, orig_tip);
+    (void)m_node.chainman->ActiveChainstate().InvalidateBlock(orig_tip);
     WITH_LOCK(::cs_main, assert(orig_tip->nStatus & BLOCK_FAILED_CHILD));
     WITH_LOCK(::cs_main, assert((orig_tip->nStatus & BLOCK_FAILED_VALID) == 0));
 }

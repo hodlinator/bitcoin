@@ -100,7 +100,7 @@ BOOST_FIXTURE_TEST_CASE(coinstatsindex_unclean_shutdown, TestChain100Setup)
             state = m_node.chainman->AcceptBlock(new_block, &new_block_index, true, nullptr, nullptr, true);
             BOOST_CHECK(state.IsValid());
             CCoinsViewCache view(&chainstate.CoinsTip());
-            BOOST_CHECK(chainstate.ConnectBlock(block, state, new_block_index, view));
+            BOOST_CHECK(chainstate.ConnectBlock(block, new_block_index, view).IsValid());
         }
         // Send block connected notification, then stop the index without
         // sending a chainstate flushed notification. Prior to #24138, this

@@ -79,8 +79,7 @@ BOOST_FIXTURE_TEST_CASE(chainstatemanager, TestChain100Setup)
         c2.setBlockIndexCandidates.insert(manager.m_blockman.LookupBlockIndex(active_tip->GetBlockHash()));
         c2.LoadChainTip();
     }
-    BlockValidationState _;
-    BOOST_CHECK(c2.ActivateBestChain(_, nullptr));
+    BOOST_CHECK(c2.ActivateBestChain(nullptr).IsValid());
 
     BOOST_CHECK_EQUAL(WITH_LOCK(::cs_main, return *manager.CurrentChainstate().m_from_snapshot_blockhash), snapshot_blockhash);
     BOOST_CHECK(WITH_LOCK(::cs_main, return manager.CurrentChainstate().m_assumeutxo == Assumeutxo::UNVALIDATED));
@@ -616,10 +615,9 @@ BOOST_FIXTURE_TEST_CASE(chainstatemanager_snapshot_init, SnapshotTestSetup)
     //
     // Note that this is not a realistic use of DisconnectTip().
     DisconnectedBlockTransactions unused_pool{MAX_DISCONNECTED_TX_POOL_BYTES};
-    BlockValidationState unused_state;
     {
         LOCK2(::cs_main, bg_chainstate.MempoolMutex());
-        BOOST_CHECK(bg_chainstate.DisconnectTip(unused_state, &unused_pool));
+        BOOST_CHECK(bg_chainstate.DisconnectTip(&unused_pool).IsValid());
         unused_pool.clear();  // to avoid queuedTx assertion errors on teardown
     }
     BOOST_CHECK_EQUAL(bg_chainstate.m_chain.Height(), 109);
