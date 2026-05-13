@@ -24,7 +24,7 @@ class DumptxoutsetTest(BitcoinTestFramework):
         bogus_file = node.blocks_path / "bogus.dat"
         rev_file.rename(bogus_file)
         assert_raises_rpc_error(
-            -1, 'Could not roll back to requested height.', node.dumptxoutset, 'utxos.dat', rollback=99)
+            -20, 'DisconnectTip(): DisconnectBlock failed', node.dumptxoutset, 'utxos.dat', rollback=99)
         assert_equal(node.getnetworkinfo()['networkactive'], active)
 
         # Cleanup
