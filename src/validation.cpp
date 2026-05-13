@@ -3580,7 +3580,7 @@ BlockValidationState Chainstate::InvalidateBlock(CBlockIndex* pindex)
     assert(pindex);
     if (pindex->nHeight == 0) {
         BlockValidationState state;
-        state.Error("Genesis block can't be invalidated");
+        state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-blk-invalidating-genesis", "Genesis block cannot be invalidated");
         return state;
     }
 
