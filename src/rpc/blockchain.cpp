@@ -165,28 +165,29 @@ UniValue blockheaderToJSON(const CBlockIndex& tip, const CBlockIndex& blockindex
     // Serialize passed information without accessing chain state of the active chain!
     AssertLockNotHeld(cs_main); // For performance reasons
 
-    UniValue result(UniValue::VOBJ);
-    result.pushKV("hash", blockindex.GetBlockHash().GetHex());
     const CBlockIndex* pnext;
     int confirmations = ComputeNextBlockAndDepth(tip, blockindex, pnext);
-    result.pushKV("confirmations", confirmations);
-    result.pushKV("height", blockindex.nHeight);
-    result.pushKV("version", blockindex.nVersion);
-    result.pushKV("versionHex", strprintf("%08x", blockindex.nVersion));
-    result.pushKV("merkleroot", blockindex.hashMerkleRoot.GetHex());
-    result.pushKV("time", blockindex.nTime);
-    result.pushKV("mediantime", blockindex.GetMedianTimePast());
-    result.pushKV("nonce", blockindex.nNonce);
-    result.pushKV("bits", strprintf("%08x", blockindex.nBits));
-    result.pushKV("target", GetTarget(blockindex, pow_limit).GetHex());
-    result.pushKV("difficulty", GetDifficulty(blockindex));
-    result.pushKV("chainwork", blockindex.nChainWork.GetHex());
-    result.pushKV("nTx", blockindex.nTx);
 
+    std::vector<std::pair<std::string, UniValue>> result{
+        {"hash", blockindex.GetBlockHash().GetHex()},
+        {"confirmations", confirmations},
+        {"height", blockindex.nHeight},
+        {"version", blockindex.nVersion},
+        {"versionHex", strprintf("%08x", blockindex.nVersion)},
+        {"merkleroot", blockindex.hashMerkleRoot.GetHex()},
+        {"time", blockindex.nTime},
+        {"mediantime", blockindex.GetMedianTimePast()},
+        {"nonce", blockindex.nNonce},
+        {"bits", strprintf("%08x", blockindex.nBits)},
+        {"target", GetTarget(blockindex, pow_limit).GetHex()},
+        {"difficulty", GetDifficulty(blockindex)},
+        {"chainwork", blockindex.nChainWork.GetHex()},
+        {"nTx", blockindex.nTx},
+    };
     if (blockindex.pprev)
-        result.pushKV("previousblockhash", blockindex.pprev->GetBlockHash().GetHex());
+        result.emplace_back("previousblockhash", blockindex.pprev->GetBlockHash().GetHex());
     if (pnext)
-        result.pushKV("nextblockhash", pnext->GetBlockHash().GetHex());
+        result.emplace_back("nextblockhash", pnext->GetBlockHash().GetHex());
     return result;
 }
 
@@ -195,15 +196,16 @@ UniValue coinbaseTxToJSON(const CTransaction& coinbase_tx)
 {
     CHECK_NONFATAL(!coinbase_tx.vin.empty());
     const CTxIn& vin_0{coinbase_tx.vin[0]};
-    UniValue coinbase_tx_obj(UniValue::VOBJ);
-    coinbase_tx_obj.pushKV("version", coinbase_tx.version);
-    coinbase_tx_obj.pushKV("locktime", coinbase_tx.nLockTime);
-    coinbase_tx_obj.pushKV("sequence", vin_0.nSequence);
-    coinbase_tx_obj.pushKV("coinbase", HexStr(vin_0.scriptSig));
+    std::vector<std::pair<std::string, UniValue>> coinbase_tx_obj{
+        {"version", coinbase_tx.version},
+        {"locktime", coinbase_tx.nLockTime},
+        {"sequence", vin_0.nSequence},
+        {"coinbase", HexStr(vin_0.scriptSig)},
+    };
     const auto& witness_stack{vin_0.scriptWitness.stack};
     if (!witness_stack.empty()) {
         CHECK_NONFATAL(witness_stack.size() == 1);
-        coinbase_tx_obj.pushKV("witness", HexStr(witness_stack[0]));
+        coinbase_tx_obj.emplace_back("witness", HexStr(witness_stack[0]));
     }
     return coinbase_tx_obj;
 }
@@ -212,12 +214,12 @@ UniValue blockToJSON(BlockManager& blockman, const CBlock& block, const CBlockIn
 {
     UniValue result = blockheaderToJSON(tip, blockindex, pow_limit);
 
-    result.pushKV("strippedsize", ::GetSerializeSize(TX_NO_WITNESS(block)));
-    result.pushKV("size", ::GetSerializeSize(TX_WITH_WITNESS(block)));
-    result.pushKV("weight", ::GetBlockWeight(block));
+    result.pushKVEnd("strippedsize", ::GetSerializeSize(TX_NO_WITNESS(block)));
+    result.pushKVEnd("size", ::GetSerializeSize(TX_WITH_WITNESS(block)));
+    result.pushKVEnd("weight", ::GetBlockWeight(block));
 
     CHECK_NONFATAL(!block.vtx.empty());
-    result.pushKV("coinbase_tx", coinbaseTxToJSON(*block.vtx[0]));
+    result.pushKVEnd("coinbase_tx", coinbaseTxToJSON(*block.vtx[0]));
 
     UniValue txs(UniValue::VARR);
     txs.reserve(block.vtx.size());
@@ -248,7 +250,7 @@ UniValue blockToJSON(BlockManager& blockman, const CBlock& block, const CBlockIn
             break;
     }
 
-    result.pushKV("tx", std::move(txs));
+    result.pushKVEnd("tx", std::move(txs));
 
     return result;
 }
@@ -347,10 +349,10 @@ static RPCMethod waitfornewblock()
     // Return current block upon shutdown
     if (block) current_block = *block;
 
-    UniValue ret(UniValue::VOBJ);
-    ret.pushKV("hash", current_block.hash.GetHex());
-    ret.pushKV("height", current_block.height);
-    return ret;
+    return std::vector<std::pair<std::string, UniValue>>{
+        {"hash", current_block.hash.GetHex()},
+        {"height", current_block.height},
+    };
 },
     };
 }
@@ -408,10 +410,10 @@ static RPCMethod waitforblock()
         current_block = *block;
     }
 
-    UniValue ret(UniValue::VOBJ);
-    ret.pushKV("hash", current_block.hash.GetHex());
-    ret.pushKV("height", current_block.height);
-    return ret;
+    return std::vector<std::pair<std::string, UniValue>>{
+        {"hash", current_block.hash.GetHex()},
+        {"height", current_block.height},
+    };
 },
     };
 }
@@ -471,10 +473,10 @@ static RPCMethod waitforblockheight()
         current_block = *block;
     }
 
-    UniValue ret(UniValue::VOBJ);
-    ret.pushKV("hash", current_block.hash.GetHex());
-    ret.pushKV("height", current_block.height);
-    return ret;
+    return std::vector<std::pair<std::string, UniValue>>{
+        {"hash", current_block.hash.GetHex()},
+        {"height", current_block.height},
+    };
 },
     };
 }
@@ -1125,21 +1127,21 @@ static RPCMethod gettxoutsetinfo()
     const std::optional<CCoinsStats> maybe_stats = GetUTXOStats(coins_view, *blockman, hash_type, node.rpc_interruption_point, pindex, index_requested);
     if (maybe_stats.has_value()) {
         const CCoinsStats& stats = maybe_stats.value();
-        ret.pushKV("height", stats.nHeight);
-        ret.pushKV("bestblock", stats.hashBlock.GetHex());
-        ret.pushKV("txouts", stats.nTransactionOutputs);
-        ret.pushKV("bogosize", stats.nBogoSize);
+        ret.pushKVEnd("height", stats.nHeight);
+        ret.pushKVEnd("bestblock", stats.hashBlock.GetHex());
+        ret.pushKVEnd("txouts", stats.nTransactionOutputs);
+        ret.pushKVEnd("bogosize", stats.nBogoSize);
         if (hash_type == CoinStatsHashType::HASH_SERIALIZED) {
-            ret.pushKV("hash_serialized_3", stats.hashSerialized.GetHex());
+            ret.pushKVEnd("hash_serialized_3", stats.hashSerialized.GetHex());
         }
         if (hash_type == CoinStatsHashType::MUHASH) {
-            ret.pushKV("muhash", stats.hashSerialized.GetHex());
+            ret.pushKVEnd("muhash", stats.hashSerialized.GetHex());
         }
         CHECK_NONFATAL(stats.total_amount.has_value());
-        ret.pushKV("total_amount", ValueFromAmount(stats.total_amount.value()));
+        ret.pushKVEnd("total_amount", ValueFromAmount(stats.total_amount.value()));
         if (!stats.index_used) {
-            ret.pushKV("transactions", stats.nTransactions);
-            ret.pushKV("disk_size", stats.nDiskSize);
+            ret.pushKVEnd("transactions", stats.nTransactions);
+            ret.pushKVEnd("disk_size", stats.nDiskSize);
         } else {
             CCoinsStats prev_stats{};
             if (stats.nHeight > 0) {
@@ -1160,7 +1162,7 @@ static RPCMethod gettxoutsetinfo()
                                                           prev_stats.total_unspendables_scripts +
                                                           prev_stats.total_unspendables_unclaimed_rewards;
 
-            ret.pushKV("total_unspendable_amount", ValueFromAmount(block_total_unspendable_amount));
+            ret.pushKVEnd("total_unspendable_amount", ValueFromAmount(block_total_unspendable_amount));
 
             UniValue block_info(UniValue::VOBJ);
             // These per-block values should fit uint64 under normal circumstances
@@ -1170,19 +1172,19 @@ static RPCMethod gettxoutsetinfo()
             CAmount prevout_amount = static_cast<CAmount>(diff_prevout.GetLow64());
             CAmount coinbase_amount = static_cast<CAmount>(diff_coinbase.GetLow64());
             CAmount outputs_amount = static_cast<CAmount>(diff_outputs.GetLow64());
-            block_info.pushKV("prevout_spent", ValueFromAmount(prevout_amount));
-            block_info.pushKV("coinbase", ValueFromAmount(coinbase_amount));
-            block_info.pushKV("new_outputs_ex_coinbase", ValueFromAmount(outputs_amount));
-            block_info.pushKV("unspendable", ValueFromAmount(block_total_unspendable_amount - prev_block_total_unspendable_amount));
+            block_info.pushKVEnd("prevout_spent", ValueFromAmount(prevout_amount));
+            block_info.pushKVEnd("coinbase", ValueFromAmount(coinbase_amount));
+            block_info.pushKVEnd("new_outputs_ex_coinbase", ValueFromAmount(outputs_amount));
+            block_info.pushKVEnd("unspendable", ValueFromAmount(block_total_unspendable_amount - prev_block_total_unspendable_amount));
 
             UniValue unspendables(UniValue::VOBJ);
-            unspendables.pushKV("genesis_block", ValueFromAmount(stats.total_unspendables_genesis_block - prev_stats.total_unspendables_genesis_block));
-            unspendables.pushKV("bip30", ValueFromAmount(stats.total_unspendables_bip30 - prev_stats.total_unspendables_bip30));
-            unspendables.pushKV("scripts", ValueFromAmount(stats.total_unspendables_scripts - prev_stats.total_unspendables_scripts));
-            unspendables.pushKV("unclaimed_rewards", ValueFromAmount(stats.total_unspendables_unclaimed_rewards - prev_stats.total_unspendables_unclaimed_rewards));
-            block_info.pushKV("unspendables", std::move(unspendables));
+            unspendables.pushKVEnd("genesis_block", ValueFromAmount(stats.total_unspendables_genesis_block - prev_stats.total_unspendables_genesis_block));
+            unspendables.pushKVEnd("bip30", ValueFromAmount(stats.total_unspendables_bip30 - prev_stats.total_unspendables_bip30));
+            unspendables.pushKVEnd("scripts", ValueFromAmount(stats.total_unspendables_scripts - prev_stats.total_unspendables_scripts));
+            unspendables.pushKVEnd("unclaimed_rewards", ValueFromAmount(stats.total_unspendables_unclaimed_rewards - prev_stats.total_unspendables_unclaimed_rewards));
+            block_info.pushKVEnd("unspendables", std::move(unspendables));
 
-            ret.pushKV("block_info", std::move(block_info));
+            ret.pushKVEnd("block_info", std::move(block_info));
         }
     } else {
         throw JSONRPCError(RPC_INTERNAL_ERROR, "Unable to read UTXO set");
@@ -1255,17 +1257,17 @@ static RPCMethod gettxout()
     if (!coin) return UniValue::VNULL;
 
     const CBlockIndex* pindex = active_chainstate.m_blockman.LookupBlockIndex(coins_view->GetBestBlock());
-    ret.pushKV("bestblock", pindex->GetBlockHash().GetHex());
+    ret.pushKVEnd("bestblock", pindex->GetBlockHash().GetHex());
     if (coin->nHeight == MEMPOOL_HEIGHT) {
-        ret.pushKV("confirmations", 0);
+        ret.pushKVEnd("confirmations", 0);
     } else {
-        ret.pushKV("confirmations", pindex->nHeight - coin->nHeight + 1);
+        ret.pushKVEnd("confirmations", pindex->nHeight - coin->nHeight + 1);
     }
-    ret.pushKV("value", ValueFromAmount(coin->out.nValue));
+    ret.pushKVEnd("value", ValueFromAmount(coin->out.nValue));
     UniValue o(UniValue::VOBJ);
     ScriptToUniv(coin->out.scriptPubKey, /*out=*/o, /*include_hex=*/true, /*include_address=*/true);
-    ret.pushKV("scriptPubKey", std::move(o));
-    ret.pushKV("coinbase", coin->IsCoinBase());
+    ret.pushKVEnd("scriptPubKey", std::move(o));
+    ret.pushKVEnd("coinbase", coin->IsCoinBase());
 
     return ret;
 },
@@ -1310,11 +1312,11 @@ static void SoftForkDescPushBack(const CBlockIndex* blockindex, UniValue& softfo
     if (!DeploymentEnabled(chainman, dep)) return;
 
     UniValue rv(UniValue::VOBJ);
-    rv.pushKV("type", "buried");
+    rv.pushKVEnd("type", "buried");
     // getdeploymentinfo reports the softfork as active from when the chain height is
     // one below the activation height
-    rv.pushKV("active", DeploymentActiveAfter(blockindex, chainman, dep));
-    rv.pushKV("height", chainman.GetConsensus().DeploymentHeight(dep));
+    rv.pushKVEnd("active", DeploymentActiveAfter(blockindex, chainman, dep));
+    rv.pushKVEnd("height", chainman.GetConsensus().DeploymentHeight(dep));
     softforks.pushKV(DeploymentName(dep), std::move(rv));
 }
 
@@ -1330,46 +1332,46 @@ static void SoftForkDescPushBack(const CBlockIndex* blockindex, UniValue& softfo
 
     // BIP9 parameters
     if (info.stats.has_value()) {
-        bip9.pushKV("bit", depparams.bit);
+        bip9.pushKVEnd("bit", depparams.bit);
     }
-    bip9.pushKV("start_time", depparams.nStartTime);
-    bip9.pushKV("timeout", depparams.nTimeout);
-    bip9.pushKV("min_activation_height", depparams.min_activation_height);
+    bip9.pushKVEnd("start_time", depparams.nStartTime);
+    bip9.pushKVEnd("timeout", depparams.nTimeout);
+    bip9.pushKVEnd("min_activation_height", depparams.min_activation_height);
 
     // BIP9 status
-    bip9.pushKV("status", info.current_state);
-    bip9.pushKV("since", info.since);
-    bip9.pushKV("status_next", info.next_state);
+    bip9.pushKVEnd("status", info.current_state);
+    bip9.pushKVEnd("since", info.since);
+    bip9.pushKVEnd("status_next", info.next_state);
 
     // BIP9 signalling status, if applicable
     if (info.stats.has_value()) {
         UniValue statsUV(UniValue::VOBJ);
-        statsUV.pushKV("period", info.stats->period);
-        statsUV.pushKV("elapsed", info.stats->elapsed);
-        statsUV.pushKV("count", info.stats->count);
+        statsUV.pushKVEnd("period", info.stats->period);
+        statsUV.pushKVEnd("elapsed", info.stats->elapsed);
+        statsUV.pushKVEnd("count", info.stats->count);
         if (info.stats->threshold > 0 || info.stats->possible) {
-            statsUV.pushKV("threshold", info.stats->threshold);
-            statsUV.pushKV("possible", info.stats->possible);
+            statsUV.pushKVEnd("threshold", info.stats->threshold);
+            statsUV.pushKVEnd("possible", info.stats->possible);
         }
-        bip9.pushKV("statistics", std::move(statsUV));
+        bip9.pushKVEnd("statistics", std::move(statsUV));
 
         std::string sig;
         sig.reserve(info.signalling_blocks.size());
         for (const bool s : info.signalling_blocks) {
             sig.push_back(s ? '#' : '-');
         }
-        bip9.pushKV("signalling", sig);
+        bip9.pushKVEnd("signalling", sig);
     }
 
     UniValue rv(UniValue::VOBJ);
-    rv.pushKV("type", "bip9");
+    rv.pushKVEnd("type", "bip9");
     bool is_active = false;
     if (info.active_since.has_value()) {
-        rv.pushKV("height", *info.active_since);
+        rv.pushKVEnd("height", *info.active_since);
         is_active = (*info.active_since <= blockindex->nHeight + 1);
     }
-    rv.pushKV("active", is_active);
-    rv.pushKV("bip9", bip9);
+    rv.pushKVEnd("active", is_active);
+    rv.pushKVEnd("bip9", bip9);
     softforks.pushKV(DeploymentName(id), std::move(rv));
 }
 
@@ -1431,51 +1433,51 @@ RPCMethod getblockchaininfo()
     const CBlockIndex& tip{*CHECK_NONFATAL(active_chainstate.m_chain.Tip())};
     const int height{tip.nHeight};
     UniValue obj(UniValue::VOBJ);
-    obj.pushKV("chain", chainman.GetParams().GetChainTypeString());
-    obj.pushKV("blocks", height);
-    obj.pushKV("headers", chainman.m_best_header ? chainman.m_best_header->nHeight : -1);
-    obj.pushKV("bestblockhash", tip.GetBlockHash().GetHex());
-    obj.pushKV("bits", strprintf("%08x", tip.nBits));
-    obj.pushKV("target", GetTarget(tip, chainman.GetConsensus().powLimit).GetHex());
-    obj.pushKV("difficulty", GetDifficulty(tip));
-    obj.pushKV("time", tip.GetBlockTime());
-    obj.pushKV("mediantime", tip.GetMedianTimePast());
-    obj.pushKV("verificationprogress", chainman.GuessVerificationProgress(&tip));
-    obj.pushKV("initialblockdownload", chainman.IsInitialBlockDownload());
+    obj.pushKVEnd("chain", chainman.GetParams().GetChainTypeString());
+    obj.pushKVEnd("blocks", height);
+    obj.pushKVEnd("headers", chainman.m_best_header ? chainman.m_best_header->nHeight : -1);
+    obj.pushKVEnd("bestblockhash", tip.GetBlockHash().GetHex());
+    obj.pushKVEnd("bits", strprintf("%08x", tip.nBits));
+    obj.pushKVEnd("target", GetTarget(tip, chainman.GetConsensus().powLimit).GetHex());
+    obj.pushKVEnd("difficulty", GetDifficulty(tip));
+    obj.pushKVEnd("time", tip.GetBlockTime());
+    obj.pushKVEnd("mediantime", tip.GetMedianTimePast());
+    obj.pushKVEnd("verificationprogress", chainman.GuessVerificationProgress(&tip));
+    obj.pushKVEnd("initialblockdownload", chainman.IsInitialBlockDownload());
     auto historical_blocks{chainman.GetHistoricalBlockRange()};
     if (historical_blocks) {
         UniValue background_validation(UniValue::VOBJ);
         const CBlockIndex& btip{*CHECK_NONFATAL(historical_blocks->first)};
         const CBlockIndex& btarget{*CHECK_NONFATAL(historical_blocks->second)};
-        background_validation.pushKV("snapshotheight", btarget.nHeight);
-        background_validation.pushKV("blocks", btip.nHeight);
-        background_validation.pushKV("bestblockhash", btip.GetBlockHash().GetHex());
-        background_validation.pushKV("mediantime", btip.GetMedianTimePast());
-        background_validation.pushKV("chainwork", btip.nChainWork.GetHex());
-        background_validation.pushKV("verificationprogress", chainman.GetBackgroundVerificationProgress(btip));
-        obj.pushKV("backgroundvalidation", std::move(background_validation));
+        background_validation.pushKVEnd("snapshotheight", btarget.nHeight);
+        background_validation.pushKVEnd("blocks", btip.nHeight);
+        background_validation.pushKVEnd("bestblockhash", btip.GetBlockHash().GetHex());
+        background_validation.pushKVEnd("mediantime", btip.GetMedianTimePast());
+        background_validation.pushKVEnd("chainwork", btip.nChainWork.GetHex());
+        background_validation.pushKVEnd("verificationprogress", chainman.GetBackgroundVerificationProgress(btip));
+        obj.pushKVEnd("backgroundvalidation", std::move(background_validation));
     }
-    obj.pushKV("chainwork", tip.nChainWork.GetHex());
-    obj.pushKV("size_on_disk", chainman.m_blockman.CalculateCurrentUsage());
-    obj.pushKV("pruned", chainman.m_blockman.IsPruneMode());
+    obj.pushKVEnd("chainwork", tip.nChainWork.GetHex());
+    obj.pushKVEnd("size_on_disk", chainman.m_blockman.CalculateCurrentUsage());
+    obj.pushKVEnd("pruned", chainman.m_blockman.IsPruneMode());
     if (chainman.m_blockman.IsPruneMode()) {
         const auto prune_height{GetPruneHeight(chainman.m_blockman, active_chainstate.m_chain)};
-        obj.pushKV("pruneheight", prune_height ? prune_height.value() + 1 : 0);
+        obj.pushKVEnd("pruneheight", prune_height ? prune_height.value() + 1 : 0);
 
         const bool automatic_pruning{chainman.m_blockman.GetPruneTarget() != BlockManager::PRUNE_TARGET_MANUAL};
-        obj.pushKV("automatic_pruning",  automatic_pruning);
+        obj.pushKVEnd("automatic_pruning",  automatic_pruning);
         if (automatic_pruning) {
-            obj.pushKV("prune_target_size", chainman.m_blockman.GetPruneTarget());
+            obj.pushKVEnd("prune_target_size", chainman.m_blockman.GetPruneTarget());
         }
     }
     if (chainman.GetParams().GetChainType() == ChainType::SIGNET) {
         const std::vector<uint8_t>& signet_challenge =
             chainman.GetParams().GetConsensus().signet_challenge;
-        obj.pushKV("signet_challenge", HexStr(signet_challenge));
+        obj.pushKVEnd("signet_challenge", HexStr(signet_challenge));
     }
 
     NodeContext& node = EnsureAnyNodeContext(request.context);
-    obj.pushKV("warnings", node::GetWarningsForRpc(*CHECK_NONFATAL(node.warnings), IsDeprecatedRPCEnabled("warnings")));
+    obj.pushKVEnd("warnings", node::GetWarningsForRpc(*CHECK_NONFATAL(node.warnings), IsDeprecatedRPCEnabled("warnings")));
     return obj;
 },
     };
@@ -1559,15 +1561,15 @@ RPCMethod getdeploymentinfo()
             }
 
             UniValue deploymentinfo(UniValue::VOBJ);
-            deploymentinfo.pushKV("hash", blockindex->GetBlockHash().ToString());
-            deploymentinfo.pushKV("height", blockindex->nHeight);
+            deploymentinfo.pushKVEnd("hash", blockindex->GetBlockHash().ToString());
+            deploymentinfo.pushKVEnd("height", blockindex->nHeight);
             {
                 const auto flagnames = GetScriptFlagNames(GetBlockScriptFlags(*blockindex, chainman));
                 UniValue uv_flagnames(UniValue::VARR);
                 uv_flagnames.push_backV(flagnames.begin(), flagnames.end());
-                deploymentinfo.pushKV("script_flags", uv_flagnames);
+                deploymentinfo.pushKVEnd("script_flags", uv_flagnames);
             }
-            deploymentinfo.pushKV("deployments", DeploymentInfo(blockindex, chainman));
+            deploymentinfo.pushKVEnd("deployments", DeploymentInfo(blockindex, chainman));
             return deploymentinfo;
         },
     };
@@ -1888,20 +1890,20 @@ static RPCMethod getchaintxstats()
     const int64_t nTimeDiff{pindex->GetMedianTimePast() - past_block.GetMedianTimePast()};
 
     UniValue ret(UniValue::VOBJ);
-    ret.pushKV("time", pindex->nTime);
+    ret.pushKVEnd("time", pindex->nTime);
     if (pindex->m_chain_tx_count) {
-        ret.pushKV("txcount", pindex->m_chain_tx_count);
+        ret.pushKVEnd("txcount", pindex->m_chain_tx_count);
     }
-    ret.pushKV("window_final_block_hash", pindex->GetBlockHash().GetHex());
-    ret.pushKV("window_final_block_height", pindex->nHeight);
-    ret.pushKV("window_block_count", blockcount);
+    ret.pushKVEnd("window_final_block_hash", pindex->GetBlockHash().GetHex());
+    ret.pushKVEnd("window_final_block_height", pindex->nHeight);
+    ret.pushKVEnd("window_block_count", blockcount);
     if (blockcount > 0) {
-        ret.pushKV("window_interval", nTimeDiff);
+        ret.pushKVEnd("window_interval", nTimeDiff);
         if (pindex->m_chain_tx_count != 0 && past_block.m_chain_tx_count != 0) {
             const auto window_tx_count = pindex->m_chain_tx_count - past_block.m_chain_tx_count;
-            ret.pushKV("window_tx_count", window_tx_count);
+            ret.pushKVEnd("window_tx_count", window_tx_count);
             if (nTimeDiff > 0) {
-                ret.pushKV("txrate", double(window_tx_count) / nTimeDiff);
+                ret.pushKVEnd("txrate", double(window_tx_count) / nTimeDiff);
             }
         }
     }
@@ -2178,38 +2180,39 @@ static RPCMethod getblockstats()
         feerates_res.push_back(feerate_percentiles[i]);
     }
 
-    UniValue ret_all(UniValue::VOBJ);
-    ret_all.pushKV("avgfee", (block.vtx.size() > 1) ? totalfee / (block.vtx.size() - 1) : 0);
-    ret_all.pushKV("avgfeerate", total_weight ? (totalfee * WITNESS_SCALE_FACTOR) / total_weight : 0); // Unit: sat/vbyte
-    ret_all.pushKV("avgtxsize", (block.vtx.size() > 1) ? total_size / (block.vtx.size() - 1) : 0);
-    ret_all.pushKV("blockhash", pindex.GetBlockHash().GetHex());
-    ret_all.pushKV("feerate_percentiles", std::move(feerates_res));
-    ret_all.pushKV("height", pindex.nHeight);
-    ret_all.pushKV("ins", inputs);
-    ret_all.pushKV("maxfee", maxfee);
-    ret_all.pushKV("maxfeerate", maxfeerate);
-    ret_all.pushKV("maxtxsize", maxtxsize);
-    ret_all.pushKV("medianfee", CalculateTruncatedMedian(fee_array));
-    ret_all.pushKV("mediantime", pindex.GetMedianTimePast());
-    ret_all.pushKV("mediantxsize", CalculateTruncatedMedian(txsize_array));
-    ret_all.pushKV("minfee", (minfee == MAX_MONEY) ? 0 : minfee);
-    ret_all.pushKV("minfeerate", (minfeerate == MAX_MONEY) ? 0 : minfeerate);
-    ret_all.pushKV("mintxsize", mintxsize == MAX_BLOCK_SERIALIZED_SIZE ? 0 : mintxsize);
-    ret_all.pushKV("outs", outputs);
-    ret_all.pushKV("subsidy", GetBlockSubsidy(pindex.nHeight, chainman.GetParams().GetConsensus()));
-    ret_all.pushKV("swtotal_size", swtotal_size);
-    ret_all.pushKV("swtotal_weight", swtotal_weight);
-    ret_all.pushKV("swtxs", swtxs);
-    ret_all.pushKV("time", pindex.GetBlockTime());
-    ret_all.pushKV("total_out", total_out);
-    ret_all.pushKV("total_size", total_size);
-    ret_all.pushKV("total_weight", total_weight);
-    ret_all.pushKV("totalfee", totalfee);
-    ret_all.pushKV("txs", block.vtx.size());
-    ret_all.pushKV("utxo_increase", outputs - inputs);
-    ret_all.pushKV("utxo_size_inc", utxo_size_inc);
-    ret_all.pushKV("utxo_increase_actual", utxos - inputs);
-    ret_all.pushKV("utxo_size_inc_actual", utxo_size_inc_actual);
+    UniValue ret_all{std::vector<std::pair<std::string, UniValue>>{
+        {"avgfee", (block.vtx.size() > 1) ? totalfee / (block.vtx.size() - 1) : 0},
+        {"avgfeerate", total_weight ? (totalfee * WITNESS_SCALE_FACTOR) / total_weight : 0}, // Unit: sat/vbyte
+        {"avgtxsize", (block.vtx.size() > 1) ? total_size / (block.vtx.size() - 1) : 0},
+        {"blockhash", pindex.GetBlockHash().GetHex()},
+        {"feerate_percentiles", std::move(feerates_res)},
+        {"height", pindex.nHeight},
+        {"ins", inputs},
+        {"maxfee", maxfee},
+        {"maxfeerate", maxfeerate},
+        {"maxtxsize", maxtxsize},
+        {"medianfee", CalculateTruncatedMedian(fee_array)},
+        {"mediantime", pindex.GetMedianTimePast()},
+        {"mediantxsize", CalculateTruncatedMedian(txsize_array)},
+        {"minfee", (minfee == MAX_MONEY) ? 0 : minfee},
+        {"minfeerate", (minfeerate == MAX_MONEY) ? 0 : minfeerate},
+        {"mintxsize", mintxsize == MAX_BLOCK_SERIALIZED_SIZE ? 0 : mintxsize},
+        {"outs", outputs},
+        {"subsidy", GetBlockSubsidy(pindex.nHeight, chainman.GetParams().GetConsensus())},
+        {"swtotal_size", swtotal_size},
+        {"swtotal_weight", swtotal_weight},
+        {"swtxs", swtxs},
+        {"time", pindex.GetBlockTime()},
+        {"total_out", total_out},
+        {"total_size", total_size},
+        {"total_weight", total_weight},
+        {"totalfee", totalfee},
+        {"txs", block.vtx.size()},
+        {"utxo_increase", outputs - inputs},
+        {"utxo_size_inc", utxo_size_inc},
+        {"utxo_increase_actual", utxos - inputs},
+        {"utxo_size_inc_actual", utxo_size_inc_actual},
+    }};
 
     if (do_all) {
         return ret_all;
@@ -2221,7 +2224,7 @@ static RPCMethod getblockstats()
         if (value.isNull()) {
             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid selected statistic '%s'", stat));
         }
-        ret.pushKV(stat, value);
+        ret.pushKVEnd(stat, value);
     }
     return ret;
 },
@@ -2399,7 +2402,7 @@ static RPCMethod scantxoutset()
             // no scan in progress
             return UniValue::VNULL;
         }
-        result.pushKV("progress", g_scan_progress.load());
+        result.pushKVEnd("progress", g_scan_progress.load());
         return result;
     } else if (action == "abort") {
         CoinsViewScanReserver reserver;
@@ -2453,10 +2456,10 @@ static RPCMethod scantxoutset()
             tip = CHECK_NONFATAL(active_chainstate.m_chain.Tip());
         }
         bool res = FindScriptPubKey(g_scan_progress, g_should_abort_scan, count, pcursor.get(), needles, coins, node.rpc_interruption_point);
-        result.pushKV("success", res);
-        result.pushKV("txouts", count);
-        result.pushKV("height", tip->nHeight);
-        result.pushKV("bestblock", tip->GetBlockHash().GetHex());
+        result.pushKVEnd("success", res);
+        result.pushKVEnd("txouts", count);
+        result.pushKVEnd("height", tip->nHeight);
+        result.pushKVEnd("bestblock", tip->GetBlockHash().GetHex());
 
         for (const auto& it : coins) {
             const COutPoint& outpoint = it.first;
@@ -2467,20 +2470,20 @@ static RPCMethod scantxoutset()
             total_in += txo.nValue;
 
             UniValue unspent(UniValue::VOBJ);
-            unspent.pushKV("txid", outpoint.hash.GetHex());
-            unspent.pushKV("vout", outpoint.n);
-            unspent.pushKV("scriptPubKey", HexStr(txo.scriptPubKey));
-            unspent.pushKV("desc", descriptors[txo.scriptPubKey]);
-            unspent.pushKV("amount", ValueFromAmount(txo.nValue));
-            unspent.pushKV("coinbase", coin.IsCoinBase());
-            unspent.pushKV("height", coin.nHeight);
-            unspent.pushKV("blockhash", coinb_block.GetBlockHash().GetHex());
-            unspent.pushKV("confirmations", tip->nHeight - coin.nHeight + 1);
+            unspent.pushKVEnd("txid", outpoint.hash.GetHex());
+            unspent.pushKVEnd("vout", outpoint.n);
+            unspent.pushKVEnd("scriptPubKey", HexStr(txo.scriptPubKey));
+            unspent.pushKVEnd("desc", descriptors[txo.scriptPubKey]);
+            unspent.pushKVEnd("amount", ValueFromAmount(txo.nValue));
+            unspent.pushKVEnd("coinbase", coin.IsCoinBase());
+            unspent.pushKVEnd("height", coin.nHeight);
+            unspent.pushKVEnd("blockhash", coinb_block.GetBlockHash().GetHex());
+            unspent.pushKVEnd("confirmations", tip->nHeight - coin.nHeight + 1);
 
             unspents.push_back(std::move(unspent));
         }
-        result.pushKV("unspents", std::move(unspents));
-        result.pushKV("total_amount", ValueFromAmount(total_in));
+        result.pushKVEnd("unspents", std::move(unspents));
+        result.pushKVEnd("total_amount", ValueFromAmount(total_in));
     } else {
         throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid action '%s'", action));
     }
@@ -2595,8 +2598,8 @@ static RPCMethod scanblocks()
             // no scan in progress
             return NullUniValue;
         }
-        ret.pushKV("progress", g_scanfilter_progress.load());
-        ret.pushKV("current_height", g_scanfilter_progress_height.load());
+        ret.pushKVEnd("progress", g_scanfilter_progress.load());
+        ret.pushKVEnd("current_height", g_scanfilter_progress_height.load());
         return ret;
     } else if (action == "abort") {
         BlockFiltersScanReserver reserver;
@@ -2719,10 +2722,10 @@ static RPCMethod scanblocks()
         // Finish if we reached the stop block
         } while (start_index != stop_block);
 
-        ret.pushKV("from_height", start_block_height);
-        ret.pushKV("to_height", start_index->nHeight); // start_index is always the last scanned block here
-        ret.pushKV("relevant_blocks", std::move(blocks));
-        ret.pushKV("completed", completed);
+        ret.pushKVEnd("from_height", start_block_height);
+        ret.pushKVEnd("to_height", start_index->nHeight); // start_index is always the last scanned block here
+        ret.pushKVEnd("relevant_blocks", std::move(blocks));
+        ret.pushKVEnd("completed", completed);
     } else {
         throw JSONRPCError(RPC_INVALID_PARAMETER, tfm::format("Invalid action '%s'", action));
     }

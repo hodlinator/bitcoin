@@ -293,18 +293,19 @@ static void SerializeBlockUndo(DataStream& stream, const CBlockUndo& block_undo)
  */
 static void BlockUndoToJSON(const CBlockUndo& block_undo, UniValue& result)
 {
+    result.reserve(1 + block_undo.vtxundo.size());
     result.push_back({UniValue::VARR}); // block_undo.vtxundo doesn't contain coinbase tx
     for (const CTxUndo& tx_undo : block_undo.vtxundo) {
         UniValue tx_prevouts(UniValue::VARR);
+        tx_prevouts.reserve(tx_undo.vprevout.size());
         for (const Coin& coin : tx_undo.vprevout) {
-            UniValue prevout(UniValue::VOBJ);
-            prevout.pushKV("value", ValueFromAmount(coin.out.nValue));
-
             UniValue script_pub_key(UniValue::VOBJ);
             ScriptToUniv(coin.out.scriptPubKey, /*out=*/script_pub_key, /*include_hex=*/true, /*include_address=*/true);
-            prevout.pushKV("scriptPubKey", std::move(script_pub_key));
 
-            tx_prevouts.push_back(std::move(prevout));
+            tx_prevouts.push_back(std::vector<std::pair<std::string, UniValue>>{
+                {"value", ValueFromAmount(coin.out.nValue)},
+                {"scriptPubKey", std::move(script_pub_key)},
+            });
         }
         result.push_back(std::move(tx_prevouts));
     }
@@ -698,7 +699,7 @@ static bool rest_block_filter(const std::any& context, HTTPRequest* req, const s
     }
     case RESTResponseFormat::JSON: {
         UniValue ret(UniValue::VOBJ);
-        ret.pushKV("filter", HexStr(filter.GetEncodedFilter()));
+        ret.pushKVEnd("filter", HexStr(filter.GetEncodedFilter()));
         std::string strJSON = ret.write() + "\n";
         req->WriteHeader("Content-Type", "application/json");
         req->WriteReply(HTTP_OK, strJSON);
@@ -1058,23 +1059,23 @@ static bool rest_getutxos(const std::any& context, HTTPRequest* req, const std::
 
         // pack in some essentials
         // use more or less the same output as mentioned in Bip64
-        objGetUTXOResponse.pushKV("chainHeight", active_height);
-        objGetUTXOResponse.pushKV("chaintipHash", active_hash.GetHex());
-        objGetUTXOResponse.pushKV("bitmap", bitmapStringRepresentation);
+        objGetUTXOResponse.pushKVEnd("chainHeight", active_height);
+        objGetUTXOResponse.pushKVEnd("chaintipHash", active_hash.GetHex());
+        objGetUTXOResponse.pushKVEnd("bitmap", bitmapStringRepresentation);
 
         UniValue utxos(UniValue::VARR);
+        utxos.reserve(outs.size());
         for (const CCoin& coin : outs) {
-            UniValue utxo(UniValue::VOBJ);
-            utxo.pushKV("height", coin.nHeight);
-            utxo.pushKV("value", ValueFromAmount(coin.out.nValue));
-
             // include the script in a json output
             UniValue o(UniValue::VOBJ);
             ScriptToUniv(coin.out.scriptPubKey, /*out=*/o, /*include_hex=*/true, /*include_address=*/true);
-            utxo.pushKV("scriptPubKey", std::move(o));
-            utxos.push_back(std::move(utxo));
+            utxos.push_back(std::vector<std::pair<std::string, UniValue>>{
+                {"height", coin.nHeight},
+                {"value", ValueFromAmount(coin.out.nValue)},
+                {"scriptPubKey", std::move(o)},
+            });
         }
-        objGetUTXOResponse.pushKV("utxos", std::move(utxos));
+        objGetUTXOResponse.pushKVEnd("utxos", std::move(utxos));
 
         // return json string
         std::string strJSON = objGetUTXOResponse.write() + "\n";
@@ -1128,7 +1129,7 @@ static bool rest_blockhash_by_height(const std::any& context, HTTPRequest* req,
     case RESTResponseFormat::JSON: {
         req->WriteHeader("Content-Type", "application/json");
         UniValue resp = UniValue(UniValue::VOBJ);
-        resp.pushKV("blockhash", pblockindex->GetBlockHash().GetHex());
+        resp.pushKVEnd("blockhash", pblockindex->GetBlockHash().GetHex());
         req->WriteReply(HTTP_OK, resp.write() + "\n");
         return true;
     }

@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <map>
+#include <span>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -48,6 +49,16 @@ public:
             setInt(uint64_t{val});
         } else {
             setStr(std::string{std::forward<Ref>(val)});
+        }
+    }
+    UniValue(std::vector<std::pair<std::string, UniValue>>&& map)
+        : typ(VOBJ)
+    {
+        keys.reserve(map.size());
+        values.reserve(map.size());
+        for (auto& it : map) {
+            keys.push_back(std::move(it.first));
+            values.push_back(std::move(it.second));
         }
     }
 

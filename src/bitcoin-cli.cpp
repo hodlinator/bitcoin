@@ -312,7 +312,7 @@ struct AddrinfoRequestHandler : BaseRequestHandler {
                 addresses.pushKV(network_types[i], addr_count);
             }
         }
-        result.pushKV("addresses_known", std::move(addresses));
+        result.pushKVEnd("addresses_known", std::move(addresses));
         return JSONRPCReplyObj(std::move(result), NullUniValue, /*id=*/1, JSONRPCVersion::V2);
     }
 };
