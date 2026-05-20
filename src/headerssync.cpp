@@ -38,11 +38,13 @@ HeadersSyncState::HeadersSyncState(NodeId id,
     // exceeds this bound, because it's not possible for a consensus-valid
     // chain to be longer than this (at the current time -- in the future we
     // could try again, if necessary, to sync a longer chain).
-    const auto max_seconds_since_start{(Ticks<std::chrono::seconds>(NodeClock::now() - NodeSeconds{std::chrono::seconds{chain_start.GetMedianTimePast()}}))
-                                       + MAX_FUTURE_BLOCK_TIME};
-    m_max_commitments = 6 * max_seconds_since_start / m_params.commitment_period;
+    const int64_t max_seconds_since_start{Ticks<std::chrono::seconds>(NodeClock::now() - NodeSeconds{std::chrono::seconds{chain_start.GetMedianTimePast()}})
+                                          + MAX_FUTURE_BLOCK_TIME};
+    if (max_seconds_since_start >= 0) {
+        m_max_commitments = 6 * max_seconds_since_start / m_params.commitment_period;
+    }
 
-    LogDebug(BCLog::NET, "Initial headers sync started with peer=%d: height=%i, max_commitments=%i, min_work=%s\n", m_id, m_current_height, m_max_commitments, m_minimum_required_work.ToString());
+    LogDebug(BCLog::NET, "Initial headers sync started with peer=%d: height=%i, max_commitments=%i, min_work=%s\n", m_id, m_current_height, m_max_commitments.value_or(~0ULL), m_minimum_required_work.ToString());
 }
 
 /** Free any memory in use, and mark this object as no longer usable. This is
@@ -145,6 +147,11 @@ bool HeadersSyncState::ValidateAndStoreHeadersCommitments(std::span<const CBlock
     Assume(m_download_state == State::PRESYNC);
     if (m_download_state != State::PRESYNC) return false;
 
+    if (!m_max_commitments.has_value()) {
+        LogWarning("Initial headers sync aborted with peer=%d: local clock behind chain-start MTP (presync phase)", m_id);
+        return false;
+    }
+
     if (headers[0].hashPrevBlock != m_last_header_received.GetHash()) {
         // Somehow our peer gave us a header that doesn't connect.
         // This might be benign -- perhaps our peer reorged away from the chain
@@ -195,7 +202,7 @@ bool HeadersSyncState::ValidateAndProcessSingleHeader(const CBlockHeader& curren
     if (next_height % m_params.commitment_period == m_commit_offset) {
         // Add a commitment.
         m_header_commitments.push_back(m_hasher(current.GetHash()) & 1);
-        if (m_header_commitments.size() > m_max_commitments) {
+        if (m_header_commitments.size() > m_max_commitments.value()) {
             // The peer's chain is too long; give up.
             // It's possible the chain grew since we started the sync; so
             // potentially we could succeed in syncing the peer's chain if we

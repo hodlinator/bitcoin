@@ -239,7 +239,7 @@ private:
      *
      * Any peer giving us more headers than this will have its sync aborted. This serves as a
      * memory bound on m_header_commitments. */
-    uint64_t m_max_commitments{0};
+    std::optional<uint64_t> m_max_commitments;
 
     /** Store the latest header received while in PRESYNC (initialized to m_chain_start) */
     CBlockHeader m_last_header_received;
