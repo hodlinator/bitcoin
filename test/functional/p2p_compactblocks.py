@@ -800,23 +800,23 @@ class CompactBlocksTest(BitcoinTestFramework):
         peer.get_headers(locator=[int(tip, 16)], hashstop=0)
         peer.send_and_ping(msg_sendcmpct(announce=True, version=2))
 
+    def announce_cmpct_block(self, node, peer, txn_count=5):
+        utxo = self.utxos.pop(0)
+        block = self.build_block_with_transactions(node, utxo, txn_count)
+
+        cmpct_block = HeaderAndShortIDs()
+        cmpct_block.initialize_from_block(block)
+        msg = msg_cmpctblock(cmpct_block.to_p2p())
+        peer.send_and_ping(msg)
+        with p2p_lock:
+            assert "getblocktxn" in peer.last_message
+        return block, cmpct_block
+
     def test_compactblock_reconstruction_stalling_peer(self, stalling_peer, delivery_peer):
         node = self.nodes[0]
         assert len(self.utxos)
 
-        def announce_cmpct_block(node, peer):
-            utxo = self.utxos.pop(0)
-            block = self.build_block_with_transactions(node, utxo, 5)
-
-            cmpct_block = HeaderAndShortIDs()
-            cmpct_block.initialize_from_block(block)
-            msg = msg_cmpctblock(cmpct_block.to_p2p())
-            peer.send_and_ping(msg)
-            with p2p_lock:
-                assert "getblocktxn" in peer.last_message
-            return block, cmpct_block
-
-        block, cmpct_block = announce_cmpct_block(node, stalling_peer)
+        block, cmpct_block = self.announce_cmpct_block(node, stalling_peer)
 
         for tx in block.vtx[1:]:
             delivery_peer.send_without_ping(msg_tx(tx))
@@ -832,7 +832,7 @@ class CompactBlocksTest(BitcoinTestFramework):
 
         # Now test that delivering an invalid compact block won't break relay
 
-        block, cmpct_block = announce_cmpct_block(node, stalling_peer)
+        block, cmpct_block = self.announce_cmpct_block(node, stalling_peer)
         for tx in block.vtx[1:]:
             delivery_peer.send_without_ping(msg_tx(tx))
         delivery_peer.sync_with_ping()
@@ -885,21 +885,9 @@ class CompactBlocksTest(BitcoinTestFramework):
         node = self.nodes[0]
         assert len(self.utxos)
 
-        def announce_cmpct_block(node, peer, txn_count):
-            utxo = self.utxos.pop(0)
-            block = self.build_block_with_transactions(node, utxo, txn_count)
-
-            cmpct_block = HeaderAndShortIDs()
-            cmpct_block.initialize_from_block(block)
-            msg = msg_cmpctblock(cmpct_block.to_p2p())
-            peer.send_and_ping(msg)
-            with p2p_lock:
-                assert "getblocktxn" in peer.last_message
-            return block, cmpct_block
-
         for name, peer in [("delivery", delivery_peer), ("inbound", inbound_peer), ("outbound", outbound_peer)]:
             self.log.info(f"Setting {name} as high bandwidth peer")
-            block, cmpct_block = announce_cmpct_block(node, peer, 1)
+            block, cmpct_block = self.announce_cmpct_block(node, peer, 1)
             msg = msg_blocktxn()
             msg.block_transactions.blockhash = block.hash_int
             msg.block_transactions.transactions = block.vtx[1:]
@@ -913,7 +901,7 @@ class CompactBlocksTest(BitcoinTestFramework):
             # Remaining low-bandwidth peer is stalling_peer, who announces first
             assert_equal([peer['bip152_hb_to'] for peer in node.getpeerinfo()], [False, True, True, True])
 
-            block, cmpct_block = announce_cmpct_block(node, stalling_peer, num_missing)
+            block, cmpct_block = self.announce_cmpct_block(node, stalling_peer, num_missing)
 
             delivery_peer.send_and_ping(msg_cmpctblock(cmpct_block.to_p2p()))
             with p2p_lock:
