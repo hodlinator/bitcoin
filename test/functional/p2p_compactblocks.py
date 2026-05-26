@@ -184,9 +184,12 @@ class CompactBlocksTest(BitcoinTestFramework):
         cmpct_block = HeaderAndShortIDs()
         cmpct_block.initialize_from_block(block)
         msg = msg_cmpctblock(cmpct_block.to_p2p())
+
+        peer.clear_getblocktxn()
         peer.send_and_ping(msg)
         with p2p_lock:
             assert "getblocktxn" in peer.last_message
+            assert peer.last_message["getblocktxn"].block_txn_request.blockhash == block.hash_int
         return block, cmpct_block
 
     # Test "sendcmpct" (between peers preferring the same version):
@@ -405,6 +408,7 @@ class CompactBlocksTest(BitcoinTestFramework):
             [k0, k1] = comp_block.get_siphash_keys()
             coinbase_hash = block.vtx[0].wtxid_int
             comp_block.shortids = [calculate_shortid(k0, k1, coinbase_hash)]
+            test_node.clear_getblocktxn()
             test_node.send_and_ping(msg_cmpctblock(comp_block.to_p2p()))
             assert_equal(int(node.getbestblockhash(), 16), block.hashPrevBlock)
             # Expect a getblocktxn message.
@@ -443,6 +447,7 @@ class CompactBlocksTest(BitcoinTestFramework):
 
         def test_getblocktxn_response(compact_block, peer, expected_result):
             msg = msg_cmpctblock(compact_block.to_p2p())
+            peer.clear_getblocktxn()
             peer.send_and_ping(msg)
             with p2p_lock:
                 assert "getblocktxn" in peer.last_message
@@ -508,8 +513,7 @@ class CompactBlocksTest(BitcoinTestFramework):
             assert tx.txid_hex in mempool
 
         # Clear out last request.
-        with p2p_lock:
-            test_node.last_message.pop("getblocktxn", None)
+        test_node.clear_getblocktxn()
 
         # Send compact block
         comp_block.initialize_from_block(block, prefill_list=[0], use_witness=True)
@@ -538,6 +542,7 @@ class CompactBlocksTest(BitcoinTestFramework):
         # Send compact block
         comp_block = HeaderAndShortIDs()
         comp_block.initialize_from_block(block, prefill_list=[0], use_witness=True)
+        test_node.clear_getblocktxn()
         test_node.send_and_ping(msg_cmpctblock(comp_block.to_p2p()))
         absolute_indexes = []
         with p2p_lock:
@@ -578,6 +583,7 @@ class CompactBlocksTest(BitcoinTestFramework):
         # Send compact block
         comp_block = HeaderAndShortIDs()
         comp_block.initialize_from_block(block, prefill_list=[0], use_witness=True)
+        test_node.clear_getblocktxn()
         test_node.send_and_ping(msg_cmpctblock(comp_block.to_p2p()))
         absolute_indexes = []
         with p2p_lock:
@@ -882,7 +888,6 @@ class CompactBlocksTest(BitcoinTestFramework):
             can only be taken by an outbound node unless prior attempts were done by an outbound
         """
         node = self.nodes[0]
-        assert len(self.utxos)
 
         for name, peer in [("delivery", delivery_peer), ("inbound", inbound_peer), ("outbound", outbound_peer)]:
             self.log.info(f"Setting {name} as high bandwidth peer")
@@ -896,6 +901,9 @@ class CompactBlocksTest(BitcoinTestFramework):
 
         # Test the simple parallel download case...
         for num_missing in [1, 5, 20]:
+            delivery_peer.clear_getblocktxn()
+            inbound_peer.clear_getblocktxn()
+            outbound_peer.clear_getblocktxn()
 
             # Remaining low-bandwidth peer is stalling_peer, who announces first
             assert_equal([peer['bip152_hb_to'] for peer in node.getpeerinfo()], [False, True, True, True])
@@ -906,7 +914,9 @@ class CompactBlocksTest(BitcoinTestFramework):
             with p2p_lock:
                 # The second peer to announce should still get a getblocktxn
                 assert "getblocktxn" in delivery_peer.last_message
+                assert delivery_peer.last_message["getblocktxn"].block_txn_request.blockhash == block.hash_int
             assert_not_equal(node.getbestblockhash(), block.hash_hex)
+
 
             inbound_peer.send_and_ping(msg_cmpctblock(cmpct_block.to_p2p()))
             with p2p_lock:
@@ -918,6 +928,7 @@ class CompactBlocksTest(BitcoinTestFramework):
             with p2p_lock:
                 # The third peer to announce should get a getblocktxn if outbound
                 assert "getblocktxn" in outbound_peer.last_message
+                assert outbound_peer.last_message["getblocktxn"].block_txn_request.blockhash == block.hash_int
             assert_not_equal(node.getbestblockhash(), block.hash_hex)
 
             # Second peer completes the compact block first
@@ -930,10 +941,6 @@ class CompactBlocksTest(BitcoinTestFramework):
             # Nothing bad should happen if we get a late fill from the first peer...
             stalling_peer.send_and_ping(msg)
             self.utxos.append([block.vtx[-1].txid_int, 0, block.vtx[-1].vout[0].nValue])
-
-            delivery_peer.clear_getblocktxn()
-            inbound_peer.clear_getblocktxn()
-            outbound_peer.clear_getblocktxn()
 
 
     def run_test(self):
