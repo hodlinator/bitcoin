@@ -278,17 +278,37 @@ class CompactBlocksTest(BitcoinTestFramework):
         check_announcement_of_new_block(node, test_node, lambda p: "cmpctblock" not in p.last_message and "headers" in p.last_message)
 
     # This test actually causes bitcoind to (reasonably!) disconnect us, so do this last.
+    # Note, these are not consensus-invalid blocks, but improperly constructed cmpctblock messages.
     def test_invalid_cmpctblock_message(self):
+        # Make a high-bandwidth peer
+        hb_peer = self.nodes[0].add_p2p_connection(TestP2PConn())
+        self.request_cb_announcements(hb_peer)
+        self.make_peer_hb_to_candidate(self.nodes[0], hb_peer)
+        self.assert_highbandwidth_states(self.nodes[0], idx=-1, hb_to=True, hb_from=True)
+
+        # Make a low-bandwidth peer
+        lb_peer = self.nodes[0].add_p2p_connection(TestP2PConn())
+        self.request_cb_announcements(lb_peer)
+        self.assert_highbandwidth_states(self.nodes[0], idx=-1, hb_to=False, hb_from=True)
+
+        # Construct an invalid cmpctblock message
         self.generate(self.nodes[0], COINBASE_MATURITY + 1)
         block = self.build_block_on_tip(self.nodes[0])
-
         cmpct_block = P2PHeaderAndShortIDs()
         cmpct_block.header = CBlockHeader(block)
         cmpct_block.prefilled_txn_length = 1
-        # This index will be too high
-        prefilled_txn = PrefilledTransaction(1, block.vtx[0])
+        too_high_prefill_idx = 1
+        prefilled_txn = PrefilledTransaction(too_high_prefill_idx, block.vtx[0])
         cmpct_block.prefilled_txn = [prefilled_txn]
-        self.segwit_node.send_await_disconnect(msg_cmpctblock(cmpct_block))
+
+        # Test an unsolicited invalid cmpctblock from an HB peer.
+        hb_peer.send_await_disconnect(msg_cmpctblock(cmpct_block))
+        assert_equal(int(self.nodes[0].getbestblockhash(), 16), block.hashPrevBlock)
+
+        # Test a solicited invalid cmpctblock from a non-HB peer.
+        lb_peer.send_header_for_blocks([block])
+        lb_peer.wait_for_getdata([block.hash_int], timeout=30)
+        lb_peer.send_await_disconnect(msg_cmpctblock(cmpct_block))
         assert_equal(int(self.nodes[0].getbestblockhash(), 16), block.hashPrevBlock)
 
     # Compare the generated shortids to what we expect based on BIP 152, given
@@ -809,6 +829,12 @@ class CompactBlocksTest(BitcoinTestFramework):
         msg = msg_cmpctblock(comp_block.to_p2p())
         test_node.send_await_disconnect(msg)
 
+    # peer generates a block and sends it to node, which makes the peer a
+    # candidate for high-bandwidth 'to' (up to 3 peers according to BIP 152)
+    def make_peer_hb_to_candidate(self, node, peer):
+        block = self.build_block_on_tip(node)
+        peer.send_and_ping(msg_block(block))
+
     # Helper for enabling cb announcements
     # Send the sendcmpct request and sync headers
     def request_cb_announcements(self, peer):
@@ -856,10 +882,10 @@ class CompactBlocksTest(BitcoinTestFramework):
         assert_equal(node.getbestblockhash(), block.hash_hex)
 
     # assert the RPC getpeerinfo boolean fields `bip152_hb_{to, from}`
-    # match the given parameters for the last peer of a given node
+    # match the given parameters for the peer at idx of a given node
     @staticmethod
-    def assert_highbandwidth_states(node, hb_to, hb_from):
-        peerinfo = node.getpeerinfo()[-1]
+    def assert_highbandwidth_states(node, idx, hb_to, hb_from):
+        peerinfo = node.getpeerinfo()[idx]
         assert_equal(peerinfo['bip152_hb_to'], hb_to)
         assert_equal(peerinfo['bip152_hb_from'], hb_from)
 
@@ -867,22 +893,25 @@ class CompactBlocksTest(BitcoinTestFramework):
         # create new p2p connection for a fresh state w/o any prior sendcmpct messages sent
         hb_test_node = self.nodes[0].add_p2p_connection(TestP2PConn())
 
+        # Newly created hb_test_node is the last connection.
+        hb_test_node_idx = -1
+
         # initially, neither node has selected the other peer as high-bandwidth yet
-        self.assert_highbandwidth_states(self.nodes[0], hb_to=False, hb_from=False)
+        self.assert_highbandwidth_states(self.nodes[0], hb_test_node_idx, hb_to=False, hb_from=False)
 
         # peer requests high-bandwidth mode by sending sendcmpct(1)
         hb_test_node.send_and_ping(msg_sendcmpct(announce=True, version=2))
-        self.assert_highbandwidth_states(self.nodes[0], hb_to=False, hb_from=True)
+        self.assert_highbandwidth_states(self.nodes[0], hb_test_node_idx, hb_to=False, hb_from=True)
 
         # peer generates a block and sends it to node, which should
         # select the peer as high-bandwidth (up to 3 peers according to BIP 152)
         block = self.build_block_on_tip(self.nodes[0])
         hb_test_node.send_and_ping(msg_block(block))
-        self.assert_highbandwidth_states(self.nodes[0], hb_to=True, hb_from=True)
+        self.assert_highbandwidth_states(self.nodes[0], hb_test_node_idx, hb_to=True, hb_from=True)
 
         # peer requests low-bandwidth mode by sending sendcmpct(0)
         hb_test_node.send_and_ping(msg_sendcmpct(announce=False, version=2))
-        self.assert_highbandwidth_states(self.nodes[0], hb_to=True, hb_from=False)
+        self.assert_highbandwidth_states(self.nodes[0], hb_test_node_idx, hb_to=True, hb_from=False)
 
     def test_compactblock_reconstruction_parallel_reconstruction(self, stalling_peer, delivery_peer, inbound_peer, outbound_peer):
         """ All p2p connections are inbound except outbound_peer. We test that ultimate parallel slot
