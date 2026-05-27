@@ -177,13 +177,16 @@ class CompactBlocksTest(BitcoinTestFramework):
         assert_equal(self.nodes[0].getbestblockhash(), block2.hash_hex)
         self.utxos.extend([[tx.txid_int, i, out_value] for i in range(10)])
 
-    def announce_cmpct_block(self, node, peer, txn_count=5):
+    def announce_cmpct_block(self, node, peer, txn_count=5, solicit=False):
         utxo = self.utxos.pop(0)
         block = self.build_block_with_transactions(node, utxo, txn_count)
 
         cmpct_block = HeaderAndShortIDs()
         cmpct_block.initialize_from_block(block)
         msg = msg_cmpctblock(cmpct_block.to_p2p())
+        if solicit:
+            peer.send_without_ping(msg_headers([block]))
+            peer.wait_for_getdata([block.hash_int], timeout=30)
 
         peer.clear_getblocktxn()
         peer.send_and_ping(msg)
@@ -600,6 +603,10 @@ class CompactBlocksTest(BitcoinTestFramework):
 
         block = self.build_block_with_transactions(node, utxo, 2)
 
+        # The attacker sends the block header so that we request it.
+        test_node.send_without_ping(msg_headers([block]))
+        test_node.wait_for_getdata([block.hash_int], timeout=30)
+
         # Send compact block
         comp_block = HeaderAndShortIDs()
         comp_block.initialize_from_block(block, prefill_list=[0], use_witness=True)
@@ -847,6 +854,7 @@ class CompactBlocksTest(BitcoinTestFramework):
         node = self.nodes[0]
         assert len(self.utxos)
 
+        self.make_peer_hb_to_candidate(node, delivery_peer)
         block, cmpct_block = self.announce_cmpct_block(node, stalling_peer)
 
         for tx in block.vtx[1:]:
@@ -921,6 +929,7 @@ class CompactBlocksTest(BitcoinTestFramework):
 
         for name, peer in [("delivery", delivery_peer), ("inbound", inbound_peer), ("outbound", outbound_peer)]:
             self.log.info(f"Setting {name} as high bandwidth peer")
+            self.make_peer_hb_to_candidate(node, peer)
             block, cmpct_block = self.announce_cmpct_block(node, peer, 1)
             msg = msg_blocktxn()
             msg.block_transactions.blockhash = block.hash_int
@@ -938,7 +947,7 @@ class CompactBlocksTest(BitcoinTestFramework):
             # Remaining low-bandwidth peer is stalling_peer, who announces first
             assert_equal([peer['bip152_hb_to'] for peer in node.getpeerinfo()], [False, True, True, True])
 
-            block, cmpct_block = self.announce_cmpct_block(node, stalling_peer, num_missing)
+            block, cmpct_block = self.announce_cmpct_block(node, stalling_peer, num_missing, solicit=True)
 
             delivery_peer.send_and_ping(msg_cmpctblock(cmpct_block.to_p2p()))
             with p2p_lock:
