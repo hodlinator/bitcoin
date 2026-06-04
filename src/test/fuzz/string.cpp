@@ -131,10 +131,7 @@ FUZZ_TARGET(string)
         assert(data_stream.empty());
         assert(deserialized_string == random_string_1);
     }
-    {
-        int64_t amount_out;
-        (void)ParseFixedPoint(random_string_1, fuzzed_data_provider.ConsumeIntegralInRange<int>(0, 1024), &amount_out);
-    }
+    (void)ParseFixedPoint(random_string_1, fuzzed_data_provider.ConsumeIntegralInRange<int>(0, 1024));
     {
         const auto single_split{SplitString(random_string_1, fuzzed_data_provider.ConsumeIntegral<char>())};
         assert(single_split.size() >= 1);

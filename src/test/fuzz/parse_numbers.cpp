@@ -57,7 +57,6 @@ FUZZ_TARGET(parse_numbers)
 
     (void)LocaleIndependentAtoi<int>(random_string);
 
-    int64_t i64;
     (void)LocaleIndependentAtoi<int64_t>(random_string);
-    (void)ParseFixedPoint(random_string, 3, &i64);
+    (void)ParseFixedPoint(random_string, 3);
 }

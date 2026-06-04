@@ -209,10 +209,9 @@ bool TimingResistantEqual(const T& a, const T& b)
 }
 
 /** Parse number as fixed point according to JSON number syntax.
- * @returns true on success, false on error.
  * @note The result must be in the range (-10^18,10^18), otherwise an overflow error will trigger.
  */
-[[nodiscard]] bool ParseFixedPoint(std::string_view, int decimals, int64_t *amount_out);
+[[nodiscard]] std::optional<int64_t> ParseFixedPoint(std::string_view, int decimals);
 
 namespace {
 /** Helper class for the default infn argument to ConvertBits (just returns the input). */

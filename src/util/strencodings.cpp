@@ -268,7 +268,7 @@ static inline bool ProcessMantissaDigit(char ch, int64_t &mantissa, int &mantiss
     return true;
 }
 
-bool ParseFixedPoint(std::string_view val, int decimals, int64_t *amount_out)
+std::optional<int64_t> ParseFixedPoint(std::string_view val, int decimals)
 {
     int64_t mantissa = 0;
     int64_t exponent = 0;
@@ -291,11 +291,11 @@ bool ParseFixedPoint(std::string_view val, int decimals, int64_t *amount_out)
         } else if (val[ptr] >= '1' && val[ptr] <= '9') {
             while (ptr < end && IsDigit(val[ptr])) {
                 if (!ProcessMantissaDigit(val[ptr], mantissa, mantissa_tzeros))
-                    return false; /* overflow */
+                    return std::nullopt; /* overflow */
                 ++ptr;
             }
-        } else return false; /* missing expected digit */
-    } else return false; /* empty string or loose '-' */
+        } else return std::nullopt; /* missing expected digit */
+    } else return std::nullopt; /* empty string or loose '-' */
     if (ptr < end && val[ptr] == '.')
     {
         ++ptr;
@@ -303,11 +303,11 @@ bool ParseFixedPoint(std::string_view val, int decimals, int64_t *amount_out)
         {
             while (ptr < end && IsDigit(val[ptr])) {
                 if (!ProcessMantissaDigit(val[ptr], mantissa, mantissa_tzeros))
-                    return false; /* overflow */
+                    return std::nullopt; /* overflow */
                 ++ptr;
                 ++point_ofs;
             }
-        } else return false; /* missing expected digit */
+        } else return std::nullopt; /* missing expected digit */
     }
     if (ptr < end && (val[ptr] == 'e' || val[ptr] == 'E'))
     {
@@ -321,14 +321,14 @@ bool ParseFixedPoint(std::string_view val, int decimals, int64_t *amount_out)
         if (ptr < end && IsDigit(val[ptr])) {
             while (ptr < end && IsDigit(val[ptr])) {
                 if (exponent > (UPPER_BOUND / 10LL))
-                    return false; /* overflow */
+                    return std::nullopt; /* overflow */
                 exponent = exponent * 10 + val[ptr] - '0';
                 ++ptr;
             }
-        } else return false; /* missing expected digit */
+        } else return std::nullopt; /* missing expected digit */
     }
     if (ptr != end)
-        return false; /* trailing garbage */
+        return std::nullopt; /* trailing garbage */
 
     /* finalize exponent */
     if (exponent_sign)
@@ -342,22 +342,19 @@ bool ParseFixedPoint(std::string_view val, int decimals, int64_t *amount_out)
     /* convert to one 64-bit fixed-point value */
     exponent += decimals;
     if (exponent < 0)
-        return false; /* cannot represent values smaller than 10^-decimals */
+        return std::nullopt; /* cannot represent values smaller than 10^-decimals */
     if (exponent >= 18)
-        return false; /* cannot represent values larger than or equal to 10^(18-decimals) */
+        return std::nullopt; /* cannot represent values larger than or equal to 10^(18-decimals) */
 
     for (int i=0; i < exponent; ++i) {
         if (mantissa > (UPPER_BOUND / 10LL) || mantissa < -(UPPER_BOUND / 10LL))
-            return false; /* overflow */
+            return std::nullopt; /* overflow */
         mantissa *= 10;
     }
     if (mantissa > UPPER_BOUND || mantissa < -UPPER_BOUND)
-        return false; /* overflow */
+        return std::nullopt; /* overflow */
 
-    if (amount_out)
-        *amount_out = mantissa;
-
-    return true;
+    return mantissa;
 }
 
 std::string ToLower(std::string_view str)
