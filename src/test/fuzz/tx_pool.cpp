@@ -270,7 +270,7 @@ FUZZ_TARGET(tx_pool_standard, .init = initialize_tx_pool)
     const CCoinsViewMemPool amount_view{WITH_LOCK(::cs_main, return &chainstate.CoinsTip()), tx_pool};
     const auto GetAmount = [&](const COutPoint& outpoint) {
         auto coin{amount_view.GetCoin(outpoint).value()};
-        return coin.out.nValue;
+        return coin.out.nValue.AssertValid();
     };
 
     LIMITED_WHILE(fuzzed_data_provider.ConsumeBool(), 100)
@@ -318,8 +318,8 @@ FUZZ_TARGET(tx_pool_standard, .init = initialize_tx_pool)
             // Check sigops in mempool + block template creation
             bool add_sigops{fuzzed_data_provider.ConsumeBool()};
 
-            const CAmount amount_fee{ConsumeMoney(fuzzed_data_provider, -1000_sats, amount_in)};
-            const auto amount_out = (amount_in - amount_fee) / num_out;
+            const CAmountUnchecked amount_fee{ConsumeMoney(fuzzed_data_provider, -1000_sats, amount_in)};
+            const auto amount_out = (CAmountUnchecked{amount_in} - amount_fee).AssertValid() / num_out;
             for (int i = 0; i < num_out; ++i) {
                 if (i == 0 && add_sigops) {
                     tx_mut.vout.emplace_back(amount_out, CScript() << std::vector<unsigned char>(33, 0x02) << OP_CHECKSIG);
@@ -346,7 +346,7 @@ FUZZ_TARGET(tx_pool_standard, .init = initialize_tx_pool)
             const auto& txid = fuzzed_data_provider.ConsumeBool() ?
                                    tx->GetHash() :
                                    PickValue(fuzzed_data_provider, outpoints_rbf).hash;
-            const CAmount delta{ConsumeMoney(fuzzed_data_provider, -50 * COIN, +50 * COIN)};
+            const CAmountUnchecked delta{ConsumeMoney(fuzzed_data_provider, -50 * COIN, +50 * COIN)};
             tx_pool.PrioritiseTransaction(txid, delta);
         }
 
@@ -469,7 +469,7 @@ FUZZ_TARGET(tx_pool, .init = initialize_tx_pool)
             const auto txid = fuzzed_data_provider.ConsumeBool() ?
                                    mut_tx.GetHash() :
                                    PickValue(fuzzed_data_provider, txids);
-            const CAmount delta{ConsumeMoney(fuzzed_data_provider, -50 * COIN, +50 * COIN)};
+            const CAmountUnchecked delta{ConsumeMoney(fuzzed_data_provider, -50 * COIN, +50 * COIN)};
             tx_pool.PrioritiseTransaction(txid, delta);
         }
 

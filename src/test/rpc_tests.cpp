@@ -2,6 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include <consensus/amount.h>
 #include <core_io.h>
 #include <interfaces/chain.h>
 #include <node/context.h>
@@ -243,7 +244,7 @@ BOOST_AUTO_TEST_CASE(rpc_format_monetary_values)
     BOOST_CHECK_EQUAL(ValueFromAmount(-COIN).write(), "-1.00000000");
     BOOST_CHECK_EQUAL(ValueFromAmount(-COIN/10).write(), "-0.10000000");
 
-    BOOST_CHECK_EQUAL(ValueFromAmount(COIN*100000000).write(), "100000000.00000000");
+    BOOST_CHECK_EQUAL(ValueFromAmount(CAmountUnchecked{COIN}*100000000).write(), "100000000.00000000");
     BOOST_CHECK_EQUAL(ValueFromAmount(COIN*10000000).write(), "10000000.00000000");
     BOOST_CHECK_EQUAL(ValueFromAmount(COIN*1000000).write(), "1000000.00000000");
     BOOST_CHECK_EQUAL(ValueFromAmount(COIN*100000).write(), "100000.00000000");
@@ -261,15 +262,15 @@ BOOST_AUTO_TEST_CASE(rpc_format_monetary_values)
     BOOST_CHECK_EQUAL(ValueFromAmount(COIN/10000000).write(), "0.00000010");
     BOOST_CHECK_EQUAL(ValueFromAmount(COIN/100000000).write(), "0.00000001");
 
-    BOOST_CHECK_EQUAL(ValueFromAmount(CAmount{std::numeric_limits<CAmount::inner_type>::max()}).write(), "92233720368.54775807");
-    BOOST_CHECK_EQUAL(ValueFromAmount(CAmount{std::numeric_limits<CAmount::inner_type>::max() - 1}).write(), "92233720368.54775806");
-    BOOST_CHECK_EQUAL(ValueFromAmount(CAmount{std::numeric_limits<CAmount::inner_type>::max() - 2}).write(), "92233720368.54775805");
-    BOOST_CHECK_EQUAL(ValueFromAmount(CAmount{std::numeric_limits<CAmount::inner_type>::max() - 3}).write(), "92233720368.54775804");
+    BOOST_CHECK_EQUAL(ValueFromAmount(CAmountUnchecked{std::numeric_limits<CAmount::inner_type>::max()}).write(), "92233720368.54775807");
+    BOOST_CHECK_EQUAL(ValueFromAmount(CAmountUnchecked{std::numeric_limits<CAmount::inner_type>::max() - 1}).write(), "92233720368.54775806");
+    BOOST_CHECK_EQUAL(ValueFromAmount(CAmountUnchecked{std::numeric_limits<CAmount::inner_type>::max() - 2}).write(), "92233720368.54775805");
+    BOOST_CHECK_EQUAL(ValueFromAmount(CAmountUnchecked{std::numeric_limits<CAmount::inner_type>::max() - 3}).write(), "92233720368.54775804");
     // ...
-    BOOST_CHECK_EQUAL(ValueFromAmount(CAmount{std::numeric_limits<CAmount::inner_type>::min() + 3}).write(), "-92233720368.54775805");
-    BOOST_CHECK_EQUAL(ValueFromAmount(CAmount{std::numeric_limits<CAmount::inner_type>::min() + 2}).write(), "-92233720368.54775806");
-    BOOST_CHECK_EQUAL(ValueFromAmount(CAmount{std::numeric_limits<CAmount::inner_type>::min() + 1}).write(), "-92233720368.54775807");
-    BOOST_CHECK_EQUAL(ValueFromAmount(CAmount{std::numeric_limits<CAmount::inner_type>::min()}).write(), "-92233720368.54775808");
+    BOOST_CHECK_EQUAL(ValueFromAmount(CAmountUnchecked{std::numeric_limits<CAmount::inner_type>::min() + 3}).write(), "-92233720368.54775805");
+    BOOST_CHECK_EQUAL(ValueFromAmount(CAmountUnchecked{std::numeric_limits<CAmount::inner_type>::min() + 2}).write(), "-92233720368.54775806");
+    BOOST_CHECK_EQUAL(ValueFromAmount(CAmountUnchecked{std::numeric_limits<CAmount::inner_type>::min() + 1}).write(), "-92233720368.54775807");
+    BOOST_CHECK_EQUAL(ValueFromAmount(CAmountUnchecked{std::numeric_limits<CAmount::inner_type>::min()}).write(), "-92233720368.54775808");
 }
 
 static UniValue ValueFromString(const std::string& str) noexcept

@@ -109,5 +109,5 @@ bool SignSignature(const SigningProvider &provider, const CTransaction& txFrom, 
     assert(txin.prevout.n < txFrom.vout.size());
     const CTxOut& txout = txFrom.vout[txin.prevout.n];
 
-    return SignSignature(provider, txout.scriptPubKey, txTo, nIn, txout.nValue, nHashType, sig_data);
+    return SignSignature(provider, txout.scriptPubKey, txTo, nIn, txout.nValue.AssertValid(), nHashType, sig_data);
 }

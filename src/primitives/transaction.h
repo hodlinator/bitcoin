@@ -139,7 +139,7 @@ public:
 class CTxOut
 {
 public:
-    CAmount nValue;
+    CAmountUnchecked nValue;
     CScript scriptPubKey;
 
     CTxOut() : nValue{-1} {}
@@ -267,7 +267,7 @@ void SerializeTransaction(const TxType& tx, Stream& s, const TransactionSerParam
 template<typename TxType>
 inline CAmount CalculateOutputValue(const TxType& tx)
 {
-    return std::accumulate(tx.vout.cbegin(), tx.vout.cend(), CAmount{0}, [](CAmount sum, const auto& txout) { return sum + txout.nValue; });
+    return std::accumulate(tx.vout.cbegin(), tx.vout.cend(), CAmount{0}, [](CAmount sum, const auto& txout) { return sum + txout.nValue.AssertValid(); });
 }
 
 

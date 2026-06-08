@@ -24,7 +24,7 @@ struct FeeFrac
     /** Helper function for 32*64 signed multiplication, returning an unspecified but totally
      *  ordered type. This is a fallback version, separate so it can be tested on platforms where
      *  it isn't actually needed. */
-    static inline std::pair<int64_t, uint32_t> MulFallback(CAmount a, int32_t b) noexcept
+    static inline std::pair<int64_t, uint32_t> MulFallback(CAmountUnchecked a, int32_t b) noexcept
     {
         int64_t low = int64_t{static_cast<uint32_t>(a.Int())} * b;
         int64_t high = (a.Int() >> 32) * b;
@@ -63,7 +63,7 @@ struct FeeFrac
 #ifdef __SIZEOF_INT128__
     /** Helper function for 32*64 signed multiplication, returning an unspecified but totally
      *  ordered type. This is a version relying on __int128. */
-    static inline __int128 Mul(CAmount a, int32_t b) noexcept
+    static inline __int128 Mul(CAmountUnchecked a, int32_t b) noexcept
     {
         return __int128{a.Int()} * b;
     }
@@ -87,14 +87,14 @@ struct FeeFrac
     static constexpr auto Div = DivFallback;
 #endif
 
-    CAmount fee;
+    CAmountUnchecked fee;
     int32_t size;
 
     /** Construct an IsEmpty() FeeFrac. */
     constexpr inline FeeFrac() noexcept : fee{0_sats}, size{0} {}
 
     /** Construct a FeeFrac with specified fee and size. */
-    constexpr inline FeeFrac(CAmount f, int32_t s) noexcept : fee{f}, size{s} {}
+    constexpr inline FeeFrac(CAmountUnchecked f, int32_t s) noexcept : fee{f}, size{s} {}
 
     constexpr inline FeeFrac(const FeeFrac&) noexcept = default;
     constexpr inline FeeFrac& operator=(const FeeFrac&) noexcept = default;
@@ -153,28 +153,28 @@ struct FeeFrac
      * is guaranteed to be the case when 0 <= at_size <= this->size.
      */
     template <bool RoundDown>
-    CAmount EvaluateFee(int32_t at_size) const noexcept
+    CAmountUnchecked EvaluateFee(int32_t at_size) const noexcept
     {
         Assume(size > 0);
         Assume(at_size >= 0);
         if (fee >= 0_sats && fee < 0x200000000_sats) [[likely]] {
             // Common case where (this->fee * at_size) is guaranteed to fit in a uint64_t.
             if constexpr (RoundDown) {
-                return CAmount{(uint64_t(fee.Int()) * at_size) / uint32_t(size)};
+                return CAmountUnchecked{(uint64_t(fee.Int()) * at_size) / uint32_t(size)};
             } else {
-                return CAmount{CeilDiv(uint64_t(fee.Int()) * at_size, uint32_t(size))};
+                return CAmountUnchecked{CeilDiv(uint64_t(fee.Int()) * at_size, uint32_t(size))};
             }
         } else {
             // Otherwise, use Mul and Div.
-            return CAmount{Div(Mul(fee, at_size), size, RoundDown)};
+            return CAmountUnchecked{Div(Mul(fee, at_size), size, RoundDown)};
         }
     }
 
 public:
     /** Compute the fee for a given size `at_size` using this object's feerate, rounding down. */
-    CAmount EvaluateFeeDown(int32_t at_size) const noexcept { return EvaluateFee<true>(at_size); }
+    CAmountUnchecked EvaluateFeeDown(int32_t at_size) const noexcept { return EvaluateFee<true>(at_size); }
     /** Compute the fee for a given size `at_size` using this object's feerate, rounding up. */
-    CAmount EvaluateFeeUp(int32_t at_size) const noexcept { return EvaluateFee<false>(at_size); }
+    CAmountUnchecked EvaluateFeeUp(int32_t at_size) const noexcept { return EvaluateFee<false>(at_size); }
 };
 
 /** Compare the feerate diagrams implied by the provided sorted chunks data.

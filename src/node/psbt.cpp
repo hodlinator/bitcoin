@@ -11,6 +11,7 @@
 #include <tinyformat.h>
 
 #include <numeric>
+#include <optional>
 
 namespace node {
 PSBTAnalysis AnalyzePSBT(PartiallySignedTransaction psbtx)
@@ -44,11 +45,12 @@ PSBTAnalysis AnalyzePSBT(PartiallySignedTransaction psbtx)
         // Check for a UTXO
         CTxOut utxo;
         if (input.GetUTXO(utxo)) {
-            if (!MoneyRange(utxo.nValue) || !MoneyRange(in_amt + utxo.nValue)) {
+            std::optional<CAmount> out{utxo.nValue.TryValid()};
+            if (!out || !MoneyRange(in_amt + *out)) {
                 result.SetInvalid(strprintf("PSBT is not valid. Input %u has invalid value", i));
                 return result;
             }
-            in_amt += utxo.nValue;
+            in_amt += *out;
             input_analysis.has_utxo = true;
         } else {
             if (input.non_witness_utxo && input.prev_out >= input.non_witness_utxo->vout.size()) {
@@ -105,10 +107,10 @@ PSBTAnalysis AnalyzePSBT(PartiallySignedTransaction psbtx)
 
     if (calc_fee) {
         // Get the output amount
-        CAmount out_amt = std::accumulate(psbtx.outputs.begin(), psbtx.outputs.end(), CAmount(0),
-            [](CAmount a, const PSBTOutput& b) {
+        CAmountUnchecked out_amt = std::accumulate(psbtx.outputs.begin(), psbtx.outputs.end(), CAmountUnchecked(0),
+            [](CAmountUnchecked a, const PSBTOutput& b) {
                 if (!MoneyRange(a) || !MoneyRange(b.amount) || !MoneyRange(a + b.amount)) {
-                    return CAmount(-1);
+                    return CAmountUnchecked(-1);
                 }
                 return a += b.amount;
             }
@@ -119,7 +121,7 @@ PSBTAnalysis AnalyzePSBT(PartiallySignedTransaction psbtx)
         }
 
         // Get the fee
-        CAmount fee = in_amt - out_amt;
+        CAmount fee = (CAmountUnchecked{in_amt} - out_amt).AssertValid();
         result.fee = fee;
 
         // Estimate the size

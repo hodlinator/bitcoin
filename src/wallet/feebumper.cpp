@@ -82,17 +82,17 @@ static feebumper::Result CheckFeeRate(const CWallet& wallet, const CMutableTrans
         reused_inputs.push_back(txin.prevout);
     }
 
-    const std::optional<CAmount> combined_bump_fee = wallet.chain().calculateCombinedBumpFee(reused_inputs, newFeerate);
+    const std::optional<CAmountUnchecked> combined_bump_fee = wallet.chain().calculateCombinedBumpFee(reused_inputs, newFeerate);
     if (!combined_bump_fee.has_value()) {
         errors.push_back(Untranslated(strprintf("Failed to calculate bump fees, because unconfirmed UTXOs depend on an enormous cluster of unconfirmed transactions.")));
         return feebumper::Result::WALLET_ERROR;
     }
-    CAmount new_total_fee = newFeerate.GetFee(maxTxSize) + combined_bump_fee.value();
+    CAmount new_total_fee = (newFeerate.GetFee(maxTxSize) + combined_bump_fee.value()).AssertValid();
 
     CFeeRate incrementalRelayFee = wallet.chain().relayIncrementalFee();
 
     // Min total fee is old fee + relay fee
-    CAmount minTotalFee = old_fee + incrementalRelayFee.GetFee(maxTxSize);
+    CAmount minTotalFee = old_fee + incrementalRelayFee.GetFee(maxTxSize).AssertValid();
 
     if (new_total_fee < minTotalFee) {
         errors.push_back(Untranslated(strprintf("Insufficient total fee %s, must be at least %s (oldFee %s + incrementalFee %s)",
@@ -204,7 +204,7 @@ Result CreateRateBumpTransaction(CWallet& wallet, const Txid& txid, const CCoinC
         if (!wallet.IsMine(txin.prevout)) {
             preset_txin.SetTxOut(coin.out);
         }
-        input_value += coin.out.nValue;
+        input_value += coin.out.nValue.AssertValid();
         spent_outputs.push_back(coin.out);
     }
 
@@ -223,7 +223,7 @@ Result CreateRateBumpTransaction(CWallet& wallet, const Txid& txid, const CCoinC
             // In order to do this, we verify the script with a special SignatureChecker which
             // will observe the signatures verified and record their sizes.
             SignatureWeights weights;
-            TransactionSignatureChecker tx_checker(wtx.tx.get(), i, coin.out.nValue, txdata, MissingDataBehavior::FAIL);
+            TransactionSignatureChecker tx_checker(wtx.tx.get(), i, coin.out.nValue.AssertValid(), txdata, MissingDataBehavior::FAIL);
             SignatureWeightChecker size_checker(weights, tx_checker);
             VerifyScript(txin.scriptSig, coin.out.scriptPubKey, &txin.scriptWitness, STANDARD_SCRIPT_VERIFY_FLAGS, size_checker);
             // Add the difference between max and current to input_weight so that it represents the largest the input could be
@@ -240,10 +240,10 @@ Result CreateRateBumpTransaction(CWallet& wallet, const Txid& txid, const CCoinC
     // Calculate the old output amount.
     CAmount output_value = 0_sats;
     for (const auto& old_output : wtx.tx->vout) {
-        output_value += old_output.nValue;
+        output_value += old_output.nValue.AssertValid();
     }
 
-    old_fee = input_value - output_value;
+    old_fee = (input_value - output_value).AssertValid();
 
     // Fill in recipients (and preserve a single change key if there
     // is one). If outputs vector is non-empty, replace original
@@ -258,10 +258,10 @@ Result CreateRateBumpTransaction(CWallet& wallet, const Txid& txid, const CCoinC
         if (original_change_index.has_value() ?  original_change_index.value() == i : OutputIsChange(wallet, output)) {
             new_coin_control.destChange = dest;
         } else {
-            CRecipient recipient = {dest, output.nValue, false};
+            CRecipient recipient = {dest, output.nValue.AssertValid(), false};
             recipients.push_back(recipient);
         }
-        new_outputs_value += output.nValue;
+        new_outputs_value += output.nValue.AssertValid();
     }
 
     // If no recipients, means that we are sending coins to a change address

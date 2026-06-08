@@ -79,7 +79,7 @@ private:
     const unsigned int entryHeight; //!< Chain height when entering the mempool
     const bool spendsCoinbase;      //!< keep track of transactions that spend a coinbase
     const int64_t sigOpCost;        //!< Total sigop cost
-    mutable CAmount m_modified_fee; //!< Used for determining the priority of the transaction for mining in a block
+    mutable CAmountUnchecked m_modified_fee; //!< Used for determining the priority of the transaction for mining in a block
     mutable LockPoints lockPoints;  //!< Track the height and time at which tx was final
 
 public:
@@ -117,14 +117,14 @@ public:
     unsigned int GetHeight() const { return entryHeight; }
     uint64_t GetSequence() const { return entry_sequence; }
     int64_t GetSigOpCost() const { return sigOpCost; }
-    CAmount GetModifiedFee() const { return m_modified_fee; }
+    CAmountUnchecked GetModifiedFee() const { return m_modified_fee; }
     size_t DynamicMemoryUsage() const { return nUsageSize; }
     const LockPoints& GetLockPoints() const { return lockPoints; }
 
     // Updates the modified fees with descendants/ancestors.
-    void UpdateModifiedFee(CAmount fee_diff) const
+    void UpdateModifiedFee(CAmountUnchecked fee_diff) const
     {
-        m_modified_fee = CAmount{SaturatingAdd(m_modified_fee.Int(), fee_diff.Int())};
+        m_modified_fee = SaturatingAdd(m_modified_fee.Int(), fee_diff.Int());
     }
 
     // Update the LockPoints after a reorg

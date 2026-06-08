@@ -1088,7 +1088,7 @@ static std::set<double> MakeFeeSet(const CFeeRate& min_incremental_fee,
 {
     std::set<double> fee_set;
 
-    const CAmount min_fee_limit{std::max(CAmount(1), min_incremental_fee.GetFeePerK() / 2)};
+    const CAmount min_fee_limit{std::max(CAmount(1), min_incremental_fee.GetFeePerK().AssertValid() / 2)};
     fee_set.insert(0);
     for (double bucket_boundary = min_fee_limit.Int();
          bucket_boundary <= max_filter_fee_rate;
@@ -1105,7 +1105,7 @@ FeeFilterRounder::FeeFilterRounder(const CFeeRate& minIncrementalFee, FastRandom
 {
 }
 
-CAmount FeeFilterRounder::round(CAmount currentMinFee)
+CAmountUnchecked FeeFilterRounder::round(CAmountUnchecked currentMinFee)
 {
     AssertLockNotHeld(m_insecure_rand_mutex);
     std::set<double>::iterator it = m_fee_set.lower_bound(currentMinFee.Int());
@@ -1114,5 +1114,5 @@ CAmount FeeFilterRounder::round(CAmount currentMinFee)
          WITH_LOCK(m_insecure_rand_mutex, return insecure_rand.rand32()) % 3 != 0)) {
         --it;
     }
-    return CAmount{static_cast<int64_t>(*it)};
+    return static_cast<CAmountUnchecked>(int64_t(*it));
 }

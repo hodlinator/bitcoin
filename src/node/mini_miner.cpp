@@ -374,19 +374,19 @@ std::map<COutPoint, CAmount> MiniMiner::CalculateBumpFees(const CFeeRate& target
         Assume(it != m_entries_by_txid.end());
         if (it != m_entries_by_txid.end()) {
             Assume(target_feerate.GetFee(it->second.GetSizeWithAncestors()) > std::min(it->second.GetModifiedFee(), it->second.GetModFeesWithAncestors()));
-            CAmount bump_fee_with_ancestors = target_feerate.GetFee(it->second.GetSizeWithAncestors()) - it->second.GetModFeesWithAncestors();
-            CAmount bump_fee_individual = target_feerate.GetFee(it->second.GetTxSize()) - it->second.GetModifiedFee();
-            const CAmount bump_fee{std::max(bump_fee_with_ancestors, bump_fee_individual)};
+            CAmountUnchecked bump_fee_with_ancestors = target_feerate.GetFee(it->second.GetSizeWithAncestors()) - it->second.GetModFeesWithAncestors();
+            CAmountUnchecked bump_fee_individual = target_feerate.GetFee(it->second.GetTxSize()) - it->second.GetModifiedFee();
+            const CAmountUnchecked bump_fee{std::max(bump_fee_with_ancestors, bump_fee_individual)};
             Assume(bump_fee >= 0_sats);
             for (const auto& outpoint : outpoints) {
-                m_bump_fees.emplace(outpoint, bump_fee);
+                m_bump_fees.emplace(outpoint, bump_fee.AssertValid());
             }
         }
     }
     return m_bump_fees;
 }
 
-std::optional<CAmount> MiniMiner::CalculateTotalBumpFees(const CFeeRate& target_feerate)
+std::optional<CAmountUnchecked> MiniMiner::CalculateTotalBumpFees(const CFeeRate& target_feerate)
 {
     if (!m_ready_to_calculate) return std::nullopt;
     // Build a block template until the target feerate is hit.
@@ -422,8 +422,8 @@ std::optional<CAmount> MiniMiner::CalculateTotalBumpFees(const CFeeRate& target_
     }
     const auto ancestor_package_size = std::accumulate(ancestors.cbegin(), ancestors.cend(), int64_t{0},
         [](int64_t sum, const auto it) {return sum + it->second.GetTxSize();});
-    const auto ancestor_package_fee = std::accumulate(ancestors.cbegin(), ancestors.cend(), CAmount{0},
-        [](CAmount sum, const auto it) {return sum + it->second.GetModifiedFee();});
+    const auto ancestor_package_fee = std::accumulate(ancestors.cbegin(), ancestors.cend(), CAmountUnchecked{0},
+        [](CAmountUnchecked sum, const auto it) {return sum + it->second.GetModifiedFee();});
     return target_feerate.GetFee(ancestor_package_size) - ancestor_package_fee;
 }
 } // namespace node

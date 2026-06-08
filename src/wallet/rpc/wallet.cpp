@@ -8,6 +8,7 @@
 #include <wallet/rpc/wallet.h>
 
 #include <coins.h>
+#include <consensus/amount.h>
 #include <core_io.h>
 #include <key_io.h>
 #include <rpc/server.h>
@@ -524,7 +525,7 @@ RPCMethod simulaterawtransaction()
     LOCK(wallet.cs_wallet);
 
     const auto& txs = request.params[0].get_array();
-    CAmount changes{0};
+    CAmountUnchecked changes{0};
     std::map<COutPoint, CAmount> new_utxos; // UTXO:s that were made available in transaction array
     std::set<COutPoint> spent;
 
@@ -569,7 +570,7 @@ RPCMethod simulaterawtransaction()
         for (size_t i = 0; i < mtx.vout.size(); ++i) {
             const auto& txout = mtx.vout[i];
             bool is_mine = wallet.IsMine(txout);
-            changes += new_utxos.insert_or_assign(COutPoint(hash, i), (is_mine ? txout.nValue : 0_sats)).first->second;
+            changes += new_utxos.insert_or_assign(COutPoint(hash, i), (is_mine ? txout.nValue.AssertValid() : 0_sats)).first->second;
         }
     }
 

@@ -123,7 +123,7 @@ BOOST_AUTO_TEST_CASE(BlockPolicyEstimates)
     // Second highest feerate has 100% chance of being included by 2 blocks,
     // so estimateFee(2) should return 9*baseRate etc...
     for (int i = 1; i < 10;i++) {
-        origFeeEst.push_back(feeEst.estimateFee(i).GetFeePerK());
+        origFeeEst.push_back(feeEst.estimateFee(i).GetFeePerK().AssertValid());
         if (i > 2) { // Fee estimates should be monotonically decreasing
             BOOST_CHECK(origFeeEst[i-1] <= origFeeEst[i-2]);
         }
@@ -135,7 +135,7 @@ BOOST_AUTO_TEST_CASE(BlockPolicyEstimates)
     }
     // Fill out rest of the original estimates
     for (int i = 10; i <= 48; i++) {
-        origFeeEst.push_back(feeEst.estimateFee(i).GetFeePerK());
+        origFeeEst.push_back(feeEst.estimateFee(i).GetFeePerK().AssertValid());
     }
 
     // Mine 50 more blocks with no transactions happening, estimates shouldn't change

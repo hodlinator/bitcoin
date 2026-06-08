@@ -124,8 +124,8 @@ static void CoinSelection(benchmark::Bench& bench)
             params->tx_noinputs_size = 72;
             params->m_avoid_partial_spends = false;
 
-            params->m_change_fee = params->m_effective_feerate.GetFee(params->change_output_size);
-            params->min_viable_change = params->m_discard_feerate.GetFee(params->change_spend_size);
+            params->m_change_fee = params->m_effective_feerate.GetFee(params->change_output_size).AssertValid();
+            params->min_viable_change = params->m_discard_feerate.GetFee(params->change_spend_size).AssertValid();
             params->m_cost_of_change = params->min_viable_change + params->m_change_fee;
 
             groups.assign(NUM_TARGETS, wallet::GroupOutputs(wallet, available_coins, *params, {{filter_standard}})[filter_standard]);

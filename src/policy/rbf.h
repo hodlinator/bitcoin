@@ -93,8 +93,8 @@ std::optional<std::string> EntriesAndTxidsDisjoint(const CTxMemPool::setEntries&
  * @param[in]   txid                Transaction ID, included in the error message if violation occurs.
  * @returns error string if fees are insufficient, otherwise std::nullopt.
  */
-std::optional<std::string> PaysForRBF(CAmount original_fees,
-                                      CAmount replacement_fees,
+std::optional<std::string> PaysForRBF(CAmountUnchecked original_fees,
+                                      CAmountUnchecked replacement_fees,
                                       size_t replacement_vsize,
                                       CFeeRate relay_fee,
                                       const Txid& txid);

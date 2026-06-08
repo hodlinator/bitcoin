@@ -154,7 +154,7 @@ static void WalletCreateTx(benchmark::Bench& bench, const OutputType output_type
                                     return wallet::AvailableCoins(wallet, /*coinControl=*/nullptr, /*feerate=*/std::nullopt, filter_coins));
         for (int i=0; i < preset_inputs->num_of_internal_inputs; i++) {
             const auto& coin{res.coins.at(output_type)[i]};
-            target += coin.txout.nValue;
+            target += coin.txout.nValue.AssertValid();
             coin_control.Select(coin.outpoint);
         }
     }

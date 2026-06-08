@@ -17,7 +17,7 @@
 using util::ContainsNoNUL;
 using util::TrimString;
 
-std::string FormatMoney(const CAmount n)
+std::string FormatMoney(const CAmountUnchecked n)
 {
     // Note: not using straight sprintf here because we do NOT want
     // localized number formatting.
@@ -83,11 +83,5 @@ std::optional<CAmount> ParseMoney(const std::string& money_string)
     if (nUnits < 0 || nUnits > COIN.Int())
         return std::nullopt;
     int64_t nWhole = LocaleIndependentAtoi<int64_t>(strWhole);
-    CAmount value = nWhole * COIN + CAmount{nUnits};
-
-    if (!MoneyRange(value)) {
-        return std::nullopt;
-    }
-
-    return value;
+    return CAmountUnchecked{nWhole * COIN.Int() + nUnits}.TryValid();
 }

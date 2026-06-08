@@ -457,7 +457,7 @@ static void CheckWithFlag(const CTransactionRef& output, const CMutableTransacti
 {
     ScriptError error;
     CTransaction inputi(input);
-    bool ret = VerifyScript(inputi.vin[0].scriptSig, output->vout[0].scriptPubKey, &inputi.vin[0].scriptWitness, flags, TransactionSignatureChecker(&inputi, 0, output->vout[0].nValue, MissingDataBehavior::ASSERT_FAIL), &error);
+    bool ret = VerifyScript(inputi.vin[0].scriptSig, output->vout[0].scriptPubKey, &inputi.vin[0].scriptWitness, flags, TransactionSignatureChecker(&inputi, 0, output->vout[0].nValue.AssertValid(), MissingDataBehavior::ASSERT_FAIL), &error);
     assert(ret == success);
 }
 
@@ -563,7 +563,7 @@ SignatureData CombineSignatures(const CMutableTransaction& input1, const CMutabl
     SignatureData sigdata;
     sigdata = DataFromTransaction(input1, 0, tx->vout[0]);
     sigdata.MergeSignatureData(DataFromTransaction(input2, 0, tx->vout[0]));
-    ProduceSignature(DUMMY_SIGNING_PROVIDER, MutableTransactionSignatureCreator(input1, 0, tx->vout[0].nValue, {.sighash_type = SIGHASH_DEFAULT}), tx->vout[0].scriptPubKey, sigdata);
+    ProduceSignature(DUMMY_SIGNING_PROVIDER, MutableTransactionSignatureCreator(input1, 0, tx->vout[0].nValue.AssertValid(), {.sighash_type = SIGHASH_DEFAULT}), tx->vout[0].scriptPubKey, sigdata);
     return sigdata;
 }
 
@@ -776,7 +776,7 @@ BOOST_AUTO_TEST_CASE(test_IsStandard)
     CheckIsStandard(t);
 
     // Check dust with default relay fee:
-    CAmount nDustThreshold = 182 * g_dust.GetFeePerK() / 1000;
+    CAmount nDustThreshold = 182 * g_dust.GetFeePerK().AssertValid() / 1000;
     BOOST_CHECK_EQUAL(nDustThreshold, 546_sats);
 
     // Add dust outputs up to allowed maximum, still standard!
@@ -1129,14 +1129,16 @@ BOOST_AUTO_TEST_CASE(max_standard_legacy_sigops)
 
 BOOST_AUTO_TEST_CASE(checktxinputs_invalid_transactions_test)
 {
-    auto check_invalid{[](CAmount input_value, CAmount output_value, bool coinbase, int spend_height, TxValidationResult expected_result, std::string_view expected_reason) {
+    auto check_invalid{[](std::vector<CAmount>&& input_amounts, CAmount output_value, bool coinbase, int spend_height, TxValidationResult expected_result, std::string_view expected_reason) {
         CCoinsViewCache inputs{&CoinsViewEmpty::Get()};
 
-        const COutPoint prevout{Txid::FromUint256(uint256::ONE), 0};
-        inputs.AddCoin(prevout, Coin{{input_value, CScript() << OP_TRUE}, /*nHeightIn=*/1, coinbase}, /*possible_overwrite=*/false);
-
         CMutableTransaction mtx;
-        mtx.vin.emplace_back(prevout);
+        for (uint32_t i = 0; i < input_amounts.size(); ++i) {
+            const COutPoint prevout{Txid::FromUint256(uint256::ONE), i};
+            inputs.AddCoin(prevout, Coin{{input_amounts[i], CScript() << OP_TRUE}, /*nHeightIn=*/1, coinbase}, /*possible_overwrite=*/false);
+            mtx.vin.emplace_back(prevout);
+        }
+
         mtx.vout.emplace_back(output_value, CScript() << OP_TRUE);
 
         TxValidationState state;
@@ -1147,19 +1149,19 @@ BOOST_AUTO_TEST_CASE(checktxinputs_invalid_transactions_test)
         BOOST_CHECK_EQUAL(state.GetRejectReason(), expected_reason);
     }};
 
-    check_invalid(/*input_value=*/MAX_MONEY + 1_sats,
+    check_invalid(/*input_amounts=*/{MAX_MONEY, 1_sats},
                   /*output_value=*/0_sats,
                   /*coinbase=*/false,
                   /*spend_height=*/2,
                   TxValidationResult::TX_CONSENSUS, /*expected_reason=*/"bad-txns-inputvalues-outofrange");
 
-    check_invalid(/*input_value=*/1 * COIN,
+    check_invalid(/*input_amounts=*/{1 * COIN},
                   /*output_value=*/2 * COIN,
                   /*coinbase=*/false,
                   /*spend_height=*/2,
                   TxValidationResult::TX_CONSENSUS, /*expected_reason=*/"bad-txns-in-belowout");
 
-    check_invalid(/*input_value=*/1 * COIN,
+    check_invalid(/*input_amounts=*/{1 * COIN},
                   /*output_value=*/0_sats,
                   /*coinbase=*/true,
                   /*spend_height=*/COINBASE_MATURITY,
@@ -1169,7 +1171,7 @@ BOOST_AUTO_TEST_CASE(checktxinputs_invalid_transactions_test)
 BOOST_AUTO_TEST_CASE(getvalueout_out_of_range_throws)
 {
     CMutableTransaction mtx;
-    mtx.vout.emplace_back(MAX_MONEY + 1_sats, CScript() << OP_TRUE);
+    mtx.vout.resize(1);
 
     const CTransaction tx{mtx};
     BOOST_CHECK_EXCEPTION(tx.GetValueOut(), std::runtime_error, HasReason("GetValueOut: value out of range"));

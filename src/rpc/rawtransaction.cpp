@@ -44,6 +44,7 @@
 
 #include <cstdint>
 #include <numeric>
+#include <optional>
 
 #include <univalue.h>
 
@@ -675,7 +676,7 @@ static RPCMethod combinerawtransaction()
                 sigdata.MergeSignatureData(DataFromTransaction(txv, i, coin.out));
             }
         }
-        ProduceSignature(DUMMY_SIGNING_PROVIDER, MutableTransactionSignatureCreator(mergedTx, i, coin.out.nValue, {.sighash_type = SIGHASH_ALL}), coin.out.scriptPubKey, sigdata);
+        ProduceSignature(DUMMY_SIGNING_PROVIDER, MutableTransactionSignatureCreator(mergedTx, i, coin.out.nValue.AssertValid(), {.sighash_type = SIGHASH_ALL}), coin.out.scriptPubKey, sigdata);
 
         UpdateInput(txin, sigdata);
     }
@@ -1202,8 +1203,9 @@ static RPCMethod decodepsbt()
             have_a_utxo = true;
         }
         if (have_a_utxo) {
-            if (MoneyRange(txout.nValue) && MoneyRange(total_in + txout.nValue)) {
-                total_in += txout.nValue;
+            std::optional<CAmount> out{txout.nValue.TryValid()};
+            if (out && MoneyRange(total_in + *out)) {
+                total_in += *out;
             } else {
                 // Hack to just not show fee later
                 have_all_utxos = false;
@@ -1575,8 +1577,9 @@ static RPCMethod decodepsbt()
         outputs.push_back(std::move(out));
 
         // Fee calculation
-        if (MoneyRange(output.amount) && MoneyRange(output_value + output.amount)) {
-            output_value += output.amount;
+        std::optional<CAmount> output_amount{output.amount.TryValid()};
+        if (output_amount && MoneyRange(CAmountUnchecked{*output_amount} + output.amount)) {
+            output_value += *output_amount;
         } else {
             // Hack to just not show fee later
             have_all_utxos = false;

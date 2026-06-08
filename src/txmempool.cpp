@@ -8,6 +8,7 @@
 #include <chain.h>
 #include <coins.h>
 #include <common/system.h>
+#include <consensus/amount.h>
 #include <consensus/consensus.h>
 #include <consensus/tx_verify.h>
 #include <consensus/validation.h>
@@ -442,7 +443,7 @@ void CTxMemPool::check(const CCoinsViewCache& active_coins_tip, int64_t spendhei
 
     uint64_t checkTotal = 0;
     CAmount check_total_fee{0};
-    CAmount check_total_modified_fee{0};
+    CAmountUnchecked check_total_modified_fee{0};
     int64_t check_total_adjusted_weight{0};
     uint64_t innerUsage = 0;
 
@@ -627,18 +628,18 @@ CTransactionRef CTxMemPool::get(const Txid& hash) const
     return i->GetSharedTx();
 }
 
-void CTxMemPool::PrioritiseTransaction(const Txid& hash, const CAmount& nFeeDelta)
+void CTxMemPool::PrioritiseTransaction(const Txid& hash, const CAmountUnchecked& nFeeDelta)
 {
     {
         LOCK(cs);
-        CAmount& delta{[&]() EXCLUSIVE_LOCKS_REQUIRED(cs) -> CAmount& {
+        CAmountUnchecked& delta{[&]() EXCLUSIVE_LOCKS_REQUIRED(cs) -> CAmountUnchecked& {
             if (auto it = mapDeltas.find(hash); it != mapDeltas.end()) {
                 return it->second;
             } else {
                 return mapDeltas.emplace(hash, 0_sats).first->second;
             }
         }()};
-        delta = CAmount{SaturatingAdd(delta.Int(), nFeeDelta.Int())};
+        delta = CAmountUnchecked{SaturatingAdd(delta.Int(), nFeeDelta.Int())};
         txiter it = mapTx.find(hash);
         if (it != mapTx.end()) {
             // PrioritiseTransaction calls stack on previous ones. Set the new
@@ -660,13 +661,13 @@ void CTxMemPool::PrioritiseTransaction(const Txid& hash, const CAmount& nFeeDelt
     }
 }
 
-void CTxMemPool::ApplyDelta(const Txid& hash, CAmount &nFeeDelta) const
+void CTxMemPool::ApplyDelta(const Txid& hash, CAmountUnchecked &nFeeDelta) const
 {
     AssertLockHeld(cs);
-    std::map<Txid, CAmount>::const_iterator pos = mapDeltas.find(hash);
+    std::map<Txid, CAmountUnchecked>::const_iterator pos = mapDeltas.find(hash);
     if (pos == mapDeltas.end())
         return;
-    const CAmount &delta = pos->second;
+    const CAmountUnchecked &delta = pos->second;
     nFeeDelta += delta;
 }
 
@@ -685,7 +686,7 @@ std::vector<CTxMemPool::delta_info> CTxMemPool::GetPrioritisedTransactions() con
     for (const auto& [txid, delta] : mapDeltas) {
         const auto iter{mapTx.find(txid)};
         const bool in_mempool{iter != mapTx.end()};
-        std::optional<CAmount> modified_fee;
+        std::optional<CAmountUnchecked> modified_fee;
         if (in_mempool) modified_fee = iter->GetModifiedFee();
         result.emplace_back(delta_info{in_mempool, delta, modified_fee, txid});
     }
@@ -848,7 +849,7 @@ CFeeRate CTxMemPool::GetMinFee(size_t sizelimit) const {
         rollingMinimumFeeRate = rollingMinimumFeeRate / pow(2.0, (time - lastRollingFeeUpdate) / halflife);
         lastRollingFeeUpdate = time;
 
-        if (rollingMinimumFeeRate < (double)m_opts.incremental_relay_feerate.GetFeePerK().Int() / 2) {
+        if (rollingMinimumFeeRate < double(m_opts.incremental_relay_feerate.GetFeePerK().Int()) / 2) {
             rollingMinimumFeeRate = 0;
             return CFeeRate(0_sats);
         }
@@ -916,13 +917,13 @@ void CTxMemPool::TrimToSize(size_t sizelimit, std::vector<COutPoint>* pvNoSpends
     }
 }
 
-std::tuple<size_t, size_t, CAmount> CTxMemPool::CalculateAncestorData(const CTxMemPoolEntry& entry) const
+std::tuple<size_t, size_t, CAmountUnchecked> CTxMemPool::CalculateAncestorData(const CTxMemPoolEntry& entry) const
 {
     auto ancestors = m_txgraph->GetAncestors(entry, TxGraph::Level::MAIN);
 
     size_t ancestor_count = ancestors.size();
     size_t ancestor_size = 0;
-    CAmount ancestor_fees = 0_sats;
+    CAmountUnchecked ancestor_fees = 0;
     for (auto tx: ancestors) {
         const CTxMemPoolEntry& anc = static_cast<const CTxMemPoolEntry&>(*tx);
         ancestor_size += anc.GetTxSize();
@@ -931,12 +932,12 @@ std::tuple<size_t, size_t, CAmount> CTxMemPool::CalculateAncestorData(const CTxM
     return {ancestor_count, ancestor_size, ancestor_fees};
 }
 
-std::tuple<size_t, size_t, CAmount> CTxMemPool::CalculateDescendantData(const CTxMemPoolEntry& entry) const
+std::tuple<size_t, size_t, CAmountUnchecked> CTxMemPool::CalculateDescendantData(const CTxMemPoolEntry& entry) const
 {
     auto descendants = m_txgraph->GetDescendants(entry, TxGraph::Level::MAIN);
     size_t descendant_count = descendants.size();
     size_t descendant_size = 0;
-    CAmount descendant_fees = 0_sats;
+    CAmountUnchecked descendant_fees = 0;
 
     for (auto tx: descendants) {
         const CTxMemPoolEntry &desc = static_cast<const CTxMemPoolEntry&>(*tx);
@@ -946,7 +947,7 @@ std::tuple<size_t, size_t, CAmount> CTxMemPool::CalculateDescendantData(const CT
     return {descendant_count, descendant_size, descendant_fees};
 }
 
-void CTxMemPool::GetTransactionAncestry(const Txid& txid, size_t& ancestors, size_t& cluster_count, size_t* const ancestorsize, CAmount* const ancestorfees) const {
+void CTxMemPool::GetTransactionAncestry(const Txid& txid, size_t& ancestors, size_t& cluster_count, size_t* const ancestorsize, CAmountUnchecked* const ancestorfees) const {
     LOCK(cs);
     auto it = mapTx.find(txid);
     ancestors = cluster_count = 0;
@@ -1017,7 +1018,7 @@ CTxMemPool::ChangeSet::TxHandle CTxMemPool::ChangeSet::StageAddition(const CTran
     // We need to process dependencies after adding a new transaction.
     m_dependencies_processed = false;
 
-    CAmount delta{0};
+    CAmountUnchecked delta{0};
     m_pool->ApplyDelta(tx->GetHash(), delta);
 
     FeePerWeight feerate(fee, GetSigOpsAdjustedWeight(GetTransactionWeight(*tx), sigops_cost, ::nBytesPerSigOp));

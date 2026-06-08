@@ -88,7 +88,7 @@ public:
 
     TransactionRecord(Txid _hash, qint64 _time,
                 Type _type, const std::string &_address,
-                const CAmount& _debit, const CAmount& _credit):
+                const CAmountUnchecked& _debit, const CAmount& _credit):
             hash(_hash), time(_time), type(_type), address(_address), debit(_debit), credit(_credit),
             idx(0)
     {
@@ -105,7 +105,7 @@ public:
     qint64 time;
     Type type;
     std::string address;
-    CAmount debit;
+    CAmountUnchecked debit;
     CAmount credit;
     /**@}*/
 

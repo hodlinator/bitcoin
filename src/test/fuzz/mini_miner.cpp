@@ -99,7 +99,7 @@ FUZZ_TARGET(mini_miner, .init = initialize_miner)
     }
 
     const CFeeRate target_feerate{CFeeRate{ConsumeMoney(fuzzed_data_provider, /*max=*/MAX_MONEY/1000)}};
-    std::optional<CAmount> total_bumpfee;
+    std::optional<CAmountUnchecked> total_bumpfee;
     CAmount sum_fees = 0_sats;
     {
         node::MiniMiner mini_miner{pool, outpoints};

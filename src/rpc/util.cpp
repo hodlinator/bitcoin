@@ -28,6 +28,7 @@
 
 #include <algorithm>
 #include <iterator>
+#include <optional>
 #include <string_view>
 #include <tuple>
 #include <utility>
@@ -102,10 +103,10 @@ CAmount AmountFromValue(const UniValue& value, int decimals)
     int64_t amount;
     if (!ParseFixedPoint(value.getValStr(), decimals, &amount))
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount");
-    CAmount result{amount};
-    if (!MoneyRange(result))
+    std::optional<CAmount> result{CAmountUnchecked{amount}.TryValid()};
+    if (!result)
         throw JSONRPCError(RPC_TYPE_ERROR, "Amount out of range");
-    return result;
+    return *result;
 }
 
 CFeeRate ParseFeeRate(const UniValue& json)

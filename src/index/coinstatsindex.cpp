@@ -138,7 +138,7 @@ bool CoinStatsIndex::CustomAppend(const interfaces::BlockInfo& block)
 
                 // Skip unspendable coins
                 if (coin.out.scriptPubKey.IsUnspendable()) {
-                    m_total_unspendables_scripts += coin.out.nValue;
+                    m_total_unspendables_scripts += coin.out.nValue.AssertValid();
                     continue;
                 }
 
@@ -151,7 +151,7 @@ bool CoinStatsIndex::CustomAppend(const interfaces::BlockInfo& block)
                 }
 
                 ++m_transaction_output_count;
-                m_total_amount += coin.out.nValue;
+                m_total_amount += coin.out.nValue.AssertValid();
                 m_bogo_size += GetBogoSize(coin.out.scriptPubKey);
             }
 
@@ -168,7 +168,7 @@ bool CoinStatsIndex::CustomAppend(const interfaces::BlockInfo& block)
                     m_total_prevout_spent_amount += coin.out.nValue.Int();
 
                     --m_transaction_output_count;
-                    m_total_amount -= coin.out.nValue;
+                    m_total_amount -= coin.out.nValue.AssertValid();
                     m_bogo_size -= GetBogoSize(coin.out.scriptPubKey);
                 }
             }

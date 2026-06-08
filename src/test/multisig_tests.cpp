@@ -202,10 +202,10 @@ BOOST_AUTO_TEST_CASE(multisig_Sign)
     escrow << OP_2 << ToByteVector(key[0].GetPubKey()) << ToByteVector(key[1].GetPubKey()) << ToByteVector(key[2].GetPubKey()) << OP_3 << OP_CHECKMULTISIG;
 
     CMutableTransaction txFrom;  // Funding transaction
-    txFrom.vout.resize(3);
-    txFrom.vout[0].scriptPubKey = a_and_b;
-    txFrom.vout[1].scriptPubKey = a_or_b;
-    txFrom.vout[2].scriptPubKey = escrow;
+    txFrom.vout.reserve(3);
+    txFrom.vout.emplace_back(0_sats, a_and_b);
+    txFrom.vout.emplace_back(0_sats, a_or_b);
+    txFrom.vout.emplace_back(0_sats, escrow);
 
     CMutableTransaction txTo[3]; // Spending transaction
     for (int i = 0; i < 3; i++)

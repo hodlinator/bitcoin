@@ -164,7 +164,7 @@ void VerifyUseAvailableBalance(SendCoinsDialog& sendCoinsDialog, const WalletMod
     QVERIFY(coins.size() == 1); // context check, coins received only on one destination
     for (const auto& [outpoint, tx_out] : coins.begin()->second) {
         sendCoinsDialog.getCoinControl()->Select(outpoint);
-        sum_selected_coins += tx_out.txout.nValue;
+        sum_selected_coins += tx_out.txout.nValue.AssertValid();
         if (++selected == COINS_TO_SELECT) break;
     }
     QVERIFY(selected == COINS_TO_SELECT);
@@ -396,7 +396,7 @@ void TestGUIWatchOnly(interfaces::Node& node, TestChain100Setup& test)
     // Update walletModel cached balance which will trigger an update for the 'labelBalance' QLabel.
     walletModel.pollBalanceChanged();
     // Check balance in send dialog
-    CompareBalance(walletModel, walletModel.wallet().getBalances().balance,
+    CompareBalance(walletModel, walletModel.wallet().getBalances().balance.AssertValid(),
                    sendCoinsDialog.findChild<QLabel*>("labelBalance"));
 
     // Set change address

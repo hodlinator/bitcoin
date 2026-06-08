@@ -3,6 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <common/messages.h>
+#include <consensus/amount.h>
 #include <consensus/validation.h>
 #include <core_io.h>
 #include <key_io.h>
@@ -23,6 +24,7 @@
 #include <wallet/wallet.h>
 
 #include <univalue.h>
+#include <optional>
 
 using common::FeeModeFromString;
 using common::FeeModesDetail;
@@ -813,7 +815,7 @@ RPCMethod fundrawtransaction()
     for (const auto& tx_out : tx.vout) {
         CTxDestination dest;
         ExtractDestination(tx_out.scriptPubKey, dest);
-        destinations.emplace_back(dest, tx_out.nValue);
+        destinations.emplace_back(dest, tx_out.nValue.AssertValid());
     }
     std::vector<std::string> dummy(destinations.size(), "dummy");
     std::vector<CRecipient> recipients = CreateRecipients(
@@ -1485,7 +1487,7 @@ RPCMethod sendall()
                             throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Can't spend unconfirmed version %d pre-selected input with a version 3 tx", tx->tx->version));
                         }
                     }
-                    total_input_value += tx->tx->vout[input.prevout.n].nValue;
+                    total_input_value += tx->tx->vout[input.prevout.n].nValue.AssertValid();
                 }
             } else {
                 CoinFilterParams coins_params;
@@ -1500,7 +1502,7 @@ RPCMethod sendall()
                     }
                     CTxIn input(output.outpoint.hash, output.outpoint.n, CScript(), rbf ? MAX_BIP125_RBF_SEQUENCE : CTxIn::MAX_SEQUENCE_NONFINAL);
                     rawTx.vin.push_back(input);
-                    total_input_value += output.txout.nValue;
+                    total_input_value += output.txout.nValue.AssertValid();
                 }
             }
 
@@ -1516,9 +1518,9 @@ RPCMethod sendall()
             if (tx_size.vsize == -1) {
                 throw JSONRPCError(RPC_WALLET_ERROR, "Unable to determine the size of the transaction, the wallet contains unsolvable descriptors");
             }
-            const CAmount fee_from_size{fee_rate.GetFee(tx_size.vsize)};
-            const std::optional<CAmount> total_bump_fees{pwallet->chain().calculateCombinedBumpFee(outpoints_spent, fee_rate)};
-            CAmount effective_value = total_input_value - fee_from_size - total_bump_fees.value_or(0_sats);
+            const CAmount fee_from_size{fee_rate.GetFee(tx_size.vsize).AssertValid()};
+            const std::optional<CAmountUnchecked> total_bump_fees{pwallet->chain().calculateCombinedBumpFee(outpoints_spent, fee_rate)};
+            CAmountUnchecked effective_value = CAmountUnchecked{total_input_value - fee_from_size} - total_bump_fees.value_or(CAmountUnchecked{0});
 
             if (fee_from_size > pwallet->m_default_max_tx_fee) {
                 throw JSONRPCError(RPC_WALLET_ERROR, TransactionErrorString(TransactionError::MAX_FEE_EXCEEDED).original);
@@ -1539,19 +1541,19 @@ RPCMethod sendall()
 
             CAmount output_amounts_claimed{0};
             for (const CTxOut& out : rawTx.vout) {
-                output_amounts_claimed += out.nValue;
+                output_amounts_claimed += out.nValue.AssertValid();
             }
 
             if (output_amounts_claimed > total_input_value) {
                 throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Assigned more value to outputs than available funds.");
             }
 
-            const CAmount remainder{effective_value - output_amounts_claimed};
-            if (remainder < 0_sats) {
+            const std::optional<CAmount> remainder{(effective_value - CAmountUnchecked{output_amounts_claimed}).TryValid()};
+            if (!remainder.has_value()) {
                 throw JSONRPCError(RPC_WALLET_INSUFFICIENT_FUNDS, "Insufficient funds for fees after creating specified outputs.");
             }
 
-            const CAmount per_output_without_amount{remainder / (long)addresses_without_amount.size()};
+            const CAmount per_output_without_amount{*remainder / (long)addresses_without_amount.size()};
 
             bool gave_remaining_to_first{false};
             for (CTxOut& out : rawTx.vout) {
@@ -1561,7 +1563,7 @@ RPCMethod sendall()
                 if (addresses_without_amount.contains(addr)) {
                     out.nValue = per_output_without_amount;
                     if (!gave_remaining_to_first) {
-                        out.nValue += remainder % addresses_without_amount.size();
+                        out.nValue += *remainder % addresses_without_amount.size();
                         gave_remaining_to_first = true;
                     }
                     if (IsDust(out, pwallet->chain().relayDustFee())) {

@@ -295,7 +295,7 @@ FUZZ_TARGET(ephemeral_package_eval, .init = initialize_tx_pool)
                 }
 
                 const CAmount amount_fee{ConsumeMoney(fuzzed_data_provider, amount_in)};
-                const auto amount_out = (amount_in - amount_fee) / num_out;
+                const auto amount_out = (amount_in - amount_fee).AssertValid() / num_out;
                 for (int i = 0; i < num_out; ++i) {
                     tx_mut.vout.emplace_back(amount_out, P2WSH_EMPTY);
                 }
@@ -319,7 +319,7 @@ FUZZ_TARGET(ephemeral_package_eval, .init = initialize_tx_pool)
                 }
                 // We need newly-created values for the duration of this run
                 for (size_t i = 0; i < tx->vout.size(); ++i) {
-                    outpoints_value.insert_or_assign(COutPoint(tx->GetHash(), i), tx->vout[i].nValue);
+                    outpoints_value.insert_or_assign(COutPoint(tx->GetHash(), i), tx->vout[i].nValue.AssertValid());
                 }
                 return tx;
             }());
@@ -329,7 +329,7 @@ FUZZ_TARGET(ephemeral_package_eval, .init = initialize_tx_pool)
             const auto& txid = fuzzed_data_provider.ConsumeBool() ?
                                    txs.back()->GetHash() :
                                    PickValue(fuzzed_data_provider, mempool_outpoints).hash;
-            const CAmount delta{ConsumeMoney(fuzzed_data_provider, -50 * COIN, +50 * COIN)};
+            const CAmountUnchecked delta{ConsumeMoney(fuzzed_data_provider, -50 * COIN, +50 * COIN)};
             // We only prioritise out of mempool transactions since PrioritiseTransaction doesn't
             // filter for ephemeral dust
             if (tx_pool.exists(txid)) {
@@ -463,7 +463,7 @@ FUZZ_TARGET(tx_package_eval, .init = initialize_tx_pool)
                 }
 
                 const CAmount amount_fee{ConsumeMoney(fuzzed_data_provider, amount_in)};
-                const auto amount_out = (amount_in - amount_fee) / num_out;
+                const auto amount_out = (amount_in - amount_fee).AssertValid() / num_out;
                 for (int i = 0; i < num_out; ++i) {
                     tx_mut.vout.emplace_back(amount_out, P2WSH_EMPTY);
                 }
@@ -481,7 +481,7 @@ FUZZ_TARGET(tx_package_eval, .init = initialize_tx_pool)
                 }
                 // We need newly-created values for the duration of this run
                 for (size_t i = 0; i < tx->vout.size(); ++i) {
-                    outpoints_value.insert_or_assign(COutPoint(tx->GetHash(), i), tx->vout[i].nValue);
+                    outpoints_value.insert_or_assign(COutPoint(tx->GetHash(), i), tx->vout[i].nValue.AssertValid());
                 }
                 return tx;
             }());

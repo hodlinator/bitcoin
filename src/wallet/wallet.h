@@ -727,7 +727,7 @@ public:
     CFeeRate m_consolidate_feerate{DEFAULT_CONSOLIDATE_FEERATE};
 
     /** The maximum fee amount we're willing to pay to prioritize partial spend avoidance. */
-    CAmount m_max_aps_fee{DEFAULT_MAX_AVOIDPARTIALSPEND_FEE}; //!< note: this is absolute fee, not fee rate
+    CAmountUnchecked m_max_aps_fee{DEFAULT_MAX_AVOIDPARTIALSPEND_FEE}; //!< note: this is absolute fee, not fee rate
     OutputType m_default_address_type{DEFAULT_ADDRESS_TYPE};
     /**
      * Default output type for change outputs. When unset, automatically choose type

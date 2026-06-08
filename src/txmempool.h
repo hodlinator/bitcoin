@@ -123,7 +123,7 @@ struct TxMempoolInfo
     int32_t vsize;
 
     /** The fee delta. */
-    CAmount nFeeDelta;
+    CAmountUnchecked nFeeDelta;
 };
 
 /**
@@ -267,8 +267,8 @@ public:
 
     using Limits = kernel::MemPoolLimits;
 
-    std::tuple<size_t, size_t, CAmount> CalculateAncestorData(const CTxMemPoolEntry& entry) const EXCLUSIVE_LOCKS_REQUIRED(cs);
-    std::tuple<size_t, size_t, CAmount> CalculateDescendantData(const CTxMemPoolEntry& entry) const EXCLUSIVE_LOCKS_REQUIRED(cs);
+    std::tuple<size_t, size_t, CAmountUnchecked> CalculateAncestorData(const CTxMemPoolEntry& entry) const EXCLUSIVE_LOCKS_REQUIRED(cs);
+    std::tuple<size_t, size_t, CAmountUnchecked> CalculateDescendantData(const CTxMemPoolEntry& entry) const EXCLUSIVE_LOCKS_REQUIRED(cs);
     int64_t GetDescendantCount(txiter it) const { LOCK(cs); return m_txgraph->GetDescendants(*it, TxGraph::Level::MAIN).size(); }
     int64_t GetDescendantCount(const CTxMemPoolEntry &e) const { LOCK(cs); return m_txgraph->GetDescendants(e, TxGraph::Level::MAIN).size(); }
     int64_t GetAncestorCount(const CTxMemPoolEntry &e) const { LOCK(cs); return m_txgraph->GetAncestors(e, TxGraph::Level::MAIN).size(); }
@@ -294,7 +294,7 @@ private:
 
 public:
     indirectmap<COutPoint, txiter> mapNextTx GUARDED_BY(cs);
-    std::map<Txid, CAmount> mapDeltas GUARDED_BY(cs);
+    std::map<Txid, CAmountUnchecked> mapDeltas GUARDED_BY(cs);
 
     using Options = kernel::MemPoolOptions;
 
@@ -342,17 +342,17 @@ public:
     bool HasNoInputsOf(const CTransaction& tx) const EXCLUSIVE_LOCKS_REQUIRED(cs);
 
     /** Affect CreateNewBlock prioritisation of transactions */
-    void PrioritiseTransaction(const Txid& hash, const CAmount& nFeeDelta);
-    void ApplyDelta(const Txid& hash, CAmount &nFeeDelta) const EXCLUSIVE_LOCKS_REQUIRED(cs);
+    void PrioritiseTransaction(const Txid& hash, const CAmountUnchecked& nFeeDelta);
+    void ApplyDelta(const Txid& hash, CAmountUnchecked &nFeeDelta) const EXCLUSIVE_LOCKS_REQUIRED(cs);
     void ClearPrioritisation(const Txid& hash) EXCLUSIVE_LOCKS_REQUIRED(cs);
 
     struct delta_info {
         /** Whether this transaction is in the mempool. */
         const bool in_mempool;
         /** The fee delta added using PrioritiseTransaction(). */
-        const CAmount delta;
+        const CAmountUnchecked delta;
         /** The modified fee (base fee + delta) of this entry. Only present if in_mempool=true. */
-        std::optional<CAmount> modified_fee;
+        std::optional<CAmountUnchecked> modified_fee;
         /** The prioritised transaction's txid. */
         const Txid txid;
     };
@@ -466,7 +466,7 @@ public:
      * When ancestors is non-zero (ie, the transaction itself is in the mempool),
      * ancestorsize and ancestorfees will also be set to the appropriate values.
      */
-    void GetTransactionAncestry(const Txid& txid, size_t& ancestors, size_t& cluster_count, size_t* ancestorsize = nullptr, CAmount* ancestorfees = nullptr) const;
+    void GetTransactionAncestry(const Txid& txid, size_t& ancestors, size_t& cluster_count, size_t* ancestorsize = nullptr, CAmountUnchecked* ancestorfees = nullptr) const;
 
     /**
      * @returns true if an initial attempt to load the persisted mempool was made, regardless of

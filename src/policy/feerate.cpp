@@ -8,7 +8,7 @@
 #include <tinyformat.h>
 
 
-CFeeRate::CFeeRate(const CAmount& nFeePaid, int32_t virtual_bytes)
+CFeeRate::CFeeRate(const CAmountUnchecked& nFeePaid, int32_t virtual_bytes)
 {
     if (virtual_bytes > 0) {
         m_feerate = FeePerVSize(nFeePaid, virtual_bytes);
@@ -17,18 +17,18 @@ CFeeRate::CFeeRate(const CAmount& nFeePaid, int32_t virtual_bytes)
     }
 }
 
-CAmount CFeeRate::GetFee(int32_t virtual_bytes) const
+CAmountUnchecked CFeeRate::GetFee(int32_t virtual_bytes) const
 {
     Assume(virtual_bytes >= 0);
     if (m_feerate.IsEmpty()) { return CAmount(0);}
-    CAmount nFee = CAmount(m_feerate.EvaluateFeeUp(virtual_bytes));
-    if (nFee == 0_sats && virtual_bytes != 0 && m_feerate.fee < 0_sats) return CAmount(-1);
+    CAmountUnchecked nFee = m_feerate.EvaluateFeeUp(virtual_bytes);
+    if (nFee == 0_sats && virtual_bytes != 0 && m_feerate.fee < 0_sats) return CAmountUnchecked(-1);
     return nFee;
 }
 
 std::string CFeeRate::ToString(FeeRateFormat fee_rate_format) const
 {
-    const CAmount feerate_per_kvb{GetFeePerK()};
+    const CAmountUnchecked feerate_per_kvb{GetFeePerK()};
     switch (fee_rate_format) {
     case FeeRateFormat::BTC_KVB: return strprintf("%d.%08d %s/kvB", feerate_per_kvb / COIN, feerate_per_kvb % COIN, CURRENCY_UNIT);
     case FeeRateFormat::SAT_VB: return strprintf("%d.%03d %s/vB", feerate_per_kvb / 1000, feerate_per_kvb % 1000, CURRENCY_ATOM);

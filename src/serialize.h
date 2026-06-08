@@ -257,6 +257,7 @@ template <typename Stream> void Serialize(Stream& s, int64_t a)   { ser_writedat
 template <typename Stream> void Serialize(Stream& s, uint64_t a)  { ser_writedata64(s, a); }
 
 template <typename Stream> void Serialize(Stream& s, const CAmount a)                                  { Serialize(s, a.Int()); }
+template <typename Stream> void Serialize(Stream& s, const CAmountUnchecked a)                         { Serialize(s, a.Int()); }
 template <typename Stream, BasicByte B, size_t N> void Serialize(Stream& s, const B (&a)[N])           { s.write(MakeByteSpan(a)); }
 template <typename Stream, BasicByte B, size_t N> void Serialize(Stream& s, const std::array<B, N>& a) { s.write(MakeByteSpan(a)); }
 template <typename Stream, BasicByte B, size_t N> void Serialize(Stream& s, std::span<B, N> span)      { s.write(std::as_bytes(span)); }
@@ -278,6 +279,12 @@ template <typename Stream> void Unserialize(Stream& s, CAmount& a)
     int64_t i;
     Unserialize(s, i);
     a = CAmount{i};
+}
+template <typename Stream> void Unserialize(Stream& s, CAmountUnchecked& a)
+{
+    int64_t i;
+    Unserialize(s, i);
+    a = CAmountUnchecked{i};
 }
 template <typename Stream, BasicByte B, size_t N> void Unserialize(Stream& s, B (&a)[N])            { s.read(MakeWritableByteSpan(a)); }
 template <typename Stream, BasicByte B, size_t N> void Unserialize(Stream& s, std::array<B, N>& a)  { s.read(MakeWritableByteSpan(a)); }

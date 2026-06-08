@@ -27,7 +27,7 @@ PartiallySignedTransaction::PartiallySignedTransaction(const CMutableTransaction
     }
     outputs.reserve(tx.vout.size());
     for (const CTxOut& output : tx.vout) {
-        outputs.emplace_back(GetVersion(), output.nValue, output.scriptPubKey);
+        outputs.emplace_back(GetVersion(), output.nValue.AssertValid(), output.scriptPubKey);
     }
 }
 
@@ -582,9 +582,9 @@ bool PSBTInputSignedAndVerified(const PartiallySignedTransaction& psbt, unsigned
     }
     const CMutableTransaction& tx = *unsigned_tx;
     if (txdata) {
-        return VerifyScript(input.final_script_sig, utxo.scriptPubKey, &input.final_script_witness, STANDARD_SCRIPT_VERIFY_FLAGS, MutableTransactionSignatureChecker{&tx, input_index, utxo.nValue, *txdata, MissingDataBehavior::FAIL});
+        return VerifyScript(input.final_script_sig, utxo.scriptPubKey, &input.final_script_witness, STANDARD_SCRIPT_VERIFY_FLAGS, MutableTransactionSignatureChecker{&tx, input_index, utxo.nValue.AssertValid(), *txdata, MissingDataBehavior::FAIL});
     } else {
-        return VerifyScript(input.final_script_sig, utxo.scriptPubKey, &input.final_script_witness, STANDARD_SCRIPT_VERIFY_FLAGS, MutableTransactionSignatureChecker{&tx, input_index, utxo.nValue, MissingDataBehavior::FAIL});
+        return VerifyScript(input.final_script_sig, utxo.scriptPubKey, &input.final_script_witness, STANDARD_SCRIPT_VERIFY_FLAGS, MutableTransactionSignatureChecker{&tx, input_index, utxo.nValue.AssertValid(), MissingDataBehavior::FAIL});
     }
 }
 
@@ -616,7 +616,7 @@ void UpdatePSBTOutput(const SigningProvider& provider, PartiallySignedTransactio
     // Construct a would-be spend of this output, to update sigdata with.
     // Note that ProduceSignature is used to fill in metadata (not actual signatures),
     // so provider does not need to provide any private keys (it can be a HidingSigningProvider).
-    MutableTransactionSignatureCreator creator(tx, /*input_idx=*/0, out.nValue, {.sighash_type = SIGHASH_ALL});
+    MutableTransactionSignatureCreator creator(tx, /*input_idx=*/0, out.nValue.AssertValid(), {.sighash_type = SIGHASH_ALL});
     ProduceSignature(provider, creator, out.scriptPubKey, sigdata);
 
     // Put redeem_script, witness_script, key paths, into PSBTOutput.
@@ -730,7 +730,7 @@ PSBTError SignPSBTInput(const SigningProvider& provider, PartiallySignedTransact
     if (txdata == nullptr) {
         sig_complete = ProduceSignature(provider, DUMMY_SIGNATURE_CREATOR, utxo.scriptPubKey, sigdata);
     } else {
-        MutableTransactionSignatureCreator creator(tx, index, utxo.nValue, txdata, {.sighash_type = sighash});
+        MutableTransactionSignatureCreator creator(tx, index, utxo.nValue.AssertValid(), txdata, {.sighash_type = sighash});
         sig_complete = ProduceSignature(provider, creator, utxo.scriptPubKey, sigdata);
     }
     // Verify that a witness signature was produced in case one was required.

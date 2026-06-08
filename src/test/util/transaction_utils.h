@@ -5,6 +5,7 @@
 #ifndef BITCOIN_TEST_UTIL_TRANSACTION_UTILS_H
 #define BITCOIN_TEST_UTIL_TRANSACTION_UTILS_H
 
+#include <consensus/amount.h>
 #include <primitives/transaction.h>
 #include <script/sign.h>
 

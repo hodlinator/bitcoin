@@ -365,11 +365,11 @@ struct WalletAddress
 //! Collection of wallet balances.
 struct WalletBalances
 {
-    CAmount balance = 0_sats;
+    CAmountUnchecked balance = 0_sats;
     CAmount unconfirmed_balance = 0_sats;
     CAmount immature_balance = 0_sats;
     CAmount used_balance = 0_sats;
-    CAmount nonmempool_balance = 0_sats;
+    CAmountUnchecked nonmempool_balance = 0_sats;
 
     bool balanceChanged(const WalletBalances& prev) const
     {

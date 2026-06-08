@@ -68,7 +68,7 @@ static CAmount GetReceived(const CWallet& wallet, const UniValue& params, bool b
 
         for (const CTxOut& txout : wtx.tx->vout) {
             if (output_scripts.contains(txout.scriptPubKey)) {
-                amount += txout.nValue;
+                amount += txout.nValue.AssertValid();
             }
         }
     }
@@ -664,7 +664,7 @@ RPCMethod listunspent()
         entry.pushKV("confirmations", out.depth);
         if (!out.depth) {
             size_t ancestor_count, unused_cluster_count, ancestor_size;
-            CAmount ancestor_fees{0};
+            CAmountUnchecked ancestor_fees{0};
             pwallet->chain().getTransactionAncestry(out.outpoint.hash, ancestor_count, unused_cluster_count, &ancestor_size, &ancestor_fees);
             if (ancestor_count) {
                 entry.pushKV("ancestorcount", ancestor_count);

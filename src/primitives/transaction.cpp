@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <optional>
 #include <span>
 #include <stdexcept>
 
@@ -98,9 +99,10 @@ CAmount CTransaction::GetValueOut() const
 {
     CAmount nValueOut = 0_sats;
     for (const auto& tx_out : vout) {
-        if (!MoneyRange(tx_out.nValue) || !MoneyRange(nValueOut + tx_out.nValue))
+        std::optional<CAmount> out{tx_out.nValue.TryValid()};
+        if (!out)
             throw std::runtime_error(std::string(__func__) + ": value out of range");
-        nValueOut += tx_out.nValue;
+        nValueOut += *out;
     }
     assert(MoneyRange(nValueOut));
     return nValueOut;

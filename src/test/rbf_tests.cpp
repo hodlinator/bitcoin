@@ -150,7 +150,7 @@ BOOST_FIXTURE_TEST_CASE(rbf_helper_functions, TestChain100Setup)
                            /*relay_fee=*/CFeeRate(0_sats),
                            /*txid=*/unused_txid)
                            == std::nullopt);
-    BOOST_CHECK(PaysForRBF(high_fee, high_fee - 1_sats, 1, CFeeRate(0_sats), unused_txid).has_value());
+    BOOST_CHECK(PaysForRBF(high_fee, (high_fee - 1_sats).AssertValid(), 1, CFeeRate(0_sats), unused_txid).has_value());
     BOOST_CHECK(PaysForRBF(high_fee + 1_sats, high_fee, 1, CFeeRate(0_sats), unused_txid).has_value());
     // Additional fees must cover the replacement's vsize at incremental relay fee
     BOOST_CHECK(PaysForRBF(high_fee, high_fee + 1_sats, 11, incremental_relay_feerate, unused_txid).has_value());
@@ -262,9 +262,9 @@ BOOST_FIXTURE_TEST_CASE(improves_feerate, TestChain100Setup)
     TryAddToMempool(pool, entry.Fee(normal_fee).FromTx(tx2));
 
     const auto entry1 = pool.GetIter(tx1->GetHash()).value();
-    const auto tx1_fee = entry1->GetModifiedFee();
+    const auto tx1_fee = entry1->GetModifiedFee().AssertValid();
     const auto entry2 = pool.GetIter(tx2->GetHash()).value();
-    const auto tx2_fee = entry2->GetModifiedFee();
+    const auto tx2_fee = entry2->GetModifiedFee().AssertValid();
 
     // conflicting transactions
     const auto tx1_conflict = make_tx(/*inputs=*/ {m_coinbase_txns[0], m_coinbase_txns[2]}, /*output_values=*/ {10 * COIN});
@@ -331,7 +331,7 @@ BOOST_FIXTURE_TEST_CASE(improves_feerate, TestChain100Setup)
     changeset->StageRemoval(entry2);
     changeset->StageRemoval(entry5);
     changeset->StageAddition(tx1_conflict, tx1_fee, 0, 1, 0, false, 4, LockPoints());
-    changeset->StageAddition(entry4.GetSharedTx(), tx2_fee + entry5->GetModifiedFee() + 1_sats, 0, 1, 0, false, 4, LockPoints());
+    changeset->StageAddition(entry4.GetSharedTx(), tx2_fee + entry5->GetModifiedFee().AssertValid() + 1_sats, 0, 1, 0, false, 4, LockPoints());
     const auto res3 = ImprovesFeerateDiagram(*changeset);
     BOOST_CHECK(res3 == std::nullopt);
 }

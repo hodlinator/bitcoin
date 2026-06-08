@@ -24,6 +24,7 @@ class CAmount;
 class CPubKey;
 class CTransaction;
 class XOnlyPubKey;
+class CAmount;
 
 // DoS prevention: limit cache size to 32MiB (over 1000000 entries on 64-bit
 // systems). Due to how we count cache size, actual memory usage is slightly

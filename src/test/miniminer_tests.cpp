@@ -1,6 +1,7 @@
 // Copyright (c) 2021-present The Bitcoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
+#include <consensus/amount.h>
 #include <node/mini_miner.h>
 #include <random.h>
 #include <txmempool.h>
@@ -80,8 +81,8 @@ BOOST_FIXTURE_TEST_CASE(miniminer_negative, TestChain100Setup)
 
     // Create a transaction that will be prioritised to have a negative modified fee.
     const CAmount positive_base_fee{1000};
-    const CAmount negative_fee_delta{-50000};
-    const CAmount negative_modified_fees{positive_base_fee + negative_fee_delta};
+    const CAmountUnchecked negative_fee_delta{-50000};
+    const CAmountUnchecked negative_modified_fees{CAmountUnchecked{positive_base_fee} + negative_fee_delta};
     BOOST_CHECK(negative_modified_fees < 0_sats);
     const auto tx_mod_negative = make_tx({COutPoint{m_coinbase_txns[4]->GetHash(), 0}}, /*num_outputs=*/1);
     TryAddToMempool(pool, entry.Fee(positive_base_fee).FromTx(tx_mod_negative));
@@ -180,7 +181,7 @@ BOOST_FIXTURE_TEST_CASE(miniminer_1p1c, TestChain100Setup)
     std::map<Txid, TxDimensions> tx_dims;
     for (const auto& tx : all_transactions) {
         const auto& entry{*Assert(pool.GetEntry(tx->GetHash()))};
-        tx_dims.emplace(tx->GetHash(), TxDimensions{entry.GetTxSize(), entry.GetModifiedFee(),
+        tx_dims.emplace(tx->GetHash(), TxDimensions{entry.GetTxSize(), entry.GetModifiedFee().AssertValid(),
                                               CFeeRate(entry.GetModifiedFee(), entry.GetTxSize())});
     }
 

@@ -3,6 +3,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <common/system.h>
+#include <consensus/amount.h>
 #include <consensus/tx_check.h>
 #include <consensus/validation.h>
 #include <hash.h>
@@ -218,7 +219,7 @@ BOOST_AUTO_TEST_CASE(sighash_caching)
     CMutableTransaction tx;
     RandomTransaction(tx, /*fSingle=*/false);
     const auto in_index{static_cast<uint32_t>(m_rng.randrange(tx.vin.size()))};
-    const CAmount amount{m_rng.rand<CAmount::inner_type>()};
+    const CAmount amount{m_rng.randrange(MAX_MONEY.Int() + 1)};
 
     // Exercise the sighash function under both legacy and segwit v0.
     for (const auto sigversion: {SigVersion::BASE, SigVersion::WITNESS_V0}) {

@@ -2092,7 +2092,7 @@ static RPCMethod getblockstats()
         CAmount tx_total_out = 0_sats;
         if (loop_outputs) {
             for (const CTxOut& out : tx->vout) {
-                tx_total_out += out.nValue;
+                tx_total_out += out.nValue.AssertValid();
 
                 uint64_t out_size{GetSerializeSize(out) + PER_UTXO_OVERHEAD};
                 utxo_size_inc += out_size;
@@ -2145,23 +2145,23 @@ static RPCMethod getblockstats()
             for (const Coin& coin: txundo.vprevout) {
                 const CTxOut& prevoutput = coin.out;
 
-                tx_total_in += prevoutput.nValue;
+                tx_total_in += prevoutput.nValue.AssertValid();
                 uint64_t prevout_size{GetSerializeSize(prevoutput) + PER_UTXO_OVERHEAD};
                 utxo_size_inc -= prevout_size;
                 utxo_size_inc_actual -= prevout_size;
             }
 
-            CAmount txfee = tx_total_in - tx_total_out;
-            CHECK_NONFATAL(MoneyRange(txfee));
+            std::optional<CAmount> txfee{(tx_total_in - tx_total_out).TryValid()};
+            CHECK_NONFATAL(txfee);
             if (do_medianfee) {
-                fee_array.push_back(txfee);
+                fee_array.push_back(*txfee);
             }
-            maxfee = std::max(maxfee, txfee);
-            minfee = std::min(minfee, txfee);
-            totalfee += txfee;
+            maxfee = std::max(maxfee, *txfee);
+            minfee = std::min(minfee, *txfee);
+            totalfee += *txfee;
 
             // New feerate uses satoshis per virtual byte instead of per serialized byte
-            CAmount feerate = weight ? (txfee * WITNESS_SCALE_FACTOR) / weight : 0_sats;
+            CAmount feerate = weight ? (*txfee * WITNESS_SCALE_FACTOR) / weight : 0_sats;
             if (do_feerate_percentiles) {
                 feerate_array.emplace_back(feerate, weight);
             }
@@ -2464,7 +2464,7 @@ static RPCMethod scantxoutset()
             const CTxOut& txo = coin.out;
             const CBlockIndex& coinb_block{*CHECK_NONFATAL(tip->GetAncestor(coin.nHeight))};
             input_txos.push_back(txo);
-            total_in += txo.nValue;
+            total_in += txo.nValue.AssertValid();
 
             UniValue unspent(UniValue::VOBJ);
             unspent.pushKV("txid", outpoint.hash.GetHex());
@@ -2892,7 +2892,7 @@ static RPCMethod getdescriptoractivity()
                     const auto& txin = tx->vin.at(vin_idx);
                     if (scripts_to_watch.contains(coin.out.scriptPubKey)) {
                         activity.push_back(AddSpend(
-                                    coin.out.scriptPubKey, coin.out.nValue, tx, vin_idx, txin, blockindex));
+                                    coin.out.scriptPubKey, coin.out.nValue.AssertValid(), tx, vin_idx, txin, blockindex));
                     }
                 }
             }
@@ -2937,12 +2937,12 @@ static RPCMethod getdescriptoractivity()
                     }
                     const CTxOut& out = prev_tx->vout[txin.prevout.n];
                     scriptPubKey = out.scriptPubKey;
-                    value = out.nValue;
+                    value = out.nValue.AssertValid();
                 } else {
                     // Coin found in the chain
                     const CTxOut& out = coin->out;
                     scriptPubKey = out.scriptPubKey;
-                    value = out.nValue;
+                    value = out.nValue.AssertValid();
                 }
 
                 if (scripts_to_watch.contains(scriptPubKey)) {

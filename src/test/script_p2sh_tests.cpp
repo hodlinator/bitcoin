@@ -40,8 +40,7 @@ static bool Verify(const CScript& scriptSig, const CScript& scriptPubKey, bool f
 {
     // Create dummy to/from transactions:
     CMutableTransaction txFrom;
-    txFrom.vout.resize(1);
-    txFrom.vout[0].scriptPubKey = scriptPubKey;
+    txFrom.vout.emplace_back(0_sats, scriptPubKey);
 
     CMutableTransaction txTo;
     txTo.vin.resize(1);
@@ -51,7 +50,7 @@ static bool Verify(const CScript& scriptSig, const CScript& scriptPubKey, bool f
     txTo.vin[0].scriptSig = scriptSig;
     txTo.vout[0].nValue = 1_sats;
 
-    return VerifyScript(scriptSig, scriptPubKey, nullptr, fStrict ? SCRIPT_VERIFY_P2SH : SCRIPT_VERIFY_NONE, MutableTransactionSignatureChecker(&txTo, 0, txFrom.vout[0].nValue, MissingDataBehavior::ASSERT_FAIL), &err);
+    return VerifyScript(scriptSig, scriptPubKey, nullptr, fStrict ? SCRIPT_VERIFY_P2SH : SCRIPT_VERIFY_NONE, MutableTransactionSignatureChecker(&txTo, 0, txFrom.vout[0].nValue.AssertValid(), MissingDataBehavior::ASSERT_FAIL), &err);
 }
 
 

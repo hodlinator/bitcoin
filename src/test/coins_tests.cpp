@@ -5,6 +5,7 @@
 #include <addresstype.h>
 #include <clientversion.h>
 #include <coins.h>
+#include <consensus/amount.h>
 #include <streams.h>
 #include <test/util/common.h>
 #include <test/util/poolresourcetester.h>
@@ -568,8 +569,8 @@ BOOST_AUTO_TEST_CASE(ccoins_serialization)
 }
 
 const static COutPoint OUTPOINT;
-constexpr CAmount SPENT {-1};
-constexpr CAmount ABSENT{-2};
+constexpr CAmountUnchecked SPENT {-1};
+constexpr CAmountUnchecked ABSENT{-2};
 constexpr CAmount VALUE1{100};
 constexpr CAmount VALUE2{200};
 constexpr CAmount VALUE3{300};
@@ -577,10 +578,10 @@ constexpr CAmount VALUE3{300};
 struct CoinEntry {
     enum class State { CLEAN, DIRTY, FRESH, DIRTY_FRESH };
 
-    const CAmount value;
+    const CAmountUnchecked value;
     const State state;
 
-    constexpr CoinEntry(const CAmount v, const State s) : value{v}, state{s} {}
+    constexpr CoinEntry(const CAmountUnchecked v, const State s) : value{v}, state{s} {}
 
     bool operator==(const CoinEntry& o) const = default;
     friend std::ostream& operator<<(std::ostream& os, const CoinEntry& e) { return os << e.value << ", " << e.state; }
@@ -619,13 +620,13 @@ constexpr MaybeCoin VALUE3_DIRTY_FRESH{{VALUE3, CoinEntry::State::DIRTY_FRESH}};
 constexpr auto EX_OVERWRITE_UNSPENT{"Attempted to overwrite an unspent coin (when possible_overwrite is false)"};
 constexpr auto EX_FRESH_MISAPPLIED {"FRESH flag misapplied to coin that exists in parent cache"};
 
-static void SetCoinsValue(const CAmount value, Coin& coin)
+static void SetCoinsValue(const CAmountUnchecked value, Coin& coin)
 {
     assert(value != ABSENT);
     coin.Clear();
     assert(coin.IsSpent());
     if (value != SPENT) {
-        coin.out.nValue = value;
+        coin.out.nValue = value.AssertValid();
         coin.nHeight = 1;
         assert(!coin.IsSpent());
     }
@@ -668,7 +669,7 @@ static void WriteCoinsViewEntry(CCoinsView& view, const MaybeCoin& cache_coin)
 class SingleEntryCacheTest
 {
 public:
-    SingleEntryCacheTest(const CAmount base_value, const MaybeCoin& cache_coin)
+    SingleEntryCacheTest(const CAmountUnchecked base_value, const MaybeCoin& cache_coin)
     {
         auto base_cache_coin{base_value == ABSENT ? MISSING : CoinEntry{base_value, CoinEntry::State::DIRTY}};
         WriteCoinsViewEntry(base, base_cache_coin);
@@ -682,7 +683,7 @@ public:
     CCoinsViewCacheTest cache{&base};
 };
 
-static void CheckAccessCoin(const CAmount base_value, const MaybeCoin& cache_coin, const MaybeCoin& expected)
+static void CheckAccessCoin(const CAmountUnchecked base_value, const MaybeCoin& cache_coin, const MaybeCoin& expected)
 {
     SingleEntryCacheTest test{base_value, cache_coin};
     auto& coin = test.cache.AccessCoin(OUTPOINT);
@@ -698,7 +699,7 @@ BOOST_AUTO_TEST_CASE(ccoins_access)
      * the access.
      *                  Base        Cache               Expected
      */
-    for (auto base_value : {ABSENT, SPENT, VALUE1}) {
+    for (auto base_value : {ABSENT, SPENT, CAmountUnchecked{VALUE1}}) {
         CheckAccessCoin(base_value, MISSING,            base_value == VALUE1 ? VALUE1_CLEAN : MISSING);
 
         CheckAccessCoin(base_value, SPENT_CLEAN,        SPENT_CLEAN       );
@@ -713,7 +714,7 @@ BOOST_AUTO_TEST_CASE(ccoins_access)
     }
 }
 
-static void CheckSpendCoins(const CAmount base_value, const MaybeCoin& cache_coin, const MaybeCoin& expected)
+static void CheckSpendCoins(const CAmountUnchecked base_value, const MaybeCoin& cache_coin, const MaybeCoin& expected)
 {
     SingleEntryCacheTest test{base_value, cache_coin};
     test.cache.SpendCoin(OUTPOINT);
@@ -728,7 +729,7 @@ BOOST_AUTO_TEST_CASE(ccoins_spend)
      * the resulting entry in the cache after the modification.
      *                  Base        Cache               Expected
      */
-    for (auto base_value : {ABSENT, SPENT, VALUE1}) {
+    for (auto base_value : {ABSENT, SPENT, CAmountUnchecked{VALUE1}}) {
         CheckSpendCoins(base_value, MISSING,            base_value == VALUE1 ? SPENT_DIRTY : MISSING);
 
         CheckSpendCoins(base_value, SPENT_CLEAN,        SPENT_DIRTY);
@@ -743,7 +744,7 @@ BOOST_AUTO_TEST_CASE(ccoins_spend)
     }
 }
 
-static void CheckAddCoin(const CAmount base_value, const MaybeCoin& cache_coin, const CAmount modify_value, const CoinOrError& expected, const bool coinbase)
+static void CheckAddCoin(const CAmountUnchecked base_value, const MaybeCoin& cache_coin, const CAmount modify_value, const CoinOrError& expected, const bool coinbase)
 {
     SingleEntryCacheTest test{base_value, cache_coin};
     bool possible_overwrite{coinbase};
@@ -765,7 +766,7 @@ BOOST_AUTO_TEST_CASE(ccoins_add)
      * AddCoin coinbase argument set to false, and to true.
      *               Base        Cache               Write   Expected              Coinbase
      */
-    for (auto base_value : {ABSENT, SPENT, VALUE1}) {
+    for (auto base_value : {ABSENT, SPENT, CAmountUnchecked{VALUE1}}) {
         CheckAddCoin(base_value, MISSING,            VALUE3, VALUE3_DIRTY_FRESH,   false);
         CheckAddCoin(base_value, MISSING,            VALUE3, VALUE3_DIRTY,         true );
 
@@ -1023,7 +1024,7 @@ void TestFlushBehavior(
     txid = Txid::FromUint256(m_rng.rand256());
     outp = COutPoint(txid, 0);
     coin = MakeCoin();
-    CAmount coin_val = coin.out.nValue;
+    CAmount coin_val = coin.out.nValue.AssertValid();
     BOOST_CHECK(!base.HaveCoin(outp));
     BOOST_CHECK(!all_caches[0]->HaveCoin(outp));
     BOOST_CHECK(!all_caches[1]->HaveCoin(outp));

@@ -5568,14 +5568,14 @@ void PeerManagerImpl::MaybeSendFeefilter(CNode& pto, Peer& peer, std::chrono::mi
     // transactions to us, regardless of feefilter state.
     if (pto.IsBlockOnlyConn()) return;
 
-    CAmount currentFilter = m_mempool.GetMinFee().GetFeePerK();
+    CAmount currentFilter = m_mempool.GetMinFee().GetFeePerK().AssertValid();
 
     if (m_chainman.IsInitialBlockDownload()) {
         // Received tx-inv messages are discarded when the active
         // chainstate is in IBD, so tell the peer to not send them.
         currentFilter = MAX_MONEY;
     } else {
-        static const CAmount MAX_FILTER{m_fee_filter_rounder.round(MAX_MONEY)};
+        static const CAmount MAX_FILTER{m_fee_filter_rounder.round(MAX_MONEY).AssertValid()};
         if (peer.m_fee_filter_sent == MAX_FILTER) {
             // Send the current filter if we sent MAX_FILTER previously
             // and made it out of IBD.
@@ -5583,9 +5583,9 @@ void PeerManagerImpl::MaybeSendFeefilter(CNode& pto, Peer& peer, std::chrono::mi
         }
     }
     if (current_time > peer.m_next_send_feefilter) {
-        CAmount filterToSend = m_fee_filter_rounder.round(currentFilter);
+        CAmount filterToSend = m_fee_filter_rounder.round(currentFilter).AssertValid();
         // We always have a fee filter of at least the min relay fee
-        filterToSend = std::max(filterToSend, m_mempool.m_opts.min_relay_feerate.GetFeePerK());
+        filterToSend = std::max(filterToSend, m_mempool.m_opts.min_relay_feerate.GetFeePerK().AssertValid());
         if (filterToSend != peer.m_fee_filter_sent) {
             MakeAndPushMessage(pto, NetMsgType::FEEFILTER, filterToSend);
             peer.m_fee_filter_sent = filterToSend;

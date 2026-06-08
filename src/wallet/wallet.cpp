@@ -1635,7 +1635,7 @@ CAmount CWallet::GetDebit(const CTxIn &txin) const
     LOCK(cs_wallet);
     auto txo = GetTXO(txin.prevout);
     if (txo) {
-        return txo->GetTxOut().nValue;
+        return txo->GetTxOut().nValue.AssertValid();
     }
     return 0_sats;
 }

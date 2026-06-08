@@ -120,7 +120,7 @@ void PSBTOperationsDialog::broadcastTransaction()
     CTransactionRef tx = MakeTransactionRef(mtx);
     std::string err_string;
     TransactionError error =
-        m_client_model->node().broadcastTransaction(tx, DEFAULT_MAX_RAW_TX_FEE_RATE.GetFeePerK(), err_string);
+        m_client_model->node().broadcastTransaction(tx, DEFAULT_MAX_RAW_TX_FEE_RATE.GetFeePerK().AssertValid(), err_string);
 
     if (error == TransactionError::OK) {
         showStatus(tr("Transaction broadcast successfully! Transaction ID: %1")
@@ -179,7 +179,7 @@ QString PSBTOperationsDialog::renderTransaction(const PartiallySignedTransaction
 {
     QString tx_description;
     QLatin1String bullet_point(" * ");
-    CAmount totalAmount = 0_sats;
+    CAmountUnchecked totalAmount = 0_sats;
     for (const PSBTOutput& out : psbtx.outputs) {
         CTxDestination address;
         ExtractDestination(out.script, address);
@@ -188,7 +188,7 @@ QString PSBTOperationsDialog::renderTransaction(const PartiallySignedTransaction
             .arg(BitcoinUnits::formatWithUnit(BitcoinUnit::BTC, out.amount))
             .arg(QString::fromStdString(EncodeDestination(address))));
         // Check if the address is one of ours
-        if (m_wallet_model != nullptr && m_wallet_model->wallet().txoutIsMine(CTxOut(out.amount, out.script))) tx_description.append(" (" + tr("own address") + ")");
+        if (m_wallet_model != nullptr && m_wallet_model->wallet().txoutIsMine(CTxOut(out.amount.AssertValid(), out.script))) tx_description.append(" (" + tr("own address") + ")");
         tx_description.append("<br>");
     }
 

@@ -221,7 +221,7 @@ void MinerTestingSetup::TestPackageSelection(const CScript& scriptPubKey, const 
 
     // Calculate a fee on child transaction that will put the package just
     // below the block min tx fee (assuming 1 child tx of the same size).
-    CAmount feeToUse = blockMinFeeRate.GetFee(2*freeTxSize) - 1_sats;
+    CAmount feeToUse = (blockMinFeeRate.GetFee(2*freeTxSize) - 1_sats).AssertValid();
 
     tx.vin[0].prevout.hash = hashFreeTx;
     tx.vout[0].nValue = 5000000000_sats - 1000_sats - 50000_sats - feeToUse;
@@ -272,7 +272,7 @@ void MinerTestingSetup::TestPackageSelection(const CScript& scriptPubKey, const 
     // This tx can't be mined by itself
     tx.vin[0].prevout.hash = hashFreeTx2;
     tx.vout.resize(1);
-    feeToUse = blockMinFeeRate.GetFee(freeTxSize);
+    feeToUse = blockMinFeeRate.GetFee(freeTxSize).AssertValid();
     tx.vout[0].nValue = 5000000000_sats - 100000000_sats - feeToUse;
     Txid hashLowFeeTx2 = tx.GetHash();
     TryAddToMempool(tx_mempool, entry.Fee(feeToUse).SpendsCoinbase(false).FromTx(tx));
@@ -718,7 +718,7 @@ void MinerTestingSetup::TestPrioritisedMining(const CScript& scriptPubKey, const
     tx.vout[0].nValue = 5000000000_sats - 10000_sats;
     Txid hashMediumFeeTx = tx.GetHash();
     TryAddToMempool(tx_mempool, entry.Fee(10000_sats).Time(Now<NodeSeconds>()).SpendsCoinbase(true).FromTx(tx));
-    tx_mempool.PrioritiseTransaction(hashMediumFeeTx, -5 * COIN);
+    tx_mempool.PrioritiseTransaction(hashMediumFeeTx, -5 * CAmountUnchecked{COIN});
 
     // This tx also has a low fee, but is prioritised
     tx.vin[0].prevout.hash = hashParentTx;

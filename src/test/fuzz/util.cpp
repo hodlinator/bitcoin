@@ -41,6 +41,11 @@ CAmount ConsumeMoney(FuzzedDataProvider& provider, const CAmount& min, const CAm
     return CAmount{provider.ConsumeIntegralInRange<CAmount::inner_type>(min.Int(), max.Int())};
 }
 
+CAmountUnchecked ConsumeMoney(FuzzedDataProvider& provider, const CAmountUnchecked& min, const CAmount& max) noexcept
+{
+    return CAmountUnchecked{provider.ConsumeIntegralInRange<CAmount::inner_type>(min.Int(), max.Int())};
+}
+
 NodeSeconds ConsumeTime(FuzzedDataProvider& fuzzed_data_provider, const std::optional<int64_t>& min, const std::optional<int64_t>& max) noexcept
 {
     // Avoid t=0 (1970-01-01T00:00:00Z) since SetMockTime(0) disables mocktime.
@@ -81,7 +86,7 @@ CMutableTransaction ConsumeTransaction(FuzzedDataProvider& fuzzed_data_provider,
         tx_mut.vin.push_back(in);
     }
     for (int i = 0; i < num_out; ++i) {
-        const CAmount amount{ConsumeMoney(fuzzed_data_provider, -10_sats, 50 * COIN + 10_sats)};
+        const CAmount amount{ConsumeMoney(fuzzed_data_provider, 50 * COIN + 10_sats)};
         const auto script_pk = p2wsh_op_true ?
                                    P2WSH_OP_TRUE :
                                    ConsumeScript(fuzzed_data_provider, /*maybe_p2wsh=*/true);

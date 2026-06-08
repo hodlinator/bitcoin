@@ -26,8 +26,8 @@ class MiniMinerMempoolEntry
     const CTransactionRef tx;
     const int64_t vsize_individual;
     int64_t vsize_with_ancestors;
-    const CAmount fee_individual;
-    CAmount fee_with_ancestors;
+    const CAmountUnchecked fee_individual;
+    CAmountUnchecked fee_with_ancestors;
 
 // This class must be constructed while holding mempool.cs. After construction, the object's
 // methods can be called without holding that lock.
@@ -36,8 +36,8 @@ public:
     explicit MiniMinerMempoolEntry(const CTransactionRef& tx_in,
                                    int64_t vsize_self,
                                    int64_t vsize_ancestor,
-                                   CAmount fee_self,
-                                   CAmount fee_ancestor):
+                                   CAmountUnchecked fee_self,
+                                   CAmountUnchecked fee_ancestor):
         tx{tx_in},
         vsize_individual{vsize_self},
         vsize_with_ancestors{vsize_ancestor},
@@ -45,12 +45,12 @@ public:
         fee_with_ancestors{fee_ancestor}
     { }
 
-    CAmount GetModifiedFee() const { return fee_individual; }
-    CAmount GetModFeesWithAncestors() const { return fee_with_ancestors; }
+    CAmountUnchecked GetModifiedFee() const { return fee_individual; }
+    CAmountUnchecked GetModFeesWithAncestors() const { return fee_with_ancestors; }
     int64_t GetTxSize() const { return vsize_individual; }
     int64_t GetSizeWithAncestors() const { return vsize_with_ancestors; }
     const CTransaction& GetTx() const LIFETIMEBOUND { return *tx; }
-    void UpdateAncestorState(int64_t vsize_change, CAmount fee_change) {
+    void UpdateAncestorState(int64_t vsize_change, CAmountUnchecked fee_change) {
         vsize_with_ancestors += vsize_change;
         fee_with_ancestors += fee_change;
     }
@@ -100,7 +100,7 @@ class MiniMiner
     std::set<Txid> m_in_block;
 
     // Information on the current status of the block
-    CAmount m_total_fees{0};
+    CAmountUnchecked m_total_fees{0};
     int32_t m_total_vsize{0};
 
     /** Main data structure holding the entries, can be indexed by txid */
@@ -158,7 +158,7 @@ public:
     /** Construct a new block template and, calculate the cost of bumping all transactions that did
      * not make it into the block to the target feerate. Returns the total bump fee, or std::nullopt
      * if it cannot be calculated. */
-    std::optional<CAmount> CalculateTotalBumpFees(const CFeeRate& target_feerate);
+    std::optional<CAmountUnchecked> CalculateTotalBumpFees(const CFeeRate& target_feerate);
 
     /** Construct a new block template with all of the transactions and calculate the order in which
      * they are selected. Returns the sequence number (lower = selected earlier) with which each

@@ -6,6 +6,7 @@
 #define BITCOIN_PSBT_H
 
 #include <common/types.h>
+#include <consensus/amount.h>
 #include <musig.h>
 #include <node/transaction.h>
 #include <policy/feerate.h>
@@ -953,7 +954,7 @@ public:
     std::map<std::vector<unsigned char>, std::vector<unsigned char>> unknown;
     std::set<PSBTProprietary> m_proprietary;
 
-    CAmount amount{0};
+    CAmountUnchecked amount{0};
     CScript script;
 
     bool IsNull() const;
@@ -962,7 +963,7 @@ public:
     [[nodiscard]] bool Merge(const PSBTOutput& output);
     uint32_t GetVersion() const { return m_psbt_version; }
 
-    explicit PSBTOutput(uint32_t psbt_version, CAmount amount, const CScript& script)
+    explicit PSBTOutput(uint32_t psbt_version, CAmountUnchecked amount, const CScript& script)
         : m_psbt_version(psbt_version),
         amount(amount),
         script(script)

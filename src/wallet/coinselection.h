@@ -28,7 +28,7 @@ static constexpr CAmount CHANGE_UPPER{1000000};
 struct COutput {
 private:
     /** The output's value minus fees required to spend it and bump its unconfirmed ancestors to the target feerate. */
-    std::optional<CAmount> effective_value;
+    std::optional<CAmountUnchecked> effective_value;
 
     /** The fee required to spend this output at the transaction's target feerate and to bump its unconfirmed ancestors to the target feerate. */
     std::optional<CAmount> fee;
@@ -84,7 +84,7 @@ public:
     {
         if (feerate) {
             // base fee without considering potential unconfirmed ancestors
-            fee = input_bytes < 0 ? 0_sats : feerate.value().GetFee(input_bytes);
+            fee = input_bytes < 0 ? 0_sats : feerate.value().GetFee(input_bytes).AssertValid();
             effective_value = txout.nValue - fee.value();
         }
     }
@@ -121,7 +121,7 @@ public:
         return fee.value();
     }
 
-    CAmount GetEffectiveValue() const
+    CAmountUnchecked GetEffectiveValue() const
     {
         assert(effective_value.has_value());
         return effective_value.value();
@@ -243,7 +243,7 @@ struct OutputGroup
     /** The maximum cluster count of a single UTXO in this output group. */
     size_t m_max_cluster_count{0};
     /** The value of the UTXOs after deducting the cost of spending them at the effective feerate. */
-    CAmount effective_value{0};
+    CAmountUnchecked effective_value{0};
     /** The fee to spend these UTXOs at the effective feerate. */
     CAmount fee{0};
     /** The fee to spend these UTXOs at the long term feerate. */
@@ -266,7 +266,7 @@ struct OutputGroup
 
     void Insert(const std::shared_ptr<COutput>& output, size_t ancestors, size_t cluster_count);
     bool EligibleForSpending(const CoinEligibilityFilter& eligibility_filter) const;
-    CAmount GetSelectionAmount() const;
+    CAmountUnchecked GetSelectionAmount() const;
 };
 
 struct Groups {
@@ -339,7 +339,7 @@ private:
     /** Whether the input values for calculations should be the effective value (true) or normal value (false) */
     bool m_use_effective{false};
     /** The computed waste */
-    std::optional<CAmount> m_waste;
+    std::optional<CAmountUnchecked> m_waste;
     /** False if algorithm was cut short by hitting limit of attempts and solution is non-optimal */
     bool m_algo_completed{true};
     /** The count of selections that were evaluated by this coin selection attempt */
@@ -369,7 +369,7 @@ public:
     /** Get the sum of the input values */
     [[nodiscard]] CAmount GetSelectedValue() const;
 
-    [[nodiscard]] CAmount GetSelectedEffectiveValue() const;
+    [[nodiscard]] CAmountUnchecked GetSelectedEffectiveValue() const;
 
     [[nodiscard]] CAmount GetTotalBumpFees() const;
 
@@ -379,7 +379,7 @@ public:
     void AddInputs(const OutputSet& inputs, bool subtract_fee_outputs);
 
     /** How much individual inputs overestimated the bump fees for shared ancestries */
-    void SetBumpFeeDiscount(CAmount discount);
+    void SetBumpFeeDiscount(CAmountUnchecked discount);
 
     /** Calculates and stores the waste for this result given the cost of change
      * and the opportunity cost of spending these inputs now vs in the future.
@@ -394,7 +394,7 @@ public:
      * @param[in] change_fee        The fee for creating a change output
      */
     void RecalculateWaste(CAmount min_viable_change, CAmount change_cost, CAmount change_fee);
-    [[nodiscard]] CAmount GetWaste() const;
+    [[nodiscard]] CAmountUnchecked GetWaste() const;
 
     /** Tracks that algorithm was able to exhaustively search the entire combination space before hitting limit of tries */
     void SetAlgoCompleted(bool algo_completed);

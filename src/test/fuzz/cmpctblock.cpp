@@ -129,7 +129,7 @@ void ResetChainmanAndMempool(TestingSetup& setup)
         COutPoint prevout{MineBlock(setup.m_node, options)};
         if (i < COINBASE_MATURITY) {
             LOCK(cs_main);
-            CAmount subsidy{setup.m_node.chainman->ActiveChainstate().CoinsTip().GetCoin(prevout)->out.nValue};
+            CAmount subsidy{setup.m_node.chainman->ActiveChainstate().CoinsTip().GetCoin(prevout)->out.nValue.AssertValid()};
             g_mature_coinbase.emplace_back(prevout, subsidy);
         }
     }
@@ -216,7 +216,7 @@ FUZZ_TARGET(cmpctblock, .init = initialize_cmpctblock)
             size_t random_idx = fuzzed_data_provider.ConsumeIntegralInRange<size_t>(0, mempool_size - 1);
             CTransactionRef tx = WITH_LOCK(mempool.cs, return mempool.txns_randomized[random_idx].second->GetSharedTx(););
             outpoint = COutPoint(tx->GetHash(), 0);
-            amount_in = tx->vout[0].nValue;
+            amount_in = tx->vout[0].nValue.AssertValid();
         } else if (info.size() != 0 && fuzzed_data_provider.ConsumeBool()) {
             // These blocks (and txs) may be invalid, use a spent output, or not be in the main chain.
             auto info_it = info.begin();
@@ -224,7 +224,7 @@ FUZZ_TARGET(cmpctblock, .init = initialize_cmpctblock)
             auto tx_it = info_it->block->vtx.begin();
             std::advance(tx_it, fuzzed_data_provider.ConsumeIntegralInRange<size_t>(0, info_it->block->vtx.size() - 1));
             outpoint = COutPoint(tx_it->get()->GetHash(), 0);
-            amount_in = tx_it->get()->vout[0].nValue;
+            amount_in = tx_it->get()->vout[0].nValue.AssertValid();
         } else {
             auto coinbase_it = mature_coinbase.begin();
             std::advance(coinbase_it, fuzzed_data_provider.ConsumeIntegralInRange<size_t>(0, mature_coinbase.size() - 1));
@@ -243,7 +243,7 @@ FUZZ_TARGET(cmpctblock, .init = initialize_cmpctblock)
         in.scriptWitness.stack = script_wit_stack;
         tx_mut.vin.push_back(in);
 
-        const CAmount amount_out = amount_in - AMOUNT_FEE;
+        const CAmount amount_out = (amount_in - AMOUNT_FEE).AssertValid();
         tx_mut.vout.emplace_back(amount_out, P2WSH_OP_TRUE);
 
         auto tx = MakeTransactionRef(tx_mut);

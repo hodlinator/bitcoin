@@ -37,28 +37,28 @@ private:
 public:
     /** Fee rate of 0 satoshis per 0 vB */
     CFeeRate() = default;
-    explicit CFeeRate(const CAmount feerate_kvb) : m_feerate(feerate_kvb, 1000) {}
+    explicit CFeeRate(const CAmountUnchecked feerate_kvb) : m_feerate(feerate_kvb, 1000) {}
 
     /**
      * Construct a fee rate from a fee in satoshis and a vsize in vB.
      *
      * Passing any virtual_bytes less than or equal to 0 will result in 0 fee rate per 0 size.
      */
-    CFeeRate(const CAmount& nFeePaid, int32_t virtual_bytes);
+    CFeeRate(const CAmountUnchecked& nFeePaid, int32_t virtual_bytes);
 
     /**
      * Return the fee in satoshis for the given vsize in vbytes.
      * If the calculated fee would have fractional satoshis, then the
      * returned fee will always be rounded up to the nearest satoshi.
      */
-    CAmount GetFee(int32_t virtual_bytes) const;
+    CAmountUnchecked GetFee(int32_t virtual_bytes) const;
 
     FeePerVSize GetFeePerVSize() const { return m_feerate; }
 
     /**
      * Return the fee in satoshis for a vsize of 1000 vbytes
      */
-    CAmount GetFeePerK() const { return CAmount(m_feerate.EvaluateFeeDown(1000)); }
+    CAmountUnchecked GetFeePerK() const { return m_feerate.EvaluateFeeDown(1000); }
     friend std::strong_ordering operator<=>(const CFeeRate& a, const CFeeRate& b) noexcept
     {
         return ByRatio{a.m_feerate} <=> ByRatio{b.m_feerate};

@@ -50,8 +50,8 @@ static CoinSelectionParams init_cs_params(CAmount eff_feerate = 5000_sats)
         /*tx_noinputs_size=*/11 + P2WPKH_OUTPUT_VSIZE, //static header size + output size
         /*avoid_partial=*/false,
     };
-    csp.m_change_fee = csp.m_effective_feerate.GetFee(csp.change_output_size); // 155 sats for default feerate of 5000 s/kvB
-    csp.min_viable_change = /*204 sats=*/csp.m_discard_feerate.GetFee(csp.change_spend_size);
+    csp.m_change_fee = csp.m_effective_feerate.GetFee(csp.change_output_size).AssertValid(); // 155 sats for default feerate of 5000 s/kvB
+    csp.min_viable_change = /*204 sats=*/csp.m_discard_feerate.GetFee(csp.change_spend_size).AssertValid();
     csp.m_cost_of_change = csp.min_viable_change + csp.m_change_fee; // 204 + 155 sats for default feerate of 5000 s/kvB
     csp.m_subtract_fee_outputs = false;
     return csp;
@@ -65,7 +65,7 @@ static OutputGroup MakeCoin(const CAmount& amount, bool is_eff_value = true, Coi
     // Always assume that we only have one input
     CMutableTransaction tx;
     tx.vout.resize(1);
-    CAmount fees = cs_params.m_effective_feerate.GetFee(custom_spending_vsize);
+    CAmount fees = cs_params.m_effective_feerate.GetFee(custom_spending_vsize).AssertValid();
     tx.vout[0].nValue = amount + int(is_eff_value) * fees;
     tx.nLockTime = next_lock_time++;        // so all transactions get different hashes
     OutputGroup group(cs_params);
@@ -96,10 +96,10 @@ static bool HaveEquivalentValues(const SelectionResult& a, const SelectionResult
     std::vector<CAmount> a_amts;
     std::vector<CAmount> b_amts;
     for (const auto& coin : a.GetInputSet()) {
-        a_amts.push_back(coin->txout.nValue);
+        a_amts.push_back(coin->txout.nValue.AssertValid());
     }
     for (const auto& coin : b.GetInputSet()) {
-        b_amts.push_back(coin->txout.nValue);
+        b_amts.push_back(coin->txout.nValue.AssertValid());
     }
     std::sort(a_amts.begin(), a_amts.end());
     std::sort(b_amts.begin(), b_amts.end());
@@ -158,10 +158,10 @@ BOOST_AUTO_TEST_CASE(bnb_test)
         TestBnBSuccess("Select all UTXOs", utxo_pool, /*selection_target=*/9 * CENT, /*expected_input_amounts=*/{1 * CENT, 3 * CENT, 5 * CENT}, /*expected_attempts=*/5, cs_params);
 
         // BnB finds changeless solution while overshooting by up to cost_of_change
-        TestBnBSuccess("Select upper bound", utxo_pool, /*selection_target=*/4 * CENT - cs_params.m_cost_of_change, /*expected_input_amounts=*/{1 * CENT, 3 * CENT}, /*expected_attempts=*/4, cs_params);
+        TestBnBSuccess("Select upper bound", utxo_pool, /*selection_target=*/(4 * CENT - cs_params.m_cost_of_change).AssertValid(), /*expected_input_amounts=*/{1 * CENT, 3 * CENT}, /*expected_attempts=*/4, cs_params);
 
         // BnB fails to find changeless solution when overshooting by cost_of_change + 1 sat
-        TestBnBFail("Overshoot upper bound", utxo_pool, /*selection_target=*/4 * CENT - cs_params.m_cost_of_change - 1_sats, cs_params);
+        TestBnBFail("Overshoot upper bound", utxo_pool, /*selection_target=*/(4 * CENT - cs_params.m_cost_of_change - 1_sats).AssertValid(), cs_params);
 
         TestBnBSuccess("Select max weight", utxo_pool, /*selection_target=*/4 * CENT, /*expected_input_amounts=*/{1 * CENT, 3 * CENT}, /*expected_attempts=*/4, cs_params, /*custom_spending_vsize=*/P2WPKH_INPUT_VSIZE, /*max_selection_weight=*/4 * 2 * P2WPKH_INPUT_VSIZE);
 
@@ -249,7 +249,7 @@ static void TestSRDSuccess(std::string test_title, std::vector<OutputGroup>& utx
 
     const auto result = SelectCoinsSRD(utxo_pool, selection_target, cs_params.m_change_fee, cs_params.rng_fast, max_selection_weight);
     BOOST_CHECK_MESSAGE(result, "Falsy result in SRD-Success: " + test_title);
-    const CAmount selected_effective_value = result->GetSelectedEffectiveValue();
+    const CAmountUnchecked selected_effective_value = result->GetSelectedEffectiveValue();
     BOOST_CHECK_MESSAGE(selected_effective_value >= expected_min_amount, strprintf("Selected effective value is lower than expected in SRD-Success: %s. Expected %d, but got %d", test_title, expected_min_amount, selected_effective_value));
     BOOST_CHECK_MESSAGE(result->GetWeight() <= max_selection_weight, strprintf("Selected weight is higher than permitted in SRD-Success: %s. Expected %d, but got %d", test_title, max_selection_weight, result->GetWeight()));
 }
@@ -280,8 +280,8 @@ BOOST_AUTO_TEST_CASE(srd_test)
         TestSRDSuccess("Select 7 CENT", utxo_pool, /*selection_target=*/7 * CENT, cs_params);
 
         // The minimum change amount for SRD is the feerate dependent `change_fee` plus CHANGE_LOWER
-        TestSRDSuccess("Create minimum change", utxo_pool, /*selection_target=*/9 * CENT - cs_params.m_change_fee - CHANGE_LOWER, cs_params);
-        TestSRDFail("Undershoot minimum change by one sat", utxo_pool, /*selection_target=*/9 * CENT - cs_params.m_change_fee - CHANGE_LOWER + 1_sats, cs_params);
+        TestSRDSuccess("Create minimum change", utxo_pool, /*selection_target=*/(9 * CENT - cs_params.m_change_fee - CHANGE_LOWER).AssertValid(), cs_params);
+        TestSRDFail("Undershoot minimum change by one sat", utxo_pool, /*selection_target=*/(9 * CENT - cs_params.m_change_fee - CHANGE_LOWER + 1_sats).AssertValid(), cs_params);
         TestSRDFail("Spend more than available", utxo_pool, /*selection_target=*/9 * CENT + 1_sats, cs_params);
         TestSRDFail("Spend everything", utxo_pool, /*selection_target=*/9 * CENT, cs_params);
 

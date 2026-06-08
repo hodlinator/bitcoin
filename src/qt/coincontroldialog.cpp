@@ -12,6 +12,7 @@
 #include <qt/platformstyle.h>
 #include <qt/walletmodel.h>
 
+#include <consensus/amount.h>
 #include <interfaces/node.h>
 #include <key_io.h>
 #include <policy/policy.h>
@@ -405,7 +406,7 @@ void CoinControlDialog::updateLabels(CCoinControl& m_coin_control, WalletModel *
         nQuantity++;
 
         // Amount
-        nAmount += out.txout.nValue;
+        nAmount += out.txout.nValue.AssertValid();
 
         // Bytes
         CTxDestination address;
@@ -466,7 +467,7 @@ void CoinControlDialog::updateLabels(CCoinControl& m_coin_control, WalletModel *
 
         if (nPayAmount > 0_sats)
         {
-            nChange = nAmount - nPayAmount;
+            nChange = (nAmount - nPayAmount).AssertValid();
             if (!CoinControlDialog::fSubtractFeeFromAmount)
                 nChange -= nPayFee;
 
@@ -488,7 +489,7 @@ void CoinControlDialog::updateLabels(CCoinControl& m_coin_control, WalletModel *
         }
 
         // after fee
-        nAfterFee = std::max<CAmount>(nAmount - nPayFee, 0_sats);
+        nAfterFee = std::max<CAmountUnchecked>(nAmount - nPayFee, 0_sats).AssertValid();
     }
 
     // actually update labels
@@ -592,7 +593,7 @@ void CoinControlDialog::updateView()
         for (const auto& outpair : coins.second) {
             const COutPoint& output = std::get<0>(outpair);
             const interfaces::WalletTxOut& out = std::get<1>(outpair);
-            nSum += out.txout.nValue;
+            nSum += out.txout.nValue.AssertValid();
             nChildren++;
 
             CCoinControlWidgetItem *itemOutput;

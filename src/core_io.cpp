@@ -280,7 +280,7 @@ util::Result<int> SighashFromStr(const std::string& sighash)
     }
 }
 
-UniValue ValueFromAmount(const CAmount amount)
+UniValue ValueFromAmount(const CAmountUnchecked amount)
 {
     static_assert(COIN > 1_sats);
     int64_t quotient = amount / COIN;
@@ -471,7 +471,7 @@ void TxToUniv(const CTransaction& tx, const uint256& block_hash, UniValue& entry
             const Coin& prev_coin = txundo->vprevout[i];
             const CTxOut& prev_txout = prev_coin.out;
 
-            amt_total_in += prev_txout.nValue;
+            amt_total_in += prev_txout.nValue.AssertValid();
 
             if (verbosity == TxVerbosity::SHOW_DETAILS_AND_PREVOUT) {
                 UniValue o_script_pub_key(UniValue::VOBJ);
@@ -511,13 +511,13 @@ void TxToUniv(const CTransaction& tx, const uint256& block_hash, UniValue& entry
         vout.push_back(std::move(out));
 
         if (have_undo) {
-            amt_total_out += txout.nValue;
+            amt_total_out += txout.nValue.AssertValid();
         }
     }
     entry.pushKV("vout", std::move(vout));
 
     if (have_undo) {
-        const CAmount fee = amt_total_in - amt_total_out;
+        const CAmountUnchecked fee = amt_total_in - amt_total_out;
         CHECK_NONFATAL(MoneyRange(fee));
         entry.pushKV("fee", ValueFromAmount(fee));
     }

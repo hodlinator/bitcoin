@@ -4,6 +4,7 @@
 
 #include <clientversion.h>
 #include <common/signmessage.h>
+#include <consensus/amount.h>
 #include <hash.h>
 #include <key.h>
 #include <script/parsing.h>
@@ -409,7 +410,7 @@ BOOST_AUTO_TEST_CASE(util_FormatMoney)
     BOOST_CHECK_EQUAL(FormatMoney((COIN/10000)*123456789), "12345.6789");
     BOOST_CHECK_EQUAL(FormatMoney(-COIN), "-1.00");
 
-    BOOST_CHECK_EQUAL(FormatMoney(COIN*100000000), "100000000.00");
+    BOOST_CHECK_EQUAL(FormatMoney(CAmountUnchecked{COIN}*100000000), "100000000.00");
     BOOST_CHECK_EQUAL(FormatMoney(COIN*10000000), "10000000.00");
     BOOST_CHECK_EQUAL(FormatMoney(COIN*1000000), "1000000.00");
     BOOST_CHECK_EQUAL(FormatMoney(COIN*100000), "100000.00");
@@ -427,15 +428,15 @@ BOOST_AUTO_TEST_CASE(util_FormatMoney)
     BOOST_CHECK_EQUAL(FormatMoney(COIN/10000000), "0.0000001");
     BOOST_CHECK_EQUAL(FormatMoney(COIN/100000000), "0.00000001");
 
-    BOOST_CHECK_EQUAL(FormatMoney(CAmount{std::numeric_limits<CAmount::inner_type>::max()}), "92233720368.54775807");
-    BOOST_CHECK_EQUAL(FormatMoney(CAmount{std::numeric_limits<CAmount::inner_type>::max() - 1}), "92233720368.54775806");
-    BOOST_CHECK_EQUAL(FormatMoney(CAmount{std::numeric_limits<CAmount::inner_type>::max() - 2}), "92233720368.54775805");
-    BOOST_CHECK_EQUAL(FormatMoney(CAmount{std::numeric_limits<CAmount::inner_type>::max() - 3}), "92233720368.54775804");
+    BOOST_CHECK_EQUAL(FormatMoney(CAmountUnchecked{std::numeric_limits<CAmount::inner_type>::max()}), "92233720368.54775807");
+    BOOST_CHECK_EQUAL(FormatMoney(CAmountUnchecked{std::numeric_limits<CAmount::inner_type>::max() - 1}), "92233720368.54775806");
+    BOOST_CHECK_EQUAL(FormatMoney(CAmountUnchecked{std::numeric_limits<CAmount::inner_type>::max() - 2}), "92233720368.54775805");
+    BOOST_CHECK_EQUAL(FormatMoney(CAmountUnchecked{std::numeric_limits<CAmount::inner_type>::max() - 3}), "92233720368.54775804");
     // ...
-    BOOST_CHECK_EQUAL(FormatMoney(CAmount{std::numeric_limits<CAmount::inner_type>::min() + 3}), "-92233720368.54775805");
-    BOOST_CHECK_EQUAL(FormatMoney(CAmount{std::numeric_limits<CAmount::inner_type>::min() + 2}), "-92233720368.54775806");
-    BOOST_CHECK_EQUAL(FormatMoney(CAmount{std::numeric_limits<CAmount::inner_type>::min() + 1}), "-92233720368.54775807");
-    BOOST_CHECK_EQUAL(FormatMoney(CAmount{std::numeric_limits<CAmount::inner_type>::min()}), "-92233720368.54775808");
+    BOOST_CHECK_EQUAL(FormatMoney(CAmountUnchecked{std::numeric_limits<CAmount::inner_type>::min() + 3}), "-92233720368.54775805");
+    BOOST_CHECK_EQUAL(FormatMoney(CAmountUnchecked{std::numeric_limits<CAmount::inner_type>::min() + 2}), "-92233720368.54775806");
+    BOOST_CHECK_EQUAL(FormatMoney(CAmountUnchecked{std::numeric_limits<CAmount::inner_type>::min() + 1}), "-92233720368.54775807");
+    BOOST_CHECK_EQUAL(FormatMoney(CAmountUnchecked{std::numeric_limits<CAmount::inner_type>::min()}), "-92233720368.54775808");
 }
 
 BOOST_AUTO_TEST_CASE(util_ParseMoney)

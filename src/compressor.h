@@ -104,11 +104,23 @@ struct AmountCompression
         s << VARINT(CompressAmount(val.Int()));
     }
     template <typename Stream>
+    void Ser(Stream& s, const CAmountUnchecked val)
+    {
+        s << VARINT(CompressAmount(val.Int()));
+    }
+    template <typename Stream>
     void Unser(Stream& s, CAmount& val)
     {
         uint64_t v;
         s >> VARINT(v);
         val = CAmount{int64_t(DecompressAmount(v))};
+    }
+    template <typename Stream>
+    void Unser(Stream& s, CAmountUnchecked& val)
+    {
+        uint64_t v;
+        s >> VARINT(v);
+        val = CAmountUnchecked{int64_t(DecompressAmount(v))};
     }
 };
 

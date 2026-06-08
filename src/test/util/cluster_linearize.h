@@ -6,6 +6,7 @@
 #define BITCOIN_TEST_UTIL_CLUSTER_LINEARIZE_H
 
 #include <cluster_linearize.h>
+#include <consensus/amount.h>
 #include <serialize.h>
 #include <span.h>
 #include <streams.h>
@@ -213,7 +214,7 @@ struct DepGraphFormatter
                 s >> VARINT(coded_fee);
                 coded_fee &= 0xFFFFFFFFFFFFF; // Enough for fee between -21M...21M BTC.
                 static_assert(0xFFFFFFFFFFFFF > uint64_t{2} * 21000000 * 100000000);
-                new_feerate = {CAmount{UnsignedToSigned(coded_fee)}, size};
+                new_feerate = {CAmountUnchecked{UnsignedToSigned(coded_fee)}, size};
                 // Read dependency information.
                 auto topo_idx = reordering.size();
                 s >> VARINT(diff);

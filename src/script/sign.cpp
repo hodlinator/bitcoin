@@ -859,7 +859,7 @@ SignatureData DataFromTransaction(const CMutableTransaction& tx, unsigned int nI
     Stacks stack(data);
 
     // Get signatures
-    MutableTransactionSignatureChecker tx_checker(&tx, nIn, txout.nValue, MissingDataBehavior::FAIL);
+    MutableTransactionSignatureChecker tx_checker(&tx, nIn, txout.nValue.AssertValid(), MissingDataBehavior::FAIL);
     SignatureExtractorChecker extractor_checker(data, tx_checker);
     if (VerifyScript(data.scriptSig, txout.scriptPubKey, &data.scriptWitness, STANDARD_SCRIPT_VERIFY_FLAGS, extractor_checker)) {
         data.complete = true;
@@ -1039,7 +1039,7 @@ bool SignTransaction(CMutableTransaction& mtx, const SigningProvider* keystore, 
             txdata.Init(txConst, /*spent_outputs=*/{}, /*force=*/true);
             break;
         } else {
-            spent_outputs.emplace_back(coin->second.out.nValue, coin->second.out.scriptPubKey);
+            spent_outputs.emplace_back(coin->second.out.nValue.AssertValid(), coin->second.out.scriptPubKey);
         }
     }
     if (spent_outputs.size() == mtx.vin.size()) {
@@ -1055,7 +1055,7 @@ bool SignTransaction(CMutableTransaction& mtx, const SigningProvider* keystore, 
             continue;
         }
         const CScript& prevPubKey = coin->second.out.scriptPubKey;
-        const CAmount& amount = coin->second.out.nValue;
+        const CAmount& amount = coin->second.out.nValue.AssertValid();
 
         SignatureData sigdata = DataFromTransaction(mtx, i, coin->second.out);
         // Only sign SIGHASH_SINGLE if there's a corresponding output:

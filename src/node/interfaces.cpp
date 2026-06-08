@@ -693,7 +693,7 @@ public:
         // that Chain clients do not need to know about.
         return TransactionError::OK == err;
     }
-    void getTransactionAncestry(const Txid& txid, size_t& ancestors, size_t& cluster_count, size_t* ancestorsize, CAmount* ancestorfees) override
+    void getTransactionAncestry(const Txid& txid, size_t& ancestors, size_t& cluster_count, size_t* ancestorsize, CAmountUnchecked* ancestorfees) override
     {
         ancestors = cluster_count = 0;
         if (!m_node.mempool) return;
@@ -712,7 +712,7 @@ public:
         return MiniMiner(*m_node.mempool, outpoints).CalculateBumpFees(target_feerate);
     }
 
-    std::optional<CAmount> calculateCombinedBumpFee(const std::vector<COutPoint>& outpoints, const CFeeRate& target_feerate) override
+    std::optional<CAmountUnchecked> calculateCombinedBumpFee(const std::vector<COutPoint>& outpoints, const CFeeRate& target_feerate) override
     {
         if (!m_node.mempool) {
             return 0_sats;
