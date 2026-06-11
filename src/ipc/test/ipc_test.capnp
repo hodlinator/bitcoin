@@ -20,4 +20,5 @@ interface FooInterface $Proxy.wrap("FooImplementation") {
     passTransaction @3 (arg :Data) -> (result :Data);
     passVectorChar @4 (arg :Data) -> (result :Data);
     passScript @5 (arg :Data) -> (result :Data);
+    passAmounts @6 (arg :List(Int64)) -> (result :List(Int64));
 }
