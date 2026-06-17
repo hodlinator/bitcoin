@@ -104,7 +104,7 @@ void CCoinsViewCache::AddCoin(const COutPoint &outpoint, Coin&& coin, bool possi
            outpoint.hash.data(),
            (uint32_t)outpoint.n,
            (uint32_t)it->second.coin.nHeight,
-           (int64_t)it->second.coin.out.nValue,
+           it->second.coin.out.nValue.Int(),
            (bool)it->second.coin.IsCoinBase());
 }
 
@@ -138,7 +138,7 @@ bool CCoinsViewCache::SpendCoin(const COutPoint &outpoint, Coin* moveout) {
            outpoint.hash.data(),
            (uint32_t)outpoint.n,
            (uint32_t)it->second.coin.nHeight,
-           (int64_t)it->second.coin.out.nValue,
+           it->second.coin.out.nValue.Int(),
            (bool)it->second.coin.IsCoinBase());
     if (moveout) {
         *moveout = std::move(it->second.coin);
@@ -297,7 +297,7 @@ void CCoinsViewCache::Uncache(const COutPoint& hash)
                hash.hash.data(),
                (uint32_t)hash.n,
                (uint32_t)it->second.coin.nHeight,
-               (int64_t)it->second.coin.out.nValue,
+               it->second.coin.out.nValue.Int(),
                (bool)it->second.coin.IsCoinBase());
         cacheCoins.erase(it);
     }
