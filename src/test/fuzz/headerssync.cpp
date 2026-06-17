@@ -46,7 +46,8 @@ class FuzzedHeadersSyncState : public HeadersSyncState
 public:
     FuzzedHeadersSyncState(const HeadersSyncParams& sync_params, const size_t commit_offset,
                            const CBlockIndex& chain_start, const arith_uint256& minimum_required_work)
-        : HeadersSyncState(/*id=*/0, Params().GetConsensus(), sync_params, chain_start, minimum_required_work)
+        : HeadersSyncState(/*id=*/0, Params().GetConsensus(), sync_params, chain_start, minimum_required_work,
+                           /*max_commitments=*/HeadersSyncState::ComputeMaxCommitments(sync_params, chain_start))
     {
         const_cast<size_t&>(m_commit_offset) = commit_offset;
     }

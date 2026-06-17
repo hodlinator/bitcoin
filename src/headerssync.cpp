@@ -14,21 +14,7 @@
 // CompressedHeader (we should re-calculate parameters if we compress further).
 static_assert(sizeof(CompressedHeader) == 48);
 
-HeadersSyncState::HeadersSyncState(NodeId id,
-                                   const Consensus::Params& consensus_params,
-                                   const HeadersSyncParams& params,
-                                   const CBlockIndex& chain_start,
-                                   const arith_uint256& minimum_required_work)
-    : m_commit_offset((assert(params.commitment_period > 0), // HeadersSyncParams field must be initialized to non-zero.
-                       FastRandomContext().randrange(params.commitment_period))),
-      m_id(id),
-      m_consensus_params(consensus_params),
-      m_params(params),
-      m_chain_start(chain_start),
-      m_minimum_required_work(minimum_required_work),
-      m_current_chain_work(chain_start.nChainWork),
-      m_last_header_received(m_chain_start.GetBlockHeader()),
-      m_current_height(chain_start.nHeight)
+uint64_t HeadersSyncState::ComputeMaxCommitments(const HeadersSyncParams& params, const CBlockIndex& chain_start)
 {
     // Estimate the number of blocks that could possibly exist on the peer's
     // chain *right now* using 6 blocks/second (fastest blockrate given the MTP
@@ -40,8 +26,27 @@ HeadersSyncState::HeadersSyncState(NodeId id,
     // could try again, if necessary, to sync a longer chain).
     const auto max_seconds_since_start{(Ticks<std::chrono::seconds>(NodeClock::now() - NodeSeconds{std::chrono::seconds{chain_start.GetMedianTimePast()}}))
                                        + MAX_FUTURE_BLOCK_TIME};
-    m_max_commitments = 6 * max_seconds_since_start / m_params.commitment_period;
+    return 6 * max_seconds_since_start / params.commitment_period;
+}
 
+HeadersSyncState::HeadersSyncState(NodeId id,
+                                   const Consensus::Params& consensus_params,
+                                   const HeadersSyncParams& params,
+                                   const CBlockIndex& chain_start,
+                                   const arith_uint256& minimum_required_work,
+                                   const uint64_t max_commitments)
+    : m_commit_offset((assert(params.commitment_period > 0), // HeadersSyncParams field must be initialized to non-zero.
+                       FastRandomContext().randrange(params.commitment_period))),
+      m_id(id),
+      m_consensus_params(consensus_params),
+      m_params(params),
+      m_chain_start(chain_start),
+      m_minimum_required_work(minimum_required_work),
+      m_current_chain_work(chain_start.nChainWork),
+      m_max_commitments(max_commitments),
+      m_last_header_received(m_chain_start.GetBlockHeader()),
+      m_current_height(chain_start.nHeight)
+{
     LogDebug(BCLog::NET, "Initial headers sync started with peer=%d: height=%i, max_commitments=%i, min_work=%s\n", m_id, m_current_height, m_max_commitments, m_minimum_required_work.ToString());
 }
 

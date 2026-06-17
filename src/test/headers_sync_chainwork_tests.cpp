@@ -81,14 +81,16 @@ struct HeadersGeneratorSetup : public RegTestingSetup {
 
     HeadersSyncState CreateState()
     {
+        const HeadersSyncParams params{
+            .commitment_period = COMMITMENT_PERIOD,
+            .redownload_buffer_size = REDOWNLOAD_BUFFER_SIZE,
+        };
         return {/*id=*/0,
                 Params().GetConsensus(),
-                HeadersSyncParams{
-                    .commitment_period = COMMITMENT_PERIOD,
-                    .redownload_buffer_size = REDOWNLOAD_BUFFER_SIZE,
-                },
+                params,
                 chain_start,
-                /*minimum_required_work=*/CHAIN_WORK};
+                /*minimum_required_work=*/CHAIN_WORK,
+                /*max_commitments=*/HeadersSyncState::ComputeMaxCommitments(params, chain_start)};
     }
 
 private:
