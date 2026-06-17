@@ -24,8 +24,21 @@ uint64_t HeadersSyncState::ComputeMaxCommitments(const HeadersSyncParams& params
     // exceeds this bound, because it's not possible for a consensus-valid
     // chain to be longer than this (at the current time -- in the future we
     // could try again, if necessary, to sync a longer chain).
-    const auto max_seconds_since_start{(Ticks<std::chrono::seconds>(NodeClock::now() - NodeSeconds{std::chrono::seconds{chain_start.GetMedianTimePast()}}))
-                                       + MAX_FUTURE_BLOCK_TIME};
+    const NodeClock::time_point now{NodeClock::now()};
+    const int64_t max_seconds_since_start{Ticks<std::chrono::seconds>(now - NodeSeconds{std::chrono::seconds{chain_start.GetMedianTimePast()}})
+                                          + MAX_FUTURE_BLOCK_TIME};
+    if (max_seconds_since_start < 0) {
+        // Typically we would expect the chain state loading logic to
+        // already have verified that the tip of the locally stored
+        // chain is <= system clock + MAX_FUTURE_BLOCK_TIME. Getting
+        // here is really unexpected.
+        LogError("Failure when attempting to initiate headers sync: system clock "
+                 "is more than %d minutes behind chain start MTP (%s vs %s).",
+                 MAX_FUTURE_BLOCK_TIME / 60,
+                 FormatISO8601DateTime(TicksSinceEpoch<std::chrono::seconds>(now)),
+                 FormatISO8601DateTime(chain_start.GetMedianTimePast()));
+        std::abort();
+    }
     return 6 * max_seconds_since_start / params.commitment_period;
 }
 
