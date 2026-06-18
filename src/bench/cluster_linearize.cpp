@@ -4,6 +4,7 @@
 
 #include <bench/bench.h>
 #include <cluster_linearize.h>
+#include <consensus/amount.h>
 #include <test/util/cluster_linearize.h>
 #include <util/bitset.h>
 #include <util/strencodings.h>
@@ -27,7 +28,7 @@ DepGraph<SetType> MakeWideGraph(DepGraphIndex ntx)
 {
     DepGraph<SetType> depgraph;
     for (DepGraphIndex i = 0; i < ntx; ++i) {
-        depgraph.AddTransaction({int32_t(i) + 1, 1});
+        depgraph.AddTransaction({CAmount{int32_t(i) + 1}, 1});
         if (i > 0) depgraph.AddDependencies(SetType::Singleton(0), i);
     }
     return depgraph;
