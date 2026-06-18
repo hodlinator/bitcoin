@@ -644,9 +644,9 @@ private:
          * of the transaction and sigops. */
         int64_t m_vsize;
         /** Fees paid by this transaction: total input amounts subtracted by total output amounts. */
-        Amount m_base_fees;
+        Amount m_base_fees{0_sats};
         /** Base fees + any fee delta set by the user with prioritisetransaction. */
-        Amount m_modified_fees;
+        Amount m_modified_fees{0_sats};
 
         /** If we're doing package validation (i.e. m_package_feerates=true), the "effective"
          * package feerate of this transaction is the total fees divided by the total size of

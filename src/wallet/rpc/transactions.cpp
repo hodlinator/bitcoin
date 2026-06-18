@@ -310,7 +310,7 @@ static void ListTransactions(const CWallet& wallet, const CWalletTx& wtx, int nM
                              bool include_change = false)
     EXCLUSIVE_LOCKS_REQUIRED(wallet.cs_wallet)
 {
-    Amount nFee;
+    Amount nFee{0_sats};
     std::list<COutputEntry> listReceived;
     std::list<COutputEntry> listSent;
 

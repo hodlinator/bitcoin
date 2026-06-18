@@ -122,7 +122,7 @@ bool LoadMempool(CTxMemPool& pool, const fs::path& load_path, Chainstate& active
             if (active_chainstate.m_chainman.m_interrupt)
                 return false;
         }
-        std::map<Txid, Amount> mapDeltas;
+        std::map<Txid, Amount::inner_type> mapDeltas;
         file >> mapDeltas;
 
         if (opts.apply_fee_delta_priority) {

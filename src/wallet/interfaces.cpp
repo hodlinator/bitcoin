@@ -471,8 +471,7 @@ public:
         FeeReason* reason) override
     {
         FeeCalculation fee_calc;
-        Amount result;
-        result = GetMinimumFee(*m_wallet, tx_bytes, coin_control, &fee_calc);
+        Amount result{GetMinimumFee(*m_wallet, tx_bytes, coin_control, &fee_calc)};
         if (returned_target) *returned_target = fee_calc.returnedTarget;
         if (reason) *reason = fee_calc.reason;
         return result;

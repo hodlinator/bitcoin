@@ -20,8 +20,8 @@ class Amount
 public:
     using inner_type = int64_t;
 
-    // TODO in upcoming commit: Delete the default constructor.
-    Amount() = default;
+    // Require explicit initialization to a specified value.
+    Amount() = delete;
 
     template <typename T>
     constexpr Amount(T v)

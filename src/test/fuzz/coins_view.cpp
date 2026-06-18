@@ -276,7 +276,7 @@ void TestCoinsView(FuzzedDataProvider& fuzzed_data_provider, CCoinsViewCache& co
             },
             [&] {
                 TxValidationState state;
-                Amount tx_fee_out;
+                Amount tx_fee_out{0_sats};
                 const CTransaction transaction{random_mutable_transaction};
                 if (ContainsSpentInput(transaction, coins_view_cache)) {
                     // Avoid:

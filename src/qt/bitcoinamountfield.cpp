@@ -47,7 +47,7 @@ public:
     void fixup(QString &input) const override
     {
         bool valid;
-        Amount val;
+        Amount val{0_sats};
 
         if (input.isEmpty() && !m_allow_empty) {
             valid = true;
