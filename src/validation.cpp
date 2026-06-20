@@ -4517,18 +4517,15 @@ BlockValidationState TestBlockValidity(
     // 2. To prevent a CheckBlock() race condition for fChecked, see ProcessNewBlock()
     AssertLockHeld(chainstate.m_chainman.GetMutex());
 
-    BlockValidationState state;
     CBlockIndex* tip{Assert(chainstate.m_chain.Tip())};
 
     if (block.hashPrevBlock != *Assert(tip->phashBlock)) {
-        state.Invalid({}, "inconclusive-not-best-prevblk");
-        return state;
+        return BlockValidationState::MakeInvalid({}, "inconclusive-not-best-prevblk");
     }
 
     // For signets CheckBlock() verifies the challenge iff fCheckPow is set.
-    Assume(state.IsValid());
-    state = CheckBlock(block, chainstate.m_chainman.GetConsensus(), /*fCheckPow=*/check_pow, /*fCheckMerkleRoot=*/check_merkle_root);
-    if (!state.IsValid()) {
+    if (const auto state = CheckBlock(block, chainstate.m_chainman.GetConsensus(), /*fCheckPow=*/check_pow, /*fCheckMerkleRoot=*/check_merkle_root);
+        !state.IsValid()) {
         // This should never happen, but belt-and-suspenders don't approve the
         // block if it does.
         return state;
@@ -4549,15 +4546,11 @@ BlockValidationState TestBlockValidity(
      * - do run ContextualCheckBlock()
      */
 
-    Assume(state.IsValid());
-    state = ContextualCheckBlockHeader(block, chainstate.m_chainman, tip);
-    if (!state.IsValid()) {
+    if (const auto state = ContextualCheckBlockHeader(block, chainstate.m_chainman, tip); !state.IsValid()) {
         return state;
     }
 
-    Assume(state.IsValid());
-    state = ContextualCheckBlock(block, chainstate.m_chainman, tip);
-    if (!state.IsValid()) {
+    if (const auto state = ContextualCheckBlock(block, chainstate.m_chainman, tip); !state.IsValid()) {
         return state;
     }
 
@@ -4570,16 +4563,18 @@ BlockValidationState TestBlockValidity(
     index_dummy.phashBlock = &block_hash;
     CCoinsViewCache view_dummy(&chainstate.CoinsTip());
 
-    // Set fJustCheck to true in order to update, and not clear, validation caches.
-    if(!chainstate.ConnectBlock(block, state, &index_dummy, view_dummy, /*fJustCheck=*/true)) {
-        if (state.IsValid()) NONFATAL_UNREACHABLE();
-        return state;
+    {
+        BlockValidationState state;
+        // Set fJustCheck to true in order to update, and not clear, validation caches.
+        if (!chainstate.ConnectBlock(block, state, &index_dummy, view_dummy, /*fJustCheck=*/true)) {
+            if (state.IsValid()) NONFATAL_UNREACHABLE();
+            return state;
+        } else {
+            if (!state.IsValid()) NONFATAL_UNREACHABLE();
+        }
     }
 
-    // Ensure no check returned successfully while also setting an invalid state.
-    if (!state.IsValid()) NONFATAL_UNREACHABLE();
-
-    return state;
+    return BlockValidationState{};
 }
 
 /* This function is called from the RPC code for pruneblockchain */
