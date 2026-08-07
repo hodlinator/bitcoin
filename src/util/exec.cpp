@@ -28,7 +28,7 @@ int ExecVp(const char* file, char* const argv[])
 #else
     std::vector<std::string> escaped_args;
     for (char* const* arg_ptr{argv}; *arg_ptr; ++arg_ptr) {
-        subprocess::util::quote_argument(std::string{*arg_ptr}, escaped_args.emplace_back(), /*force=*/false);
+        subprocess::util::quote_argument(std::string_view{*arg_ptr}, escaped_args.emplace_back(), /*force=*/false);
     }
 
     std::vector<const char*> new_argv;

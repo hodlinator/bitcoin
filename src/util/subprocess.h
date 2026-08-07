@@ -162,7 +162,7 @@ public:
 namespace util
 {
 #ifdef WIN32
-  inline void quote_argument(const std::string &argument, std::string &command_line,
+  inline void quote_argument(std::string_view argument, std::string &command_line,
                       bool force)
   {
     constexpr char quote = '"';
