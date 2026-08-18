@@ -3029,6 +3029,21 @@ bool PeerManagerImpl::TryLowWorkHeadersSync(Peer& peer, CNode& pfrom, const CBlo
             // this logic in that case. So even if the first header in this set
             // of headers is known, some header in this set must be new, so
             // advancing to the first unknown header would be a small effect.
+
+            const auto now{NodeClock::now()};
+            if (Ticks<std::chrono::seconds>(NodeSeconds{std::chrono::seconds{chain_start_header.GetMedianTimePast()}} - now)
+                > MAX_FUTURE_BLOCK_TIME) {
+                const auto msg{strprintf(
+                    "Failure when attempting to initiate headers sync: system clock is "
+                    "more than %d minutes behind chain start MTP (%s vs %s).",
+                    MAX_FUTURE_BLOCK_TIME / 60,
+                    FormatISO8601DateTime(TicksSinceEpoch<std::chrono::seconds>(now)),
+                    FormatISO8601DateTime(chain_start_header.GetMedianTimePast()))};
+                std::cerr << msg << std::endl;
+                LogError("%s", msg);
+                std::abort();
+            }
+
             LOCK(peer.m_headers_sync_mutex);
             peer.m_headers_sync.reset(new HeadersSyncState(peer.m_id, m_chainparams.GetConsensus(),
                 m_chainparams.HeadersSync(), chain_start_header, minimum_chain_work));
