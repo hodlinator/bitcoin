@@ -15,6 +15,7 @@
 #include <util/hasher.h>
 
 #include <deque>
+#include <stdexcept>
 #include <vector>
 
 // A compressed CBlockHeader, which leaves out the prevhash
@@ -99,8 +100,13 @@ struct CompressedHeader {
  * sync (temporary, per-peer storage).
  */
 
-class HeadersSyncState {
+class HeadersSyncState
+{
 public:
+    struct SystemClockError : std::runtime_error {
+        using std::runtime_error::runtime_error;
+    };
+
     ~HeadersSyncState() = default;
 
     enum class State {
