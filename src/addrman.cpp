@@ -1097,7 +1097,8 @@ int AddrManImpl::CheckAddrman() const
     for (int n = 0; n < ADDRMAN_TRIED_BUCKET_COUNT; n++) {
         for (int i = 0; i < ADDRMAN_BUCKET_SIZE; i++) {
             if (vvTried[n][i] != -1) {
-                if (!setTried.contains(vvTried[n][i]))
+                const auto tried_it{setTried.find(vvTried[n][i])};
+                if (tried_it == setTried.end())
                     return -11;
                 const auto it{mapInfo.find(vvTried[n][i])};
                 if (it == mapInfo.end() || it->second.GetTriedBucket(nKey, m_netgroupman) != n) {
@@ -1106,7 +1107,7 @@ int AddrManImpl::CheckAddrman() const
                 if (it->second.GetBucketPosition(nKey, false, n) != i) {
                     return -18;
                 }
-                setTried.erase(vvTried[n][i]);
+                setTried.erase(tried_it);
             }
         }
     }
@@ -1114,14 +1115,15 @@ int AddrManImpl::CheckAddrman() const
     for (int n = 0; n < ADDRMAN_NEW_BUCKET_COUNT; n++) {
         for (int i = 0; i < ADDRMAN_BUCKET_SIZE; i++) {
             if (vvNew[n][i] != -1) {
-                if (!mapNew.contains(vvNew[n][i]))
+                const auto new_it{mapNew.find(vvNew[n][i])};
+                if (new_it == mapNew.end())
                     return -12;
                 const auto it{mapInfo.find(vvNew[n][i])};
                 if (it == mapInfo.end() || it->second.GetBucketPosition(nKey, true, n) != i) {
                     return -19;
                 }
-                if (--mapNew[vvNew[n][i]] == 0)
-                    mapNew.erase(vvNew[n][i]);
+                if (--new_it->second == 0)
+                    mapNew.erase(new_it);
             }
         }
     }
