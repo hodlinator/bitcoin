@@ -552,19 +552,19 @@ RPCMethod simulaterawtransaction()
         // broadcast, we will lose everything in these
         for (const auto& txin : mtx.vin) {
             const auto& outpoint = txin.prevout;
-            if (spent.contains(outpoint)) {
+            if (!spent.insert(outpoint).second) {
                 throw JSONRPCError(RPC_INVALID_PARAMETER, "Transaction(s) are spending the same output more than once");
             }
-            if (new_utxos.contains(outpoint)) {
-                changes -= new_utxos.at(outpoint);
-                new_utxos.erase(outpoint);
+            auto new_it{new_utxos.find(outpoint)};
+            if (new_it != new_utxos.end()) {
+                changes -= new_it->second;
+                new_utxos.erase(new_it);
             } else {
                 if (coins.at(outpoint).IsSpent()) {
                     throw JSONRPCError(RPC_INVALID_PARAMETER, "One or more transaction inputs are missing or have been spent already");
                 }
                 changes -= wallet.GetDebit(txin);
             }
-            spent.insert(outpoint);
         }
 
         // Iterate over outputs; we are *receiving* these, if the wallet considers
