@@ -528,19 +528,23 @@ RPCMethod simulaterawtransaction()
     if (!rpc_wallet) return UniValue::VNULL;
     const CWallet& wallet = *rpc_wallet;
 
-    LOCK(wallet.cs_wallet);
-
     const auto& txs = request.params[0].get_array();
-    CAmount changes{0};
-    std::map<COutPoint, CAmount> new_utxos; // UTXO:s that were made available in transaction array
-    std::set<COutPoint> spent;
-
+    std::vector<CMutableTransaction> mtxs;
+    mtxs.reserve(txs.size());
     for (size_t i = 0; i < txs.size(); ++i) {
         CMutableTransaction mtx;
         if (!DecodeHexTx(mtx, txs[i].get_str(), /*try_no_witness=*/ true, /*try_witness=*/ true)) {
             throw JSONRPCError(RPC_DESERIALIZATION_ERROR, "Transaction hex string decoding failure.");
         }
+        mtxs.emplace_back(std::move(mtx));
+    }
 
+    CAmount changes{0};
+    std::map<COutPoint, CAmount> new_utxos; // UTXO:s that were made available in transaction array
+    std::set<COutPoint> spent;
+
+    LOCK(wallet.cs_wallet);
+    for (const CMutableTransaction& mtx : mtxs) {
         // Fetch previous transactions (inputs)
         std::map<COutPoint, Coin> coins;
         for (const CTxIn& txin : mtx.vin) {
