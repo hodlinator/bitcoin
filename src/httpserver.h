@@ -158,18 +158,12 @@ public:
     explicit HTTPRequest() : m_client{} {}
 
     /**
-     * Methods that attempt to parse HTTP request fields line-by-line
-     * from a receive buffer.
-     * @param[in]   reader  A LineReader object constructed over a span of data.
-     * @returns     true    If the request field was parsed.
-     *              false   If there was not enough data in the buffer to complete the field.
+     * Try to read an HTTP request. Updates m_state.
+     * @returns     true    If the request was fully parsed or in error.
+     *              false   If there was not enough data in the buffer.
      * @throws      std::runtime_error if data is invalid.
      */
-    /// @{
-    bool LoadControlData(util::LineReader& reader);
-    bool LoadHeaders(util::LineReader& reader);
-    bool LoadBody(util::LineReader& reader);
-    /// @}
+    bool Load(util::LineReader& reader);
 
     void WriteReply(HTTPStatusCode status, std::span<const std::byte> reply_body = {});
     void WriteReply(HTTPStatusCode status, std::string_view reply_body_view)
@@ -200,9 +194,22 @@ public:
         Error
     };
     State GetState() const { return m_state; }
-    void SetState(State state) { m_state = state; }
 
 private:
+    /**
+     * Methods that attempt to parse HTTP request fields line-by-line
+     * from a receive buffer.
+     * @param[in]   reader  A LineReader object constructed over a span of data.
+     * @returns     true    If the request field was parsed.
+     *              false   If there was not enough data in the buffer to complete the field.
+     * @throws      std::runtime_error if data is invalid.
+     */
+    /// @{
+    bool LoadControlData(util::LineReader& reader);
+    bool LoadHeaders(util::LineReader& reader);
+    bool LoadBody(util::LineReader& reader);
+    /// @}
+
     HTTPRequestMethod m_method;
     std::string m_target;
     HTTPVersion m_version;
