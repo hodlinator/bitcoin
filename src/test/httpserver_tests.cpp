@@ -879,6 +879,7 @@ BOOST_AUTO_TEST_CASE(http_server_socket_tests)
         std::this_thread::sleep_for(10ms);
         --attempts;
     }
+    BOOST_CHECK(attempts > 0);
     BOOST_CHECK(actual.starts_with("HTTP/1.1 200 OK\r\n"));
     BOOST_CHECK(actual.ends_with("\r\n874140\n"));
     // Headers can be sorted in any order, and will be, since we use unordered_map
@@ -1017,6 +1018,7 @@ BOOST_AUTO_TEST_CASE(http_socket_error_tests)
         std::this_thread::sleep_for(10ms);
         --attempts;
     }
+    BOOST_REQUIRE_MESSAGE(attempts > 0, "Should receive 2 full requests in time - got: \"" << actual << "\"");
 
     // Send the third request.
     // If there was a race between WriteReply() in the worker thread setting m_send_ready=true
@@ -1044,6 +1046,7 @@ BOOST_AUTO_TEST_CASE(http_socket_error_tests)
         std::this_thread::sleep_for(10ms);
         --attempts;
     }
+    BOOST_REQUIRE_MESSAGE(attempts > 0, "Actual: \"" << actual << "\"");
 
     // All replies were received
     for (int i = 0; i < num_requests; i++) {
