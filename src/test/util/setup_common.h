@@ -261,12 +261,12 @@ public:
      * Returns the I/O pipes from the mock client so we can read response data sent to it.
      * Template parameter selects the socket type: DynSock by default.
      */
-    template <typename T = DynSock>
-    std::shared_ptr<typename T::Pipes> ConnectClient(std::span<const std::byte> data)
+    template <typename T = DynSock, typename... Args>
+    std::shared_ptr<typename T::Pipes> ConnectClient(std::span<const std::byte> data, Args... args)
     {
         auto connected_socket_pipes(std::make_shared<typename T::Pipes>());
-        connected_socket_pipes->recv.PushBytes(data.data(), data.size());
-        m_accepted_sockets.Push(std::make_unique<T>(connected_socket_pipes));
+        (void)connected_socket_pipes->recv.PushBytes(data.data(), data.size(), /*simulate_incomplete_send=*/false);
+        m_accepted_sockets.Push(std::make_unique<T>(connected_socket_pipes, args...));
         return connected_socket_pipes;
     }
 

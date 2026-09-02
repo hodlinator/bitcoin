@@ -869,7 +869,7 @@ BOOST_AUTO_TEST_CASE(http_server_socket_tests)
     attempts = 6000;
     while (attempts > 0)
     {
-        ssize_t bytes_read = mock_client_socket_pipes->send.GetBytes(buf, sizeof(buf), 0);
+        ssize_t bytes_read = mock_client_socket_pipes->send.GetBytes(buf, sizeof(buf), /*flags=*/0, /*simulate_incomplete_recv=*/true);
         if (bytes_read > 0) {
             actual.append(buf, bytes_read);
             if (actual.length() == 146) {
@@ -945,8 +945,31 @@ BOOST_AUTO_TEST_CASE(http_socket_error_tests)
     class ErrorSock : public DynSock
     {
     public:
-        explicit ErrorSock(std::shared_ptr<Pipes> pipes) : DynSock{std::move(pipes)} {}
+        explicit ErrorSock(std::shared_ptr<Pipes> pipes, size_t expected_recv) : DynSock{std::move(pipes)}, m_expected_recv{expected_recv} {}
         DynSock& operator=(Sock&&) override { assert(false); return *this; }
+
+        ssize_t Recv(void* buf, size_t len, int flags) const override
+        {
+            if (m_have_recv || flags & MSG_PEEK) {
+                return DynSock::Recv(buf, len, flags);
+            } else {
+                // Be aggressive with receiving since we only get one chance before switching to send
+                size_t recv{0};
+                assert(len >= m_expected_recv);
+                while (recv < m_expected_recv) {
+                    ssize_t ret{DynSock::Recv(static_cast<int8_t*>(buf) + recv, len - recv, flags)};
+                    assert(ret != 0);
+                    if (ret < 0) {
+                        const int err{WSAGetLastError()};
+                        assert(!IOErrorIsPermanent(err));
+                    } else {
+                        recv += ret;
+                    }
+                }
+                m_have_recv = true;
+                return recv;
+            }
+        }
 
         ssize_t Send(const void* buf, size_t len, int flags) const override
         {
@@ -959,11 +982,17 @@ BOOST_AUTO_TEST_CASE(http_socket_error_tests)
                 return -1;
             } else {
                 m_have_sent = true;
-                return DynSock::Send(buf, len, flags);
+                size_t sent{0};
+                while (sent < len) {
+                    sent += DynSock::Send(static_cast<const int8_t*>(buf) + sent, len - sent, flags);
+                }
+                return sent;
             }
         }
 
         mutable bool m_have_sent{false};
+        const size_t m_expected_recv;
+        mutable bool m_have_recv{false};
     };
 
     // Simpler server startup than the last test
@@ -999,7 +1028,7 @@ BOOST_AUTO_TEST_CASE(http_socket_error_tests)
 
     // Connect the ErrorSock as mock client with the preloaded data and get a handle on the I/O pipes
     std::shared_ptr<ErrorSock::Pipes> mock_client_socket_pipes{
-        ConnectClient<ErrorSock>(std::as_bytes(std::span(all_requests)))
+        ConnectClient<ErrorSock>(std::as_bytes(std::span(all_requests)), all_requests.size())
     };
 
     // Wait up to one minute for the last reply from the server
@@ -1008,7 +1037,7 @@ BOOST_AUTO_TEST_CASE(http_socket_error_tests)
     int attempts = 6000;
     while (attempts > 0)
     {
-        ssize_t bytes_read = mock_client_socket_pipes->send.GetBytes(buf, sizeof(buf), 0);
+        ssize_t bytes_read = mock_client_socket_pipes->send.GetBytes(buf, sizeof(buf), /*flags=*/0, /*simulate_incomplete_recv=*/true);
         if (bytes_read > 0) {
             actual.append(buf, bytes_read);
             if (actual.find(strprintf("height: %d", num_requests - 1)) != std::string::npos) {
@@ -1029,14 +1058,14 @@ BOOST_AUTO_TEST_CASE(http_socket_error_tests)
     // If we send the next request too soon it might get accepted by the server before
     // it gets wedged shut.
     std::this_thread::sleep_for(1000ms);
-    mock_client_socket_pipes->recv.PushBytes(keepalive_request.data(), keepalive_request.size());
+    (void)mock_client_socket_pipes->recv.PushBytes(keepalive_request.data(), keepalive_request.size(), /*simulate_incomplete_send=*/false);
     num_requests++;
 
     // Wait up to one minute for reply
     attempts = 6000;
     while (attempts > 0)
     {
-        ssize_t bytes_read = mock_client_socket_pipes->send.GetBytes(buf, sizeof(buf), 0);
+        ssize_t bytes_read = mock_client_socket_pipes->send.GetBytes(buf, sizeof(buf), /*flags=*/0, /*simulate_incomplete_recv=*/true);
         if (bytes_read > 0) {
             actual.append(buf, bytes_read);
             if (actual.find(strprintf("height: %d", num_requests - 1)) != std::string::npos) {
@@ -1088,7 +1117,7 @@ BOOST_AUTO_TEST_CASE(http_server_rejects_disallowed_client_before_read)
     ssize_t bytes_read{};
     char buf[0x10000]{};
     for (int attempts{0}; attempts != 1'000; ++attempts) {
-        bytes_read = client_pipes->send.GetBytes(&buf, sizeof(buf), MSG_PEEK);
+        bytes_read = client_pipes->send.GetBytes(&buf, sizeof(buf), /*flags=*/MSG_PEEK, /*simulate_incomplete_recv=*/true);
         if (bytes_read >= 0) break;
         std::this_thread::sleep_for(10ms);
     }
@@ -1103,7 +1132,7 @@ BOOST_AUTO_TEST_CASE(http_server_rejects_disallowed_client_before_read)
 
     // 'recv' buffer still holds the client's request untouched which
     // proves the server never called Recv()
-    const ssize_t recv_bytes{client_pipes->recv.GetBytes(&buf, sizeof(buf))};
+    const ssize_t recv_bytes{client_pipes->recv.GetBytes(&buf, sizeof(buf), /*flags=*/0, /*simulate_incomplete_recv=*/false)};
     BOOST_REQUIRE_EQUAL(recv_bytes, static_cast<ssize_t>(full_request.size()));
     BOOST_CHECK_EQUAL(std::string_view(buf, recv_bytes), full_request);
 }

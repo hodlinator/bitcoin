@@ -17,6 +17,7 @@
 #include <sync.h>
 
 #include <chrono>
+#include <limits>
 #include <optional>
 #include <vector>
 
@@ -261,7 +262,7 @@ StaticContentsSock& StaticContentsSock::operator=(Sock&& other)
     return *this;
 }
 
-ssize_t DynSock::Pipe::GetBytes(void* buf, size_t len, int flags)
+ssize_t DynSock::Pipe::GetBytes(void* buf, size_t len, int flags, bool simulate_incomplete_recv)
 {
     WAIT_LOCK(m_mutex, lock);
 
@@ -273,11 +274,25 @@ ssize_t DynSock::Pipe::GetBytes(void* buf, size_t len, int flags)
         return -1;
     }
 
-    const size_t read_bytes{std::min(len, m_data.size())};
+    assert(m_peeked <= m_data.size());
+    const size_t read_bytes{simulate_incomplete_recv ?
+                            (m_peeked == 0 ?
+                             m_rng.randrange(std::min(len, m_data.size()) + 1) :
+                             std::min(len, m_peeked + m_rng.randrange((m_data.size() - m_peeked) + 1))) :
+                            std::min(len, m_data.size())};
 
     std::memcpy(buf, m_data.data(), read_bytes);
     if ((flags & MSG_PEEK) == 0) {
+        m_peeked = m_peeked > read_bytes ? m_peeked - read_bytes : 0;
         m_data.erase(m_data.begin(), m_data.begin() + read_bytes);
+    } else {
+        m_peeked = std::max(m_peeked, read_bytes);
+    }
+
+    // Returning 0 would signal EOF - remote close. Instead signal -1 - no data.
+    if (read_bytes == 0) {
+        errno = WSAEWOULDBLOCK;
+        return -1;
     }
 
     return read_bytes;
@@ -301,6 +316,7 @@ std::optional<CNetMessage> DynSock::Pipe::GetNetMsg()
                 return std::nullopt;
             }
             m_data.erase(m_data.begin(), m_data.begin() + m_data.size() - s.size());
+            m_peeked = s.size() < m_peeked ? m_peeked - s.size() : 0;
             if (transport.ReceivedMessageComplete()) {
                 break;
             }
@@ -321,12 +337,22 @@ std::optional<CNetMessage> DynSock::Pipe::GetNetMsg()
     return std::make_optional<CNetMessage>(std::move(msg));
 }
 
-void DynSock::Pipe::PushBytes(const void* buf, size_t len)
+ssize_t DynSock::Pipe::PushBytes(const void* buf, size_t len, bool simulate_incomplete_send)
 {
     LOCK(m_mutex);
-    const uint8_t* b = static_cast<const uint8_t*>(buf);
-    m_data.insert(m_data.end(), b, b + len);
+    if (simulate_incomplete_send && len > 0) {
+        len = m_rng.randrange(len + 1);
+    }
+
+    if (len == 0) {
+        errno = WSAEWOULDBLOCK;
+    } else {
+        const uint8_t* b = static_cast<const uint8_t*>(buf);
+        m_data.insert(m_data.end(), b, b + len);
+    }
     m_cond.notify_all();
+    assert(len < std::numeric_limits<ssize_t>::max());
+    return ssize_t(len);
 }
 
 void DynSock::Pipe::Eof()
@@ -363,13 +389,12 @@ DynSock::~DynSock()
 
 ssize_t DynSock::Recv(void* buf, size_t len, int flags) const
 {
-    return m_pipes->recv.GetBytes(buf, len, flags);
+    return m_pipes->recv.GetBytes(buf, len, flags, /*simulate_incomplete_recv=*/true);
 }
 
 ssize_t DynSock::Send(const void* buf, size_t len, int) const
 {
-    m_pipes->send.PushBytes(buf, len);
-    return len;
+    return m_pipes->send.PushBytes(buf, len, /*simulate_incomplete_send=*/true);
 }
 
 std::unique_ptr<Sock> DynSock::Accept(sockaddr* addr, socklen_t* addr_len) const
@@ -409,7 +434,8 @@ bool DynSock::WaitMany(std::chrono::milliseconds timeout, EventsPerSock& events_
             if ((events.requested & Sock::RecvEvent) != 0) {
                 auto dyn_sock = reinterpret_cast<const DynSock*>(sock.get());
                 uint8_t b;
-                if (dyn_sock->m_pipes->recv.GetBytes(&b, 1, MSG_PEEK) == 1 || (dyn_sock->m_accept_sockets && !dyn_sock->m_accept_sockets->Empty())) {
+                if (dyn_sock->m_pipes->recv.GetBytes(&b, 1, MSG_PEEK, /*simulate_incomplete_recv=*/true) == 1 ||
+                    (dyn_sock->m_accept_sockets && !dyn_sock->m_accept_sockets->Empty())) {
                     events.occurred |= Sock::RecvEvent;
                     at_least_one_event_occurred = true;
                 }

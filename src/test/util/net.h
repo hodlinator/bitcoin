@@ -253,7 +253,7 @@ public:
          * @return The number of bytes written to `buf`. `0` if `Eof()` has been called.
          * If no bytes are available then `-1` is returned and `errno` is set to `EAGAIN`.
          */
-        ssize_t GetBytes(void* buf, size_t len, int flags = 0) EXCLUSIVE_LOCKS_REQUIRED(!m_mutex);
+        [[nodiscard]] ssize_t GetBytes(void* buf, size_t len, int flags, bool simulate_incomplete_recv) EXCLUSIVE_LOCKS_REQUIRED(!m_mutex);
 
         /**
          * Deserialize a `CNetMessage` and remove it from the pipe.
@@ -265,7 +265,7 @@ public:
         /**
          * Push bytes to the pipe.
          */
-        void PushBytes(const void* buf, size_t len) EXCLUSIVE_LOCKS_REQUIRED(!m_mutex);
+        [[nodiscard]] ssize_t PushBytes(const void* buf, size_t len, bool simulate_incomplete_send) EXCLUSIVE_LOCKS_REQUIRED(!m_mutex);
 
         /**
          * Construct and push CNetMessage to the pipe.
@@ -289,6 +289,8 @@ public:
         std::condition_variable m_cond;
         std::vector<uint8_t> m_data GUARDED_BY(m_mutex);
         bool m_eof GUARDED_BY(m_mutex){false};
+        size_t m_peeked GUARDED_BY(m_mutex){0};
+        FastRandomContext m_rng GUARDED_BY(m_mutex){/*fDeterministic=*/false};
     };
 
     struct Pipes {
