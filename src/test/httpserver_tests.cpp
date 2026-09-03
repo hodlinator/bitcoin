@@ -13,6 +13,7 @@
 #include <util/threadpool.h>
 
 #include <boost/test/unit_test.hpp>
+#include <cstdio>
 #include <memory>
 
 using util::LineReader;
@@ -1058,6 +1059,10 @@ BOOST_AUTO_TEST_CASE(http_socket_error_tests)
                     assert(ret != 0);
                     if (ret < 0) {
                         const int err{WSAGetLastError()};
+                        // TEMP Windows cross debugging:
+                        if (IOErrorIsPermanent(err)) {
+                            fprintf(stderr, "WSAGetLastError() is permanent: %d\n", err);
+                        }
                         assert(!IOErrorIsPermanent(err));
                     } else {
                         recv += ret;
