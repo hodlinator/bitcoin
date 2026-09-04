@@ -2,6 +2,7 @@
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
+#include "compat/compat.h"
 #include <httpserver.h>
 #include <rpc/protocol.h>
 #include <test/util/common.h>
@@ -1002,11 +1003,21 @@ BOOST_AUTO_TEST_CASE(http_server_socket_tests)
     server.StopListening();
 }
 
+static void CheckError()
+{
+    static int i{0};
+    fprintf(stderr, "Check #%d WSAGetLastError(): %d\n", ++i, WSAGetLastError());
+}
+
 BOOST_AUTO_TEST_CASE(http_socket_error_tests)
 {
+    CheckError();
+
     // Create a tiny threadpool for the HTTPRequest handler
     ThreadPool workers("http");
     workers.Start(1);
+
+    CheckError();
 
     // Hard-code the server's request handler to respond to each request with
     // an incremented block count. Handle the replies in the worker thread.
@@ -1019,7 +1030,9 @@ BOOST_AUTO_TEST_CASE(http_socket_error_tests)
         // Can't call BOOST_REQUIRE from worker thread
         Assert(workers.Submit(std::move(item)));
     }};
+    CheckError();
     server.InitHTTPAllowList();
+    CheckError();
 
     // All replies will be the same size
     static constexpr std::size_t reply_length = std::string_view{
@@ -1043,11 +1056,14 @@ BOOST_AUTO_TEST_CASE(http_socket_error_tests)
     class ErrorSock : public DynSock
     {
     public:
-        explicit ErrorSock(std::shared_ptr<Pipes> pipes, size_t expected_recv) : DynSock{std::move(pipes)}, m_expected_recv{expected_recv} {}
+        explicit ErrorSock(std::shared_ptr<Pipes> pipes, size_t expected_recv) : DynSock{std::move(pipes)}, m_expected_recv{expected_recv} {
+            CheckError();
+        }
         DynSock& operator=(Sock&&) override { assert(false); return *this; }
 
         ssize_t Recv(void* buf, size_t len, int flags) const override
         {
+            CheckError();
             if (m_have_recv || flags & MSG_PEEK) {
                 return DynSock::Recv(buf, len, flags);
             } else {
@@ -1076,11 +1092,7 @@ BOOST_AUTO_TEST_CASE(http_socket_error_tests)
         ssize_t Send(const void* buf, size_t len, int flags) const override
         {
             if (len <= reply_length && !m_have_sent) {
-                #ifdef WIN32
-                WSASetLastError(WSAEWOULDBLOCK);
-                #else
-                errno = WSAEAGAIN;
-                #endif
+                WSASetLastError(WSAEAGAIN);
                 return -1;
             } else {
                 m_have_sent = true;
@@ -1097,10 +1109,14 @@ BOOST_AUTO_TEST_CASE(http_socket_error_tests)
         mutable bool m_have_recv{false};
     };
 
+    CheckError();
     // Simpler server startup than the last test
     CService addr_bind{Lookup("0.0.0.0", /*portDefault=*/0, /*fAllowLookup=*/false).value()};
+    CheckError();
     BOOST_REQUIRE(server.BindAndStartListening(addr_bind));
+    CheckError();
     server.StartSocketsThreads();
+    CheckError();
 
     // Prepare initial requests
     int num_requests = 2;
@@ -1129,9 +1145,11 @@ BOOST_AUTO_TEST_CASE(http_socket_error_tests)
                                    }};
 
     // Connect the ErrorSock as mock client with the preloaded data and get a handle on the I/O pipes
+    CheckError();
     std::shared_ptr<ErrorSock::Pipes> mock_client_socket_pipes{
         ConnectClient<ErrorSock>(std::as_bytes(std::span(all_requests)), all_requests.size())
     };
+    CheckError();
 
     // Wait up to one minute for the last reply from the server
     std::string actual;
@@ -1139,6 +1157,7 @@ BOOST_AUTO_TEST_CASE(http_socket_error_tests)
     int attempts = 6000;
     while (attempts > 0)
     {
+        CheckError();
         ssize_t bytes_read = mock_client_socket_pipes->send.GetBytes(buf, sizeof(buf), /*flags=*/0, /*simulate_incomplete_recv=*/true);
         if (bytes_read > 0) {
             actual.append(buf, bytes_read);
@@ -1160,8 +1179,10 @@ BOOST_AUTO_TEST_CASE(http_socket_error_tests)
     // If we send the next request too soon it might get accepted by the server before
     // it gets wedged shut.
     std::this_thread::sleep_for(1000ms);
+    CheckError();
     (void)mock_client_socket_pipes->recv.PushBytes(keepalive_request.data(), keepalive_request.size(), /*simulate_incomplete_send=*/false);
     num_requests++;
+    CheckError();
 
     // Wait up to one minute for reply
     attempts = 6000;
@@ -1177,6 +1198,7 @@ BOOST_AUTO_TEST_CASE(http_socket_error_tests)
         std::this_thread::sleep_for(10ms);
         --attempts;
     }
+    CheckError();
     BOOST_REQUIRE_MESSAGE(attempts > 0, "Actual: \"" << actual << "\"");
 
     // All replies were received
@@ -1186,11 +1208,15 @@ BOOST_AUTO_TEST_CASE(http_socket_error_tests)
 
     // Close the keep-alive connection
     server.DisconnectAllClients();
+    CheckError();
 
     workers.Stop();
+    CheckError();
 
     server.InterruptNet();
+    CheckError();
     server.JoinSocketsThreads();
+    CheckError();
     server.StopListening();
 }
 
