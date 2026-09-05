@@ -722,19 +722,11 @@ util::Expected<void, std::string> HTTPServer::BindAndStartListening(const CServi
                                           NetworkErrorString(WSAGetLastError()))};
     }
 
-#ifdef WIN32
-    // Prevent another application from binding to the same address and port and
-    // intercepting RPC credentials.
-    // SO_REUSEADDR on Windows is non-exclusive so another process could bind to
-    // the same port.
-    if (sock->SetSockOpt(SOL_SOCKET, SO_EXCLUSIVEADDRUSE, &SOCKET_OPTION_TRUE, sizeof(SOCKET_OPTION_TRUE)) == SOCKET_ERROR) {
-        return util::Unexpected{strprintf("Cannot set SO_EXCLUSIVEADDRUSE on %s listen socket: %s",
-                                          to.ToStringAddrPort(),
-                                          NetworkErrorString(WSAGetLastError()))};
-    }
-#else
+#ifndef WIN32
     // Allow binding if the port is still in TIME_WAIT state after
     // the program was closed and restarted.
+    // SO_REUSEADDR on Windows is non-exclusive so another process could bind to
+    // the same port. Disable it here to avoid interception of RPC credentials.
     if (sock->SetSockOpt(SOL_SOCKET, SO_REUSEADDR, &SOCKET_OPTION_TRUE, sizeof(SOCKET_OPTION_TRUE)) == SOCKET_ERROR) {
         LogDebug(BCLog::HTTP,
                  "Cannot set SO_REUSEADDR on %s listen socket: %s, continuing anyway",
