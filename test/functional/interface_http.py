@@ -495,12 +495,14 @@ class HTTPBasicsTest (BitcoinTestFramework):
         # idle timeout instead.
         waiting_conn = BitcoinHTTPConnection(self.node)
         waiting_conn.set_timeout(RPCSERVERTIMEOUT + 2)
-        waiting_conn.post_raw('/', '{"method": "getblockcount"}')
-        assert_raises(TimeoutError, lambda: waiting_conn.recv_raw()) # TODO: Implement timing out of slow-trickled requests so a slot is freed for us.
-        duration = time.time() - start
+        with self.node.assert_debug_log(["took too long to send a complete request"]):
+            waiting_conn.post_raw('/', '{"method": "getblockcount"}')
+            response = waiting_conn.recv_raw()
+            duration = time.time() - start
+            assert response.startswith(b"HTTP/1.1 200 OK")
 
         # The slot isn't freed before the deadline
-        assert duration >= RPCSERVERTIMEOUT + 2, f"Slot reclaimed too fast: {duration}"
+        assert duration >= RPCSERVERTIMEOUT, f"Slot reclaimed too fast: {duration}"
 
         stop_trickling.set()
         send_thread.join()
