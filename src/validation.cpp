@@ -3518,7 +3518,7 @@ util::Expected<bool, kernel::FatalError> Chainstate::ActivateBestChain(std::shar
     return true;
 }
 
-bool Chainstate::PreciousBlock(BlockValidationState& state, CBlockIndex* pindex)
+util::Expected<bool, kernel::FatalError> Chainstate::PreciousBlock(CBlockIndex* pindex)
 {
     AssertLockNotHeld(m_chainstate_mutex);
     AssertLockNotHeld(::cs_main);
@@ -3546,11 +3546,7 @@ bool Chainstate::PreciousBlock(BlockValidationState& state, CBlockIndex* pindex)
         }
     }
 
-    auto res{ActivateBestChain(std::shared_ptr<const CBlock>())};
-    if (!res) {
-        state.Error(res.error().message());
-    }
-    return res.value_or(false);
+    return ActivateBestChain(std::shared_ptr<const CBlock>());
 }
 
 util::Expected<bool, kernel::FatalError> Chainstate::InvalidateBlock(CBlockIndex* const pindex)

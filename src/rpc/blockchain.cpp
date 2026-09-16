@@ -1708,11 +1708,8 @@ static RPCMethod preciousblock()
         }
     }
 
-    BlockValidationState state;
-    chainman.ActiveChainstate().PreciousBlock(state, pblockindex);
-
-    if (!state.IsValid()) {
-        throw JSONRPCError(RPC_DATABASE_ERROR, state.ToString());
+    if (auto res{chainman.ActiveChainstate().PreciousBlock(pblockindex)}; !res) {
+        throw JSONRPCError(RPC_DATABASE_ERROR, res.error().message());
     }
 
     return UniValue::VNULL;
