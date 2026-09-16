@@ -3045,8 +3045,6 @@ util::Expected<BlockValidationState, kernel::FatalError> Chainstate::ConnectTip(
         auto rv{ConnectBlock(*block_to_connect, pindexNew, view)};
         if (rv) {
             state = std::move(*rv);
-        } else {
-            state.Error(rv.error().message());
         }
         if (m_chainman.m_options.signals) {
             m_chainman.m_options.signals->BlockChecked(block_to_connect, state);
