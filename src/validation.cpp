@@ -3351,7 +3351,7 @@ static void LimitValidationInterfaceQueue(ValidationSignals& signals) LOCKS_EXCL
     }
 }
 
-bool Chainstate::ActivateBestChain(BlockValidationState& state, std::shared_ptr<const CBlock> pblock)
+util::Expected<bool, kernel::FatalError> Chainstate::ActivateBestChain(std::shared_ptr<const CBlock> pblock)
 {
     AssertLockNotHeld(m_chainstate_mutex);
 
@@ -3415,9 +3415,8 @@ bool Chainstate::ActivateBestChain(BlockValidationState& state, std::shared_ptr<
                 // result of GetRole() changes from BACKGROUND to NORMAL.
                const ChainstateRole chainstate_role{this->GetRole()};
                 if (auto res{ActivateBestChainStep(*pindexMostWork, pblock && pblock->GetHash() == pindexMostWork->GetBlockHash() ? pblock : nullBlockPtr, fInvalidFound, connected_blocks)}; !res) {
-                    state.Error(res.error().message());
                     // A system error occurred
-                    return false;
+                    return util::Unexpected(std::move(res.error()));
                 }
                 blocks_connected = true;
 
@@ -3487,8 +3486,7 @@ bool Chainstate::ActivateBestChain(BlockValidationState& state, std::shared_ptr<
 
             // Write changes periodically to disk, after relay.
             if (auto res{FlushStateToDisk(FlushStateMode::PERIODIC)}; !res) {
-                state.Error(res.error().message());
-                return false;
+                return util::Unexpected(std::move(res.error()));
             }
 
             reached_target = ReachedTarget();
@@ -3548,7 +3546,11 @@ bool Chainstate::PreciousBlock(BlockValidationState& state, CBlockIndex* pindex)
         }
     }
 
-    return ActivateBestChain(state, std::shared_ptr<const CBlock>());
+    auto res{ActivateBestChain(std::shared_ptr<const CBlock>())};
+    if (!res) {
+        state.Error(res.error().message());
+    }
+    return res.value_or(false);
 }
 
 bool Chainstate::InvalidateBlock(BlockValidationState& state, CBlockIndex* const pindex)
@@ -4476,18 +4478,18 @@ bool ChainstateManager::ProcessNewBlock(const std::shared_ptr<const CBlock>& blo
 
     NotifyHeaderTip();
 
-    BlockValidationState state; // Only used to report errors, not invalidity - ignore it
-    if (!ActiveChainstate().ActivateBestChain(state, block)) {
-        LogError("%s: ActivateBestChain failed (%s)\n", __func__, state.ToString());
+    if (auto res{ActiveChainstate().ActivateBestChain(block)}; !res.value_or(false)) {
+        LogError("%s: ActivateBestChain failed (%s)", __func__, res ? "" : res.error().message());
         return false;
     }
 
     Chainstate* bg_chain{WITH_LOCK(cs_main, return HistoricalChainstate())};
-    BlockValidationState bg_state;
-    if (bg_chain && !bg_chain->ActivateBestChain(bg_state, block)) {
-        LogError("%s: [background] ActivateBestChain failed (%s)\n", __func__, bg_state.ToString());
-        return false;
-     }
+    if (bg_chain) {
+        if (auto res{bg_chain->ActivateBestChain(block)}; !res.value_or(false)) {
+            LogError("%s: [background] ActivateBestChain failed (%s)", __func__, res ? "" : res.error().message());
+            return false;
+        }
+    }
 
     return true;
 }
@@ -5097,8 +5099,7 @@ void ChainstateManager::LoadExternalBlockFile(
                 // without assumevalid in the case of a continuation of a reindex that
                 // was interrupted by the user.
                 if (hash == params.GetConsensus().hashGenesisBlock && WITH_LOCK(::cs_main, return ActiveHeight()) == -1) {
-                    BlockValidationState state;
-                    if (!ActiveChainstate().ActivateBestChain(state, nullptr)) {
+                    if (!ActiveChainstate().ActivateBestChain(nullptr).value_or(false)) {
                         break;
                     }
                 }
@@ -6435,10 +6436,10 @@ util::Result<void> ChainstateManager::ActivateBestChains()
         }
     }
     for (Chainstate* chainstate : chainstates) {
-        BlockValidationState state;
-        if (!chainstate->ActivateBestChain(state, nullptr)) {
+        if (auto res{chainstate->ActivateBestChain(nullptr)}; !res.value_or(false)) {
             LOCK(GetMutex());
-            return util::Error{Untranslated(strprintf("%s Failed to connect best block (%s)", chainstate->ToString(), state.ToString()))};
+            return util::Error{Untranslated(strprintf("%s Failed to connect best block (%s)",
+                chainstate->ToString(), res ? "ActivateBestChain failed" : res.error().message()))};
         }
     }
     return {};
