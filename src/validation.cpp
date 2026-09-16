@@ -4435,7 +4435,11 @@ util::Expected<BlockValidationState, kernel::FatalError> ChainstateManager::Acce
     return state;
 }
 
-bool ChainstateManager::ProcessNewBlock(const std::shared_ptr<const CBlock>& block, bool force_processing, bool min_pow_checked, bool* new_block)
+util::Expected<bool, kernel::FatalError> ChainstateManager::ProcessNewBlock(
+    const std::shared_ptr<const CBlock>& block,
+    bool force_processing,
+    bool min_pow_checked,
+    bool* new_block)
 {
     AssertLockNotHeld(cs_main);
 
@@ -4456,11 +4460,11 @@ bool ChainstateManager::ProcessNewBlock(const std::shared_ptr<const CBlock>& blo
         bool ret = CheckBlock(*block, state, GetConsensus());
         if (ret) {
             // Store to disk
-            auto accept_ret{AcceptBlock(block, &pindex, force_processing, nullptr, new_block, min_pow_checked)};
-            if (!accept_ret) {
-                state.Error(accept_ret.error().message());
+            auto accept_res{AcceptBlock(block, &pindex, force_processing, nullptr, new_block, min_pow_checked)};
+            if (!accept_res) {
+                return util::Unexpected{std::move(accept_res.error())};
             } else {
-                state = std::move(*accept_ret);
+                state = std::move(*accept_res);
             }
             ret = state.IsValid();
         }
@@ -4468,7 +4472,7 @@ bool ChainstateManager::ProcessNewBlock(const std::shared_ptr<const CBlock>& blo
             if (m_options.signals) {
                 m_options.signals->BlockChecked(block, state);
             }
-            LogError("%s: AcceptBlock FAILED (%s)\n", __func__, state.ToString());
+            LogError("%s: CheckBlock or AcceptBlock FAILED (%s)", __func__, state.ToString());
             return false;
         }
     }
@@ -4477,14 +4481,14 @@ bool ChainstateManager::ProcessNewBlock(const std::shared_ptr<const CBlock>& blo
 
     if (auto res{ActiveChainstate().ActivateBestChain(block)}; !res.value_or(false)) {
         LogError("%s: ActivateBestChain failed (%s)", __func__, res ? "" : res.error().message());
-        return false;
+        return res;
     }
 
     Chainstate* bg_chain{WITH_LOCK(cs_main, return HistoricalChainstate())};
     if (bg_chain) {
         if (auto res{bg_chain->ActivateBestChain(block)}; !res.value_or(false)) {
             LogError("%s: [background] ActivateBestChain failed (%s)", __func__, res ? "" : res.error().message());
-            return false;
+            return res;
         }
     }
 
