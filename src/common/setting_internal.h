@@ -59,25 +59,17 @@ struct SettingTraits<Disabled, options> : SettingTraitsBase<Disabled> {
     static bool Get(const SettingsValue& setting, setting_t&) { return setting.isFalse(); }
 };
 
-//! Helper to avoid needing to write long static_cast expressions to
-//! disambiguate SettingTo{Bool,Int,String} function pointers.
-template <typename T>
-constexpr auto GetPtr(std::optional<T> (*ptr)(const SettingsValue&))
-{
-    return ptr;
-}
-
 template <SettingOptions options>
-struct SettingTraits<bool, options> : SettingTraitsBase<bool, GetPtr(SettingToBool)> {
+struct SettingTraits<bool, options> : SettingTraitsBase<bool, SettingToBool> {
 };
 
 template <typename T, SettingOptions options>
     requires std::is_integral_v<T>
-struct SettingTraits<T, options> : SettingTraitsBase<T, GetPtr(SettingTo<T>)> {
+struct SettingTraits<T, options> : SettingTraitsBase<T, SettingTo<T>> {
 };
 
 template <SettingOptions options>
-struct SettingTraits<std::string, options> : SettingTraitsBase<std::string, GetPtr(SettingToString)> {
+struct SettingTraits<std::string, options> : SettingTraitsBase<std::string, SettingToString> {
 };
 
 template <SettingOptions options>
