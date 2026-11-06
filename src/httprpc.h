@@ -9,7 +9,7 @@
 
 class UniValue;
 enum HTTPStatusCode : int;
-struct JSONRPCRequest;
+struct JSONRPCRequestHeader;
 
 /** Start HTTP RPC subsystem.
  * Precondition; HTTP and RPC has been started.
@@ -24,9 +24,9 @@ void InterruptHTTPRPC();
 void StopHTTPRPC();
 
 /** Execute a single HTTP request containing one or more JSONRPC requests.
- * Specified `jreq` will be modified and `status` will be returned.
+ * `status` is an out parameter.
  */
-UniValue ExecuteHTTPRPC(const UniValue& valRequest, JSONRPCRequest& jreq, HTTPStatusCode& status);
+UniValue ExecuteHTTPRPC(const UniValue& valRequest, JSONRPCRequestHeader&& jreq_header, HTTPStatusCode& status);
 
 /** Start HTTP REST subsystem.
  * Precondition; HTTP and RPC has been started.

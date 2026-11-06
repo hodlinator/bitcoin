@@ -1054,12 +1054,12 @@ public:
 
     UniValue executeRpc(UniValue request, std::string uri, std::string user) override
     {
-        JSONRPCRequest req;
+        JSONRPCRequestHeader req;
         req.context = &m_node;
         req.URI = std::move(uri);
         req.authUser = std::move(user);
         HTTPStatusCode status;
-        return ExecuteHTTPRPC(request, req, status);
+        return ExecuteHTTPRPC(request, std::move(req), status);
     }
 
     NodeContext& m_node;

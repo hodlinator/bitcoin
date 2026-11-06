@@ -100,17 +100,18 @@ static bool RPCAuthorized(const std::string& strAuth, std::string& strAuthUserna
     return CheckUserAuthorized(user, pass);
 }
 
-UniValue ExecuteHTTPRPC(const UniValue& valRequest, JSONRPCRequest& jreq, HTTPStatusCode& status)
+UniValue ExecuteHTTPRPC(const UniValue& valRequest, JSONRPCRequestHeader&& jreq_header, HTTPStatusCode& status)
 {
     status = HTTP_OK;
-    bool user_has_whitelist = g_rpc_whitelist.contains(jreq.authUser);
+    const bool user_has_whitelist{g_rpc_whitelist.contains(jreq_header.authUser)};
     if (!user_has_whitelist && g_rpc_whitelist_default) {
-        LogWarning("RPC User %s not allowed to call any methods", jreq.authUser);
+        LogWarning("RPC User %s not allowed to call any methods", jreq_header.authUser);
         status = HTTP_FORBIDDEN;
         return {};
 
     // singleton request
     } else if (valRequest.isObject()) {
+        JSONRPCRequest jreq{std::move(jreq_header)};
         try {
             jreq.parse(valRequest);
             if (user_has_whitelist && !g_rpc_whitelist[jreq.authUser].contains(jreq.strMethod)) {
@@ -147,8 +148,8 @@ UniValue ExecuteHTTPRPC(const UniValue& valRequest, JSONRPCRequest& jreq, HTTPSt
                     const UniValue& request = valRequest[reqIdx].get_obj();
                     // Parse method
                     std::string strMethod = request.find_value("method").get_str();
-                    if (!g_rpc_whitelist[jreq.authUser].contains(strMethod)) {
-                        LogWarning("RPC User %s not allowed to call method %s", jreq.authUser, strMethod);
+                    if (!g_rpc_whitelist[jreq_header.authUser].contains(strMethod)) {
+                        LogWarning("RPC User %s not allowed to call method %s", jreq_header.authUser, strMethod);
                         status = HTTP_FORBIDDEN;
                         return {};
                     }
@@ -162,6 +163,7 @@ UniValue ExecuteHTTPRPC(const UniValue& valRequest, JSONRPCRequest& jreq, HTTPSt
             // Batches never throw HTTP errors, they are always just included
             // in "HTTP OK" responses. Notifications never get any response.
             UniValue response;
+            JSONRPCRequest jreq{JSONRPCRequestHeader{jreq_header}};
             try {
                 jreq.parse(valRequest[i]);
                 response = JSONRPCExec(jreq, /*catch_errors=*/true);
@@ -208,7 +210,7 @@ static void HTTPReq_JSONRPC(const std::any& context, HTTPRequest* req)
         return;
     }
 
-    JSONRPCRequest jreq;
+    JSONRPCRequestHeader jreq;
     jreq.context = context;
     jreq.peerAddr = req->GetPeer().ToStringAddrPort();
     jreq.URI = req->GetURI();
@@ -230,9 +232,9 @@ static void HTTPReq_JSONRPC(const std::any& context, HTTPRequest* req)
     UniValue reply;
     UniValue request;
     if (request.read(req->ReadBody())) {
-        reply = ExecuteHTTPRPC(request, jreq, status);
+        reply = ExecuteHTTPRPC(request, std::move(jreq), status);
     } else {
-        reply = JSONErrorReply(JSONRPCError(RPC_PARSE_ERROR, "Parse error"), jreq, status);
+        reply = JSONErrorReply(JSONRPCError(RPC_PARSE_ERROR, "Parse error"), std::move(jreq), status);
     }
 
     // Write reply
