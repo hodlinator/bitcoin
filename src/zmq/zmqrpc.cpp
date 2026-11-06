@@ -16,7 +16,7 @@
 #include <utility>
 #include <vector>
 
-class JSONRPCRequest;
+struct JSONRPCRequest;
 
 namespace {
 

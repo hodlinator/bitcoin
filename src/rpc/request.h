@@ -51,17 +51,27 @@ void DeleteAuthCookie();
 /** Parse JSON-RPC batch reply into a vector */
 std::vector<UniValue> JSONRPCProcessBatchReply(const UniValue& in);
 
-class JSONRPCRequest
-{
-public:
-    std::optional<UniValue> id = UniValue::VNULL;
-    std::string strMethod;
-    UniValue params;
-    enum Mode { EXECUTE, GET_HELP, GET_ARGS } mode = EXECUTE;
+/** Read from HTTP control data + headers (+ context) */
+struct JSONRPCRequestHeader {
     std::string URI;
     std::string authUser;
     std::string peerAddr;
     std::any context;
+};
+
+/** Parsed from the JSON body, except header part */
+struct JSONRPCRequest : JSONRPCRequestHeader {
+    JSONRPCRequest() = default;
+    JSONRPCRequest(JSONRPCRequestHeader&& header)
+        : JSONRPCRequestHeader{std::move(header)}
+    {
+    }
+
+    //! Notifications are nullopt, while requests may be VNULL
+    std::optional<UniValue> id = UniValue::VNULL;
+    std::string strMethod;
+    UniValue params;
+    enum Mode { EXECUTE, GET_HELP, GET_ARGS } mode = EXECUTE;
     JSONRPCVersion m_json_version = JSONRPCVersion::V1_LEGACY;
 
     void parse(const UniValue& valRequest);

@@ -7,9 +7,9 @@
 
 #include <any>
 
-class JSONRPCRequest;
 class UniValue;
 enum HTTPStatusCode : int;
+struct JSONRPCRequest;
 
 /** Start HTTP RPC subsystem.
  * Precondition; HTTP and RPC has been started.

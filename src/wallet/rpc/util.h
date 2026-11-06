@@ -16,9 +16,9 @@
 #include <string_view>
 #include <vector>
 
-class JSONRPCRequest;
 class UniValue;
 struct bilingual_str;
+struct JSONRPCRequest;
 
 namespace wallet {
 enum class DatabaseStatus;
