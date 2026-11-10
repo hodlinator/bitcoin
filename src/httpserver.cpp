@@ -28,6 +28,7 @@
 #include <util/time.h>
 #include <util/translation.h>
 
+#include <algorithm>
 #include <condition_variable>
 #include <cstdio>
 #include <cstdlib>
@@ -243,7 +244,10 @@ static std::vector<CService> GetBindAddresses()
                            "(only numeric addresses are allowed).", host, port);
                 continue;
             }
-            endpoints.push_back(*addr);
+            // Skip repeated endpoints, binding the same one twice would fail.
+            if (std::ranges::find(endpoints, *addr) == endpoints.end()) {
+                endpoints.push_back(*addr);
+            }
         }
     }
     return endpoints;
