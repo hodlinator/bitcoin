@@ -211,6 +211,11 @@ static void RejectRequest(std::unique_ptr<HTTPRequest> hreq)
 
 struct BindAddress {
     CService addr;
+    enum {
+        MustBindIfFamilyWorks,
+        SufficientIfOtherFails,
+        MustBind,
+    } const requirement;
 };
 
 static std::vector<BindAddress> GetBindAddresses()
@@ -227,10 +232,15 @@ static std::vector<BindAddress> GetBindAddresses()
     // together. If either is missing, ignore both values, bind to localhost
     // instead, and log warnings.
     if (gArgs.GetArgs("-rpcallowip").empty() || gArgs.GetArgs("-rpcbind").empty()) { // Default to loopback if not allowing external IPs
+        // We allow the default IPv6 bind to fail, but IPv4 is required even
+        // with the default port as bitcoin-cli will default to handing RPC
+        // credentials in plaintext to whatever process is running on that port.
         // Numeric literals always parse, InitHTTPAllowList() relies on the same.
         // Never fall back to CService{}, which is [::]:0 and binds every interface.
-        endpoints.push_back({.addr = Lookup("::1", http_port, /*fAllowLookup=*/allow_names).value()});
-        endpoints.push_back({.addr = Lookup("127.0.0.1", http_port, /*fAllowLookup=*/allow_names).value()});
+        endpoints.push_back({.addr = Lookup("127.0.0.1", http_port, /*fAllowLookup=*/allow_names).value(),
+                             .requirement = BindAddress::MustBindIfFamilyWorks});
+        endpoints.push_back({.addr = Lookup("::1", http_port, /*fAllowLookup=*/allow_names).value(),
+                             .requirement = BindAddress::SufficientIfOtherFails});
         if (!gArgs.GetArgs("-rpcallowip").empty()) {
             LogWarning("Option -rpcallowip was specified without -rpcbind; this doesn't usually make sense");
         }
@@ -252,11 +262,12 @@ static std::vector<BindAddress> GetBindAddresses()
                         // CNetAddr, but binding must distinguish interfaces.
                         return *addr == e.addr && addr->GetScope() == e.addr.GetScope();
                     }) == endpoints.end()) {
-                    endpoints.push_back({.addr = *addr});
+                    endpoints.push_back({.addr = *addr, .requirement = BindAddress::MustBind});
                 }
             } else {
-                LogWarning("Could not lookup RPC bind address '%s' port %i "
-                           "(only numeric addresses are allowed).", host, port);
+                LogError("Could not lookup RPC bind address '%s' port %i "
+                         "(only numeric addresses are allowed).", host, port);
+                return {}; // empty
             }
         }
     }
@@ -1361,23 +1372,66 @@ bool InitHTTPServer()
 
     // Bind HTTP server to specified addresses
     std::vector<BindAddress> endpoints{GetBindAddresses()};
-    bool bind_success{false};
-    for (const auto& [addr] : endpoints) {
+    if (endpoints.empty()) {
+        // GetBindAddresses() already emitted a LogError() before returning empty.
+        return false;
+    }
+
+    bool previous_bound{false};
+    for (const auto& [addr, requirement] : endpoints) {
         LogInfo("Binding RPC on address '%s'", addr.ToStringAddrPort());
         if (addr.IsBindAny()) {
             LogWarning("The RPC server is not safe to expose to untrusted networks such as the public internet");
         }
         auto result{g_http_server->BindAndStartListening(addr)};
-        if (!result) {
-            LogWarning("Binding RPC on address '%s' failed: %s", addr.ToStringAddrPort(), result.error());
-        } else {
-            bind_success = true;
-        }
-    }
+        if (result) {
+            switch (requirement) {
+            case BindAddress::MustBind:
+            case BindAddress::MustBindIfFamilyWorks:
+                break;
 
-    if (!bind_success) {
-        LogError("Unable to bind any endpoint for RPC server");
-        return false;
+            case BindAddress::SufficientIfOtherFails:
+                // If previous default IPv4 bind failed, test whether binding any IPv4 loopback port works.
+                if (!previous_bound) {
+                    bool any_v4{false};
+                    if (std::unique_ptr<Sock> v4_sock{CreateSock(AF_INET, SOCK_STREAM, IPPROTO_TCP)}) {
+                        sockaddr_in sin{};
+                        sin.sin_family = AF_INET; // IPv4
+                        sin.sin_port = 0; // let kernel pick random ephemeral port
+                        sin.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+                        any_v4 = v4_sock->Bind(reinterpret_cast<sockaddr*>(&sin), sizeof(sin)) == 0;
+                    }
+                    if (any_v4) {
+                        LogError("Binding RPC on default IPv6 port and a random IPv4 port succeeded, "
+                                 "indicating another Bitcoin Core instance running or a port-hijacking attempt.");
+                        g_http_server->StopListening();
+                        return false;
+                    } else {
+                        LogWarning("Binding on a random IPv4 port also failed, assuming IPv4 stack is entirely "
+                                   "offline and allowing IPv6 RPC port to be sufficient.");
+                    }
+                }
+                break;
+            }
+        } else {
+            switch (requirement) {
+            case BindAddress::MustBindIfFamilyWorks:
+                assert(addr.IsIPv4());
+                LogWarning("Binding RPC on address '%s' failed: %s", addr.ToStringAddrPort(), result.error());
+                break;
+
+            case BindAddress::SufficientIfOtherFails:
+                assert(addr.IsIPv6());
+                LogWarning("Binding RPC on optional address '%s' failed: %s", addr.ToStringAddrPort(), result.error());
+                break;
+
+            case BindAddress::MustBind:
+                LogError("Binding RPC on address '%s' failed: %s", addr.ToStringAddrPort(), result.error());
+                g_http_server->StopListening();
+                return false;
+            }
+        }
+        previous_bound = result.has_value();
     }
 
     LogDebug(BCLog::HTTP, "Initialized HTTP server");
