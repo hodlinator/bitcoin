@@ -5,6 +5,7 @@
 #include <addresstype.h>
 #include <bench/bench.h>
 #include <coins.h>
+#include <consensus/amount.h>
 #include <key.h>
 #include <primitives/transaction.h>
 #include <pubkey.h>
